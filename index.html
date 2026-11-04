@@ -1,0 +1,1989 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>4Q_자재수불부_v3</title>
+<style>
+:root{
+  --bg:#ffffff; --chrome:#f3f4f6; --chrome2:#e6e8ec; --line:#d9dce1; --head:#eff1f4;
+  --fg:#1f2328; --muted:#7a818c; --accent:#2f6fb2; --sel:#e3edf9;
+  --in:#1d5fa8; --out:#b4302a; --hold:#2f7d46;
+  --ui:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
+  --num:"Consolas","D2Coding",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:11px/1.2 var(--ui);display:flex;flex-direction:column;overflow:hidden}
+.top{background:var(--chrome);border-bottom:1px solid var(--line);padding-inline:8px}
+.title{display:flex;gap:8px;align-items:baseline;padding-block:3px 1px;white-space:nowrap;overflow:hidden}
+.doc{font-size:12px}
+.menu{display:flex;gap:1px;flex-wrap:wrap;color:var(--muted)}
+.menu span{padding:1px 5px;cursor:default}
+.fbar{display:flex;border-top:1px solid var(--line);margin-inline:-8px;padding-inline:8px;background:var(--bg)}
+.ref{width:44px;border-right:1px solid var(--line);padding:2px 4px;font-family:var(--num);color:var(--muted)}
+.fx{padding:2px 6px;color:var(--muted);font-style:italic}
+.formula{padding:2px 4px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--num)}
+.formula.err{color:var(--out)}
+.wrap{flex:1;min-height:0;overflow:auto}
+table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabular-nums}
+.grid th,.grid td{border:1px solid var(--line);height:17px;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grid thead th{position:sticky;top:0;background:var(--head);color:var(--muted);font-weight:400;z-index:2}
+.grid tbody th{position:sticky;left:0;background:var(--head);color:var(--muted);font-weight:400;text-align:center;z-index:1}
+.grid thead th:first-child{left:0;z-index:3}
+.n{text-align:right;font-family:var(--num)}
+.c{text-align:center}
+.h{background:var(--head);color:var(--muted)}
+.b{font-weight:700}
+.m{color:var(--muted)}
+.me{background:var(--sel)}
+.in{color:var(--in)} .out{color:var(--out)} .hold{color:var(--hold)}
+.red{color:var(--out)}
+.cur{outline:2px solid var(--accent);outline-offset:-2px}
+.new{animation:flash 1.4s ease-out}
+@keyframes flash{from{background:var(--sel)}to{background:transparent}}
+.grid td.btn{padding:0}
+.grid td.btn button{width:100%;height:100%;font:inherit;color:var(--fg);background:var(--chrome);border:0;cursor:pointer;padding:0}
+.grid td.btn button:hover{background:var(--chrome2)}
+.grid td.btn button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.grid td.btn button[aria-pressed="true"]{background:var(--sel);color:var(--accent);font-weight:700}
+.grid td.btn.in button{color:var(--in)} .grid td.btn.out button,.grid td.btn.red button{color:var(--out)} .grid td.btn.hold button{color:var(--hold)}
+.grid td.btn.num button{background:var(--bg)}
+.grid td.btn.num button[aria-pressed="true"]{background:var(--sel)}
+.grid td input{width:100%;border:0;background:transparent;color:var(--fg);font:inherit;padding:0;height:15px}
+.grid td input:focus{outline:none}
+.grid td:focus-within{outline:2px solid var(--accent);outline-offset:-2px}
+.road span{margin-left:3px;font-weight:600}
+.cards span+span{margin-left:4px}
+.tabs{display:flex;background:var(--chrome);border-top:1px solid var(--line);padding-inline:8px;overflow-x:auto}
+.tabs button{font:inherit;color:var(--muted);background:transparent;border:0;border-right:1px solid var(--line);padding:3px 10px;cursor:pointer;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--bg);color:var(--accent);font-weight:600}
+.status{display:flex;gap:12px;justify-content:space-between;background:var(--chrome);border-top:1px solid var(--line);padding:2px 8px calc(2px + env(safe-area-inset-bottom,0px));color:var(--muted)}
+.status .r{display:flex;gap:12px;font-variant-numeric:tabular-nums}
+.grid td.spin,.grid td.spin button{background:var(--accent);color:#fff;font-weight:700}
+.toasts{position:fixed;right:10px;bottom:calc(34px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;align-items:flex-end;z-index:20;pointer-events:none}
+.toast{pointer-events:auto;cursor:pointer;background:#2b2f36;color:#fff;border-left:4px solid var(--accent);border-radius:3px;padding:7px 12px;font-size:12px;line-height:1.35;max-width:min(92vw,440px);box-shadow:0 3px 12px rgba(0,0,0,.28);animation:tin .22s ease-out}
+.toast b{font-weight:700}
+.toast .tag{display:block;margin-top:2px;font-size:11px;color:#c7ccd4}
+.toast.allin{border-left-color:#e3a008}
+.toast.big{border-left-color:#2f9e55}
+.toast.jackpot{border-left-color:#e5484d;background:#3a2326}
+.toast.special{border-left-color:#8b6fd6}
+.toast.fail{border-left-color:#868e96;background:#26292e}
+.toast.die{border-left-color:#e5484d;background:#1d1f23}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.new{animation:none}.toast{animation:none}}
+.chat{background:var(--bg);border-top:1px solid var(--line);padding:2px 8px}
+.chat[hidden]{display:none}
+.chat .cl{height:64px;overflow-y:auto;font-size:11px;line-height:16px}
+.chat .cl .big{font-size:15px;line-height:20px}
+.chat .cb{display:flex;gap:4px;align-items:center;border-top:1px solid var(--line);padding-top:2px;margin-top:2px}
+.chat input{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;padding:2px 4px;height:19px}
+.chat .emo button{font-size:12px;padding:0 3px;height:19px;border:1px solid var(--line);background:var(--chrome);cursor:pointer}
+.chat .emo button:hover{background:var(--chrome2)}
+.pc button{font-weight:700;font-family:var(--num)}
+.grid td.tb{background:var(--accent);color:#fff;font-weight:700}
+.tb{background:var(--accent)}.tb2{background:#8fb3dc}
+.grid td.twc{cursor:pointer;background:var(--chrome);user-select:none}
+.grid td.ch{height:32px}
+.ch button{font-size:24px;line-height:1;font-family:"Segoe UI Symbol","Apple Symbols","Noto Sans Symbols 2",var(--ui)}
+.pop{position:fixed;left:50%;top:38%;font-size:72px;z-index:30;pointer-events:none;transform:translate(-50%,-50%);animation:pp 1.3s ease-out forwards}
+@keyframes pp{0%{opacity:0;transform:translate(-50%,-30%) scale(.5)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-70%)}}
+@media (prefers-reduced-motion:reduce){.pop{animation:none}}
+.grid td.t5,.grid td.t5 button{background:var(--accent);color:#fff;font-weight:700}
+.grid td.rfire,.grid td.rfire button{background:#f59f00!important;color:#111!important;font-weight:700}
+.grid td.rstun,.grid td.rstun button{background:#8a8f98!important;color:#fff!important}
+.grid td.rhit{background:#e5484d;color:#fff}
+.grid td.rkill{background:#ffd43b}
+.grid td.rodd{background:#f08c00;color:#fff}
+.grid td.rbossc{background:#7a1018;color:#fff;font-weight:700}
+.grid td.rboss{color:#fff;font-weight:700}
+.grid td.rwarn{animation:rw .6s steps(2) infinite}
+@keyframes rw{50%{background:#e5484d;color:#fff}}
+@media (prefers-reduced-motion:reduce){.grid td.rwarn{animation:none}}
+.grid td.cb{background:repeating-linear-gradient(45deg,#2f6fb2 0 3px,#4c86c4 3px 6px)}
+.grid td.sqc{position:relative;cursor:grab;touch-action:none;user-select:none;outline:2px solid #e3a008;outline-offset:-2px;font-weight:700}
+.sqv{position:absolute;left:0;top:0;bottom:0;width:100%;background:repeating-linear-gradient(45deg,#2f6fb2 0 3px,#4c86c4 3px 6px);border-right:1px solid #fff;box-shadow:3px 0 4px rgba(0,0,0,.4)}
+.grid td.sqh{color:#b26a00;font-weight:700}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="title"><span class="doc">4Q_자재수불부_v3</span><span class="m" id="saved">저장됨</span></div>
+  <div class="menu" aria-hidden="true"><span>파일</span><span>편집</span><span>보기</span><span>삽입</span><span>서식</span><span>데이터</span><span>도구</span></div>
+  <div class="fbar"><div class="ref" id="ref">A1</div><div class="fx">fx</div><div class="formula" id="formula">=SUMIFS(재고!C:C,재고!A:A,$A4)</div></div>
+</div>
+<div class="wrap"><table class="grid" id="grid"></table></div>
+<div class="chat" id="chat" hidden><div class="cl" id="cl"></div><div class="cb"><span class="emo" id="emo"></span><input id="ci" placeholder="비고 입력 후 Enter" autocomplete="off" maxlength="60"></div></div>
+<div class="tabs" role="tablist" id="tabs">
+  <button type="button" role="tab" data-v="bac" aria-selected="true">집계</button>
+  <button type="button" role="tab" data-v="rl" aria-selected="false">분석</button>
+  <button type="button" role="tab" data-v="bj" aria-selected="false">정산</button>
+  <button type="button" role="tab" data-v="hd" aria-selected="false">검토</button>
+  <button type="button" role="tab" data-v="ch" aria-selected="false">BOM대조</button>
+  <button type="button" role="tab" data-v="om" aria-selected="false">검수내역</button>
+  <button type="button" role="tab" data-v="c4" aria-selected="false">이월</button>
+  <button type="button" role="tab" data-v="tw" aria-selected="false">누계표</button>
+  <button type="button" role="tab" data-v="rd" aria-selected="false">랜덤디펜스</button>
+  <button type="button" role="tab" data-v="decoy" aria-selected="false">품목마스터</button>
+</div>
+<div class="status"><span id="ready">준비</span><span class="r"><span id="st-cnt">개수: -</span><span id="st-sum">합계: -</span></span></div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(() => {
+const PREFIX = "xlsheet-sb-";
+const START = 1000000, MAX = 5, AMTS = [10000, 50000, 100000, 500000, 1000000], NROWS = 44;
+/* event alerts: tune these to change what counts as "special" */
+const EV_ALLIN_MIN = 100000;   // all-in win only announced when the stake was at least this
+const EV_BIG = 2000000;        // net win >= this → "대박"
+const EV_JACKPOT = 10000000;   // net win >= this → "잭팟"
+const EV_SPECIAL_MIN = 100000; // stake needed for tie / straight-up / blackjack call-outs
+const GNAME = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤" };
+const SB = 5000, BB = 10000, TURN_MS = 30000, NEXT_MS = 5000;
+const GAMES = ["bac", "rl", "bj", "hd"];
+const VIEWS = {
+  bac:   [34, 62, 30, 40, 40, 44, 50, 62, 66, 52],
+  rl:    [30, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 34],
+  bj:    [52, 56, 38, 38, 38, 38, 38, 36, 50, 56],
+  hd:    [58, 64, 38, 38, 38, 38, 42, 50, 62, 58],
+  decoy: [44, 62, 70, 34, 44, 50, 50, 66],
+  ch: [34, 34, 34, 34, 34, 34, 34, 34, 34],
+  om: [26, ...Array(15).fill(24)],
+  c4: [34, ...Array(7).fill(42)],
+  tw: [26, ...Array(21).fill(18)],
+  rd: [26, ...Array(14).fill(48)],
+};
+const $ = id => document.getElementById(id);
+const grid = $("grid"), formula = $("formula");
+const fmt = n => Math.round(n).toLocaleString("ko-KR");
+const sgn = n => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n));
+const man = n => n >= 10000 && n % 10000 === 0 ? n / 10000 + "만" : fmt(n);
+const code5 = n => "ST-" + String(n).padStart(5, "0");
+const netCls = n => "n " + (n > 0 ? "in" : n < 0 ? "out" : "");
+
+function say(text, err) {
+  formula.textContent = text; formula.classList.toggle("err", !!err);
+  clearTimeout(say.t);
+  say.t = setTimeout(() => { formula.textContent = "=SUMIFS(재고!C:C,재고!A:A,$A4)"; formula.classList.remove("err"); }, 3500);
+}
+
+/* ---------- cards: 0–51, rank = n%13+1, suit = n/13 ---------- */
+const rnd = () => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0]; };
+const draw = () => rnd() % 52;
+const rank = c => c % 13 + 1;
+const SUIT = ["♠", "♥", "♦", "♣"], RK = [, "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const label = c => c < 0 ? "??" : RK[rank(c)] + SUIT[Math.floor(c / 13)];
+const isRed = c => { const s = Math.floor(c / 13); return c >= 0 && (s === 1 || s === 2); };
+
+/* baccarat */
+const bv = c => (rank(c) >= 10 ? 0 : rank(c));
+const btot = cs => cs.reduce((s, c) => s + bv(c), 0) % 10;
+function bacPlay() {
+  const P = [draw(), draw()], B = [draw(), draw()];
+  let p = btot(P), b = btot(B);
+  if (p < 8 && b < 8) {
+    let xv = null;
+    if (p <= 5) { const x = draw(); P.push(x); xv = bv(x); }
+    let d;
+    if (xv === null) d = b <= 5;
+    else if (b <= 2) d = true;
+    else if (b === 3) d = xv !== 8;
+    else if (b === 4) d = xv >= 2 && xv <= 7;
+    else if (b === 5) d = xv >= 4 && xv <= 7;
+    else if (b === 6) d = xv === 6 || xv === 7;
+    else d = false;
+    if (d) B.push(draw());
+    p = btot(P); b = btot(B);
+  }
+  return { P, B, p, b, w: p > b ? "P" : b > p ? "B" : "T" };
+}
+function bacPay(bet, w) {
+  if (w === "P") return bet.p * 2;
+  if (w === "B") return Math.floor(bet.b * 1.95);
+  return bet.t * 9 + bet.p + bet.b;
+}
+const W = { P: ["P", "in"], B: ["B", "out"], T: ["T", "hold"] };
+
+/* roulette (single zero) */
+const REDS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const RL_KEYS = new Set(["red","black","odd","even","low","high","d1","d2","d3","c1","c2","c3"]);
+for (let i = 0; i <= 36; i++) RL_KEYS.add("n" + i);
+const RL_NAME = { red: "RED", black: "BLK", odd: "홀", even: "짝", low: "1-18", high: "19-36", d1: "1~12", d2: "13~24", d3: "25~36", c1: "열1", c2: "열2", c3: "열3" };
+const rlName = k => RL_NAME[k] || k.slice(1);
+const rlCls = n => n === 0 ? "hold" : REDS.has(n) ? "red" : "";
+function rlMult(k, n) {
+  if (k[0] === "n") return +k.slice(1) === n ? 36 : 0;
+  if (n === 0) return 0;
+  switch (k) {
+    case "red": return REDS.has(n) ? 2 : 0;
+    case "black": return REDS.has(n) ? 0 : 2;
+    case "odd": return n % 2 ? 2 : 0;
+    case "even": return n % 2 ? 0 : 2;
+    case "low": return n <= 18 ? 2 : 0;
+    case "high": return n >= 19 ? 2 : 0;
+    case "d1": return n <= 12 ? 3 : 0;
+    case "d2": return n >= 13 && n <= 24 ? 3 : 0;
+    case "d3": return n >= 25 ? 3 : 0;
+    case "c1": return n % 3 === 1 ? 3 : 0;
+    case "c2": return n % 3 === 2 ? 3 : 0;
+    case "c3": return n % 3 === 0 ? 3 : 0;
+  }
+  return 0;
+}
+
+/* blackjack */
+function hv(cs) {
+  let s = 0, ace = false;
+  for (const c of cs) { if (c < 0) continue; const r = Math.min(rank(c), 10); s += r; if (r === 1) ace = true; }
+  return ace && s + 10 <= 21 ? s + 10 : s;
+}
+const isBJ = cs => cs.length === 2 && hv(cs) === 21;
+
+/* hold'em hand evaluation: score = [category, ...tiebreakers], compared left to right */
+const HNAME = ["하이카드", "원페어", "투페어", "트리플", "스트레이트", "플러시", "풀하우스", "포카드", "스트레이트플러시"];
+function eval5(cs) {
+  const v = cs.map(c => (c % 13 === 0 ? 14 : c % 13 + 1)).sort((a, b) => b - a);
+  const fl = cs.every(c => Math.floor(c / 13) === Math.floor(cs[0] / 13));
+  const cnt = {}; v.forEach(x => cnt[x] = (cnt[x] || 0) + 1);
+  const g = Object.entries(cnt).map(([x, n]) => [n, +x]).sort((a, b) => b[0] - a[0] || b[1] - a[1]);
+  const uq = [...new Set(v)];
+  let st = 0;
+  if (uq.length === 5) { if (uq[0] - uq[4] === 4) st = uq[0]; else if (uq.join() === "14,5,4,3,2") st = 5; }
+  if (st && fl) return [8, st];
+  if (g[0][0] === 4) return [7, g[0][1], g[1][1]];
+  if (g[0][0] === 3 && g[1][0] === 2) return [6, g[0][1], g[1][1]];
+  if (fl) return [5, ...v];
+  if (st) return [4, st];
+  if (g[0][0] === 3) return [3, ...g.map(x => x[1])];
+  if (g[0][0] === 2 && g[1][0] === 2) return [2, ...g.map(x => x[1])];
+  if (g[0][0] === 2) return [1, ...g.map(x => x[1])];
+  return [0, ...v];
+}
+function cmp(a, b) { for (let i = 0; i < Math.max(a.length, b.length); i++) { const d = (a[i] || 0) - (b[i] || 0); if (d) return d; } return 0; }
+const COMBOS = {};
+function combos(n) {
+  if (COMBOS[n]) return COMBOS[n];
+  const out = [];
+  const go = (start, pick) => { if (pick.length === 5) { out.push(pick.slice()); return; } for (let i = start; i < n; i++) { pick.push(i); go(i + 1, pick); pick.pop(); } };
+  go(0, []);
+  return COMBOS[n] = out;
+}
+function bestHand(cs) {
+  let best = null;
+  for (const k of combos(cs.length)) { const s = eval5(k.map(i => cs[i])); if (!best || cmp(s, best) > 0) best = s; }
+  return best;
+}
+function handName(cs) {
+  if (cs.length >= 5) return HNAME[bestHand(cs)[0]];
+  return cs.length === 2 && rank(cs[0]) === rank(cs[1]) ? "원페어" : "하이카드";
+}
+/* Monte Carlo win share for my two cards vs `opp` random hands */
+const eqCache = new Map();
+function equity(mine, board, opp, iters = 500) {
+  const key = mine.join() + "|" + board.join() + "|" + opp;
+  if (eqCache.has(key)) return eqCache.get(key);
+  const known = new Set([...mine, ...board]);
+  const rest = [...Array(52).keys()].filter(c => !known.has(c));
+  let score = 0;
+  for (let it = 0; it < iters; it++) {
+    const need = 5 - board.length + opp * 2;
+    for (let i = 0; i < need; i++) { const j = i + rnd() % (rest.length - i); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+    const b = board.concat(rest.slice(0, 5 - board.length));
+    const me = bestHand(mine.concat(b));
+    let ties = 1, lost = false;
+    for (let o = 0; o < opp; o++) {
+      const k = 5 - board.length + o * 2;
+      const c = cmp(bestHand([rest[k], rest[k + 1]].concat(b)), me);
+      if (c > 0) { lost = true; break; }
+      if (c === 0) ties++;
+    }
+    if (!lost) score += 1 / ties;
+  }
+  const eq = score / iters;
+  if (eqCache.size > 50) eqCache.clear();
+  eqCache.set(key, eq);
+  return eq;
+}
+
+const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
+const empty = () => ({ p: 0, b: 0, t: 0 });
+
+/* ---------- network ---------- */
+let peer = null, isHost = false, hostConn = null, myId = null, roomCode = "";
+let conns = new Map();
+let H = fresh();
+function fresh() { return { players: new Map(), bac: { rounds: [], n: 0 }, rl: { hist: [], n: 0 }, bj: { phase: "bet", dealer: [], n: 0, ds: { n: 0, bust: 0, sum: 0, dist: {} } }, hd: hdFresh(), chat: [], cs: 0, mg: { ch: mgNew("ch"), om: mgNew("om"), c4: mgNew("c4"), tw: mgNew("tw") } }; }
+let S = null;
+let view = "bac", lastGame = "bac", amt = AMTS[0], allIn = false, nameDraft = "", seen = {};
+
+const myName = () => (nameDraft.trim() || "담당").slice(0, 8);
+
+function newPlayer(name) {
+  return { name, chips: START, lastNet: 0, bac: empty(), rl: {}, bj: { bet: 0, cards: [], done: false, res: "" }, ready: { bac: false, rl: false, bj: false, hd: false }, hdSeat: false, rebuy: 0, rdReady: false,
+    peak: START, st: { bac: { n: 0, w: 0, l: 0, net: 0 }, rl: { n: 0, w: 0, l: 0, net: 0 }, bj: { n: 0, w: 0, l: 0, net: 0, push: 0, bj: 0, bust: 0 }, hd: { n: 0, w: 0, l: 0, net: 0, sd: 0 } } };
+}
+function rec(q, g, s, ret, res) {
+  const t = q.st[g];
+  t.n++; t.net += ret - s;
+  if (ret > s) t.w++; else if (ret < s) t.l++; else if (g === "bj") t.push++;
+  if (res === "BJ 승") t.bj++;
+  if (res === "버스트") t.bust++;
+  q.peak = Math.max(q.peak, q.chips);
+}
+function snapshot(forId) {
+  const hide = H.bj.phase === "play";
+  return { t: "state", code: roomCode, chat: H.chat, mg: H.mg, rdGo: H.rdGo || 0,
+    bac: H.bac, rl: H.rl,
+    bj: { phase: H.bj.phase, n: H.bj.n, ds: H.bj.ds, dealer: hide ? [H.bj.dealer[0], -1] : H.bj.dealer },
+    hd: hdView(forId),
+    players: [...H.players].map(([id, p]) => ({ id, ...p })) };
+}
+/* random defense: everyone ready → bump rdGo, each client starts its own run on seeing it */
+function rdReadyCheck() {
+  const ps = [...H.players.values()];
+  if (!ps.length || !ps.every(q => q.rdReady)) return;
+  for (const q of ps) { q.rdReady = false; q.rd = null; }
+  H.rdGo = (H.rdGo || 0) + 1;
+}
+function broadcast() {
+  for (const [id, c] of conns) if (c.open) c.send(snapshot(id));
+  S = snapshot(myId); render();
+}
+function reply(id, m) { if (id === myId) say(m, true); else { const c = conns.get(id); if (c && c.open) c.send({ t: "err", m }); } }
+function send(msg) { if (isHost) hostHandle(myId, msg); else if (hostConn && hostConn.open) hostConn.send(msg); }
+
+function take(id, p, a) { if (p.chips < a) { reply(id, "잔액 부족: 가용 " + fmt(p.chips)); return false; } p.chips -= a; return true; }
+const validBet = m => m.all === true || AMTS.includes(m.amt);
+/* returns the amount actually put on the table (0 = refused); all:true = whole balance */
+function stake(id, p, msg) {
+  if (msg.all === true) { const a = p.chips; if (a <= 0) { reply(id, "잔액 부족: 가용 0"); return 0; } p.chips = 0; return a; }
+  return take(id, p, msg.amt) ? msg.amt : 0;
+}
+
+/* ---------- event alerts ---------- */
+function emit(ev, delay) {
+  const m = { t: "event", ...ev, delay: delay || 0 };
+  for (const c of conns.values()) if (c.open) c.send(m);
+  showEvent(m);
+}
+/* called once per settled stake; only wins that are all-in / huge / special get announced */
+function announce(q, g, stake, ret, allin, special, delay) {
+  const net = ret - stake;
+  if (net <= 0) return;
+  const tags = [];
+  if (allin && stake >= EV_ALLIN_MIN) tags.push("올인 성공");
+  if (net >= EV_JACKPOT) tags.push("잭팟"); else if (net >= EV_BIG) tags.push("대박");
+  if (special) tags.push(special);
+  if (!tags.length) return;
+  const kind = net >= EV_JACKPOT ? "jackpot" : net >= EV_BIG ? "big" : tags[0] === "올인 성공" ? "allin" : "special";
+  emit({ name: q.name, g: GNAME[g], tags, net, kind }, delay);
+}
+/* random defense alerts: gamble win/lose, R4+ unit, death, clear (fields validated by the host) */
+function rdToast(el, nm, m) {
+  const b = t => { const x = document.createElement("b"); x.textContent = t; return x; };
+  const g = RD_GB[m.g], a = Number(m.a) || 0, cls = k => el.className = "toast " + k;
+  if (m.k === "gb" && g) {
+    if (m.win) { cls(g[0] >= 20 ? "jackpot" : "big"); el.append("🎲 ", nm, " 님 " + g[2] + " 성공! ", b("+" + fmt(a * (g[0] - 1)) + "G")); }
+    else { cls("fail"); el.append("🎲 ", nm, " 님 " + g[2] + " 실패 ", b("−" + fmt(a) + "G")); }
+    m.tags = ["판돈 " + fmt(a) + "G · ×" + g[0] + " · " + g[1] + "%"];
+  } else if (m.k === "un" && RDN[m.t] && RDN[m.t][m.u]) {
+    cls(m.t >= 5 ? "jackpot" : "special");
+    el.append("✨ ", nm, " 님이 " + (m.via ? "뽑기" : "조합") + "로 ", b(RDT[m.t] + " " + RDN[m.t][m.u]), " 획득!");
+  } else if (m.k === "die") {
+    cls("die"); el.append("💀 ", nm, " 님 전사 — ", b((Number(m.s) || 0) + "단계"), RDB[m.b] ? " (" + RDB[m.b].n + ")" : " (거인 돌파)");
+  } else if (m.k === "clear") {
+    cls("jackpot"); el.append("🏆 ", nm, " 님 50단계 클리어!");
+  } else return false;
+  return true;
+}
+function rdEvent(e) { if (S) send({ t: "rd-ev", e }); else showEvent({ rd: 1, name: myName(), ...e }); }
+function showEvent(m) {
+  const bac = m.g === GNAME.bac && !m.held;
+  setTimeout(() => {
+    if (bac && sq) { sq.q.push(m); return; }
+    const box = $("toasts"); if (!box) return;
+    const el = document.createElement("div");
+    const a = document.createElement("b"); a.textContent = String(m.name || "").slice(0, 8);
+    if (m.rd) { if (!rdToast(el, a, m)) return; }
+    else {
+      el.className = "toast " + (["allin", "big", "jackpot", "special"].includes(m.kind) ? m.kind : "");
+      const n = document.createElement("b"); n.textContent = "+" + fmt(Number(m.net) || 0);
+      el.append(a, " 님이 " + String(m.g || "") + "에서 ", n, " 획득");
+    }
+    if (Array.isArray(m.tags) && m.tags.length) {
+      const t = document.createElement("span"); t.className = "tag"; t.textContent = m.tags.map(String).join(" · "); el.append(t);
+    }
+    el.onclick = () => el.remove();
+    box.append(el);
+    while (box.children.length > 4) box.firstChild.remove();
+    setTimeout(() => el.remove(), m.kind === "jackpot" ? 9000 : 6500);
+  }, Math.min(Number(m.delay) || 0, 10000) + (bac ? 150 : 0));
+}
+
+function hostHandle(id, msg) {
+  const p = H.players.get(id);
+  if (p && msg.t === "chat") {
+    const m = String(msg.m || "").trim().slice(0, 60), n = Date.now();
+    if (!m || n - (p.ct || 0) < 400) return;
+    p.ct = n; H.chat.push({ n: p.name, m, e: msg.e === true && EMO.includes(m), t: n, k: ++H.cs });
+    if (H.chat.length > 40) H.chat.shift();
+    broadcast(); return;
+  }
+  if (p && msg.t === "rd") {
+    const d = msg.d || {}, ni = (v, hi) => Math.max(0, Math.min(hi, Math.floor(Number(v)) || 0));
+    if (Array.isArray(d.sl) && d.sl.length === 60 && Array.isArray(d.en) && Array.isArray(d.up)) {
+      p.rd = { sl: d.sl.map(v => Number.isInteger(v) && v >= -1 && v < 24 ? v : -1), up: [0, 1, 2, 3, 4, 5].map(i => ni(d.up[i], 12)), gold: ni(d.gold, 1e9), stage: ni(d.stage, 50), t: Math.max(0, Number(d.t) || 0), clock: Math.max(0, Number(d.clock) || 0), run: !!d.run, over: d.over === "lose" || d.over === "clear" ? d.over : "", msg: String(d.msg || "").slice(0, 40), en: d.en.slice(0, 100).map(a => [Math.max(0, Number(a && a[0]) || 0), ni(a && a[1], 2), Math.max(0, Math.min(10, Number(a && a[2]) || 0))]), bi: Number.isInteger(d.bi) && d.bi >= 0 && d.bi < 5 ? d.bi : -1, bh: Math.max(0, Math.min(1, Number(d.bh) || 0)), bt: Math.max(0, Math.min(999, Number(d.bt) || 0)) };
+      if (!H.rdT) H.rdT = setTimeout(() => { H.rdT = 0; broadcast(); }, 900);
+    }
+    return;
+  }
+  if (p && msg.t === "rd-ev") {
+    const e = msg.e || {}, n = Date.now(), ni = (v, hi) => Math.max(0, Math.min(hi, Math.floor(Number(v)) || 0)), ev = { rd: 1, name: p.name, k: e.k };
+    if (e.k === "gb" && Number.isInteger(e.g) && RD_GB[e.g]) { if (n - (p.rt || 0) < 250) return; p.rt = n; Object.assign(ev, { g: e.g, a: ni(e.a, 1e9), win: e.win === true }); }
+    else if (e.k === "un" && (e.t === 4 || e.t === 5) && Number.isInteger(e.u) && e.u >= 0 && e.u < 4) Object.assign(ev, { t: e.t, u: e.u, via: e.via ? 1 : 0 });
+    else if (e.k === "die") Object.assign(ev, { s: ni(e.s, 50), b: Number.isInteger(e.b) && e.b >= 0 && e.b < 5 ? e.b : -1 });
+    else if (e.k !== "clear") return;
+    emit(ev); return;
+  }
+  if (p && msg.t === "rd-ready") { p.rdReady = !p.rdReady; rdReadyCheck(); broadcast(); return; }
+  if (p && String(msg.t).startsWith("g-")) { mgHandle(id, msg); return; }
+  if (msg.t === "hello") {
+    if (!p) {
+      if (H.players.size >= MAX) { const c = conns.get(id); if (c) { c.send({ t: "full" }); setTimeout(() => c.close(), 300); } return; }
+      H.players.set(id, newPlayer(String(msg.name || "담당").slice(0, 8)));
+      for (const q of H.players.values()) q.ready = { bac: false, rl: false, bj: false, hd: false };
+    }
+  } else if (!p) return;
+  else if (msg.t === "ready" && GAMES.includes(msg.g)) {
+    if (msg.g === "bj" && H.bj.phase !== "bet") return;
+    if (msg.g === "hd" && (H.hd.running || H.hd.phase !== "idle")) return;
+    p.ready[msg.g] = !p.ready[msg.g];
+  }
+  else if (msg.t === "bac-add" && ["p", "b", "t"].includes(msg.k) && validBet(msg)) {
+    const a = stake(id, p, msg); if (!a) return;
+    p.bac[msg.k] += a; p.ready.bac = false;
+  } else if (msg.t === "bac-clear") {
+    p.chips += sum(p.bac); p.bac = empty(); p.ready.bac = false;
+  } else if (msg.t === "rl-add" && RL_KEYS.has(msg.k) && validBet(msg)) {
+    const a = stake(id, p, msg); if (!a) return;
+    p.rl[msg.k] = (p.rl[msg.k] || 0) + a; p.ready.rl = false;
+  } else if (msg.t === "rl-clear") {
+    p.chips += sum(p.rl); p.rl = {}; p.ready.rl = false;
+  } else if (msg.t === "bj-add" && validBet(msg)) {
+    if (H.bj.phase !== "bet") return;
+    const a = stake(id, p, msg); if (!a) return;
+    p.bj.bet += a; p.ready.bj = false;
+  } else if (msg.t === "bj-clear") {
+    if (H.bj.phase !== "bet") return;
+    p.chips += p.bj.bet; p.bj.bet = 0; p.ready.bj = false;
+  } else if (msg.t === "bj-hit" || msg.t === "bj-stand" || msg.t === "bj-double") {
+    const h = p.bj;
+    if (H.bj.phase !== "play" || !h.cards.length || h.done) return;
+    if (msg.t === "bj-hit") { h.cards.push(draw()); }
+    else if (msg.t === "bj-stand") { h.done = true; h.res = "스탠드"; }
+    else {
+      if (h.cards.length !== 2) return;
+      if (!take(id, p, h.bet)) return;
+      h.bet *= 2; h.cards.push(draw()); h.done = true; h.res = "더블";
+    }
+    const v = hv(h.cards);
+    if (v > 21) { h.done = true; h.res = "버스트"; }
+    else if (v === 21) { h.done = true; if (h.res !== "더블") h.res = "21"; }
+    bjMaybeFinish();
+  } else if (msg.t === "hd" && ["fold", "call", "raise", "allin"].includes(msg.a)) {
+    if (!hdAct(id, msg.a, AMTS.includes(msg.amt) ? msg.amt : 0)) return;
+  } else if (msg.t === "hd-seat") {
+    if (!H.hd.running) return;
+    p.hdSeat = !p.hdSeat;
+  } else if (msg.t === "refill") {
+    const h = H.hd.phase === "play" && H.hd.hands[id];
+    if (!broke(p, h)) return;
+    p.chips += START; p.lastNet = 0; p.rebuy++;
+  } else return;
+  checkReady();
+  broadcast();
+}
+
+/* refill only when broke: can't cover the smallest bet, nothing on any table, not alive in a hold'em hand */
+const broke = (p, hdHand) => p.chips < AMTS[0] && !sum(p.bac) && !sum(p.rl) && !p.bj.bet && !(hdHand && !hdHand.folded);
+const canRefill = me => broke(me, S.hd.phase === "play" && S.hd.hands.find(h => h.id === myId));
+function checkReady() {
+  if (!H.players.size) return;
+  for (const g of GAMES) {
+    const all = [...H.players.values()].every(q => q.ready[g]);
+    if (!all) continue;
+    for (const q of H.players.values()) q.ready[g] = false;
+    if (g === "bac") runBac(); else if (g === "rl") runRl(); else if (g === "bj") runBj(); else hdStart();
+  }
+  hdTick();
+}
+function runBac() {
+  const r = { n: ++H.bac.n, ...bacPlay() };
+  for (const q of H.players.values()) {
+    const s = sum(q.bac); if (!s) continue;
+    const allin = q.chips === 0 && !sum(q.rl) && !q.bj.bet;
+    const ret = bacPay(q.bac, r.w); q.chips += ret; q.lastNet = ret - s; rec(q, "bac", s, ret);
+    announce(q, "bac", s, ret, allin, r.w === "T" && q.bac.t >= EV_SPECIAL_MIN ? "타이 적중" : "");
+    q.bac = empty();
+  }
+  H.bac.rounds = [r, ...H.bac.rounds].slice(0, 100);
+}
+function runRl() {
+  const n = rnd() % 37;
+  H.rl.n++;
+  for (const q of H.players.values()) {
+    const s = sum(q.rl); if (!s) continue;
+    const allin = q.chips === 0 && !sum(q.bac) && !q.bj.bet;
+    let ret = 0, hit = 0;
+    for (const [k, a] of Object.entries(q.rl)) { const m = rlMult(k, n); ret += a * m; if (k[0] === "n" && m) hit = Math.max(hit, a); }
+    q.chips += ret; q.lastNet = ret - s; rec(q, "rl", s, ret);
+    announce(q, "rl", s, ret, allin, hit >= EV_SPECIAL_MIN ? "스트레이트 적중" : "", SPIN_MS + 300);
+    q.rl = {};
+  }
+  H.rl.hist = [n, ...H.rl.hist].slice(0, 300);
+}
+function runBj() {
+  const seats = [...H.players.values()].filter(q => q.bj.bet > 0);
+  for (const q of H.players.values()) { q.bj.cards = []; q.bj.done = false; q.bj.res = ""; }
+  if (!seats.length) { H.bj.dealer = []; return; }
+  H.bj.n++;
+  H.bj.dealer = [draw(), draw()];
+  for (const q of seats) {
+    q.bj.cards = [draw(), draw()];
+    if (isBJ(q.bj.cards)) { q.bj.done = true; q.bj.res = "BJ"; }
+  }
+  H.bj.phase = "play";
+  if (isBJ(H.bj.dealer)) { for (const q of seats) q.bj.done = true; }
+  bjMaybeFinish();
+}
+function bjMaybeFinish() {
+  if (H.bj.phase !== "play") return;
+  const seats = [...H.players.values()].filter(q => q.bj.cards.length);
+  if (seats.some(q => !q.bj.done)) return;
+  const d = H.bj.dealer;
+  const live = seats.some(q => hv(q.bj.cards) <= 21 && !isBJ(q.bj.cards));
+  if (live && !isBJ(d)) while (hv(d) < 17) d.push(draw());
+  const dv = hv(d), dbj = isBJ(d);
+  const ds = H.bj.ds, key = dbj ? "BJ" : dv > 21 ? "버스트" : dv >= 17 ? String(dv) : "기타";
+  ds.n++; ds.dist[key] = (ds.dist[key] || 0) + 1;
+  if (dv > 21) ds.bust++; else ds.sum += dv;
+  for (const q of seats) {
+    const h = q.bj, pv = hv(h.cards), pbj = isBJ(h.cards);
+    let ret, res;
+    if (pv > 21) { ret = 0; res = "버스트"; }
+    else if (pbj && dbj) { ret = h.bet; res = "무"; }
+    else if (pbj) { ret = Math.floor(h.bet * 2.5); res = "BJ 승"; }
+    else if (dbj) { ret = 0; res = "패"; }
+    else if (dv > 21 || pv > dv) { ret = h.bet * 2; res = "승"; }
+    else if (pv === dv) { ret = h.bet; res = "무"; }
+    else { ret = 0; res = "패"; }
+    const allin = q.chips === 0 && !sum(q.bac) && !sum(q.rl);
+    q.chips += ret; q.lastNet = ret - h.bet; rec(q, "bj", h.bet, ret, res);
+    announce(q, "bj", h.bet, ret, allin, res === "BJ 승" && h.bet >= EV_SPECIAL_MIN ? "블랙잭" : "");
+    h.res = res; h.bet = 0;
+  }
+  H.bj.phase = "bet";
+}
+
+/* ---------- hold'em engine (host only) ---------- */
+function hdFresh() {
+  return { phase: "idle", running: false, wait: false, nextAt: 0, n: 0, btnIdx: -1, btn: null, sb: null, bb: null, board: [], deck: [], order: [], hands: {},
+    curBet: 0, minRaise: BB, toAct: null, deadline: 0, street: 0, last: null, log: [] };
+}
+function shuffled() {
+  const d = [...Array(52).keys()];
+  for (let i = 51; i > 0; i--) { const j = rnd() % (i + 1); [d[i], d[j]] = [d[j], d[i]]; }
+  return d;
+}
+/* table session: everyone ready once → hands keep dealing until fewer than 2 are seated */
+function hdStart() {
+  H.hd.running = true; H.hd.nextAt = 0;
+  for (const q of H.players.values()) q.hdSeat = true;
+  runHd();
+}
+function hdStop() {
+  const D = H.hd;
+  D.running = false; D.wait = false; D.nextAt = 0;
+  for (const q of H.players.values()) { q.hdSeat = false; q.ready.hd = false; }
+  for (const id of H.players.keys()) reply(id, "검토: 착석 인원 2명 미만 → 테이블 종료");
+}
+function hdTick() {
+  const D = H.hd;
+  if (!D.running || D.phase !== "idle") return;
+  if ([...H.players.values()].filter(q => q.hdSeat).length < 2) return hdStop();
+  if (D.wait || (D.nextAt && Date.now() >= D.nextAt)) runHd();
+}
+function runHd() {
+  const D = H.hd;
+  if (D.phase !== "idle") return;
+  const ids = [...H.players].filter(([, p]) => p.hdSeat && p.chips > 0).map(([id]) => id);
+  if (ids.length < 2) { D.wait = true; D.nextAt = 0; return; }
+  D.wait = false; D.nextAt = 0;
+  D.n++; D.phase = "play"; D.deck = shuffled(); D.board = []; D.street = 0; D.order = ids; D.hands = {}; D.last = null;
+  for (const id of ids) D.hands[id] = { cards: [D.deck.pop(), D.deck.pop()], bet: 0, total: 0, folded: false, allin: false, acted: false };
+  D.btnIdx = (D.btnIdx + 1) % ids.length; D.btn = ids[D.btnIdx];
+  const at = i => ids[(D.btnIdx + i) % ids.length];
+  D.sb = ids.length === 2 ? at(0) : at(1);
+  D.bb = ids.length === 2 ? at(1) : at(2);
+  hdPut(D.sb, SB); hdPut(D.bb, BB);
+  D.curBet = BB; D.minRaise = BB;
+  hdNext(D.bb);
+}
+function hdPut(id, amt) {
+  const p = H.players.get(id), h = H.hd.hands[id];
+  const a = Math.max(0, Math.min(amt, p ? p.chips : 0));
+  if (p) p.chips -= a;
+  h.bet += a; h.total += a;
+  if (!p || p.chips === 0) h.allin = true;
+}
+function hdNext(from) {
+  const D = H.hd;
+  const live = D.order.filter(id => !D.hands[id].folded);
+  if (live.length === 1) return hdEnd({ [live[0]]: D.order.reduce((s, id) => s + D.hands[id].total, 0) }, null, null);
+  const k = D.order.length, start = D.order.indexOf(from);
+  for (let i = 1; i <= k; i++) {
+    const id = D.order[(start + i) % k], h = D.hands[id];
+    if (h.folded || h.allin) continue;
+    if (!h.acted || h.bet < D.curBet) { D.toAct = id; D.deadline = Date.now() + TURN_MS; return; }
+  }
+  hdStreet();
+}
+function hdStreet() {
+  const D = H.hd;
+  for (const id of D.order) { D.hands[id].bet = 0; D.hands[id].acted = false; }
+  D.curBet = 0; D.minRaise = BB; D.street++;
+  if (D.street === 1) D.board.push(D.deck.pop(), D.deck.pop(), D.deck.pop());
+  else if (D.street <= 3) D.board.push(D.deck.pop());
+  if (D.street >= 4) return hdShowdown();
+  const canAct = D.order.filter(id => !D.hands[id].folded && !D.hands[id].allin);
+  if (canAct.length <= 1) return hdStreet();
+  hdNext(D.btn);
+}
+function hdAct(id, a, amt) {
+  const D = H.hd;
+  if (D.phase !== "play" || D.toAct !== id) return false;
+  const h = D.hands[id], p = H.players.get(id), toCall = D.curBet - h.bet;
+  if (a === "fold") h.folded = true;
+  else if (a === "call") hdPut(id, toCall);
+  else {
+    const before = D.curBet;
+    hdPut(id, a === "allin" ? p.chips : toCall + Math.max(amt, D.minRaise));
+    if (h.bet > before) {
+      const by = h.bet - before;
+      if (by >= D.minRaise) D.minRaise = by;
+      D.curBet = h.bet;
+      for (const o of D.order) if (o !== id) D.hands[o].acted = false;
+    }
+  }
+  h.acted = true;
+  hdNext(id);
+  return true;
+}
+function hdShowdown() {
+  const D = H.hd;
+  while (D.board.length < 5) D.board.push(D.deck.pop());
+  const live = D.order.filter(id => !D.hands[id].folded);
+  const score = {};
+  for (const id of live) score[id] = bestHand(D.hands[id].cards.concat(D.board));
+  // side pots: split contributions into levels; each level goes to the best live hand that paid into it
+  const won = {};
+  const levels = [...new Set(D.order.map(id => D.hands[id].total).filter(x => x > 0))].sort((a, b) => a - b);
+  let prev = 0;
+  for (const lv of levels) {
+    let pot = 0;
+    for (const id of D.order) pot += Math.min(D.hands[id].total, lv) - Math.min(D.hands[id].total, prev);
+    prev = lv;
+    if (!pot) continue;
+    let elig = live.filter(id => D.hands[id].total >= lv);
+    if (!elig.length) elig = live;
+    const top = elig.reduce((m, id) => cmp(score[id], score[m]) > 0 ? id : m, elig[0]);
+    const ws = elig.filter(id => cmp(score[id], score[top]) === 0);
+    const share = Math.floor(pot / ws.length);
+    let rem = pot - share * ws.length;
+    for (const w of ws) { won[w] = (won[w] || 0) + share + (rem > 0 ? 1 : 0); if (rem > 0) rem--; }
+  }
+  hdEnd(won, live, score);
+}
+function hdEnd(won, shown, score) {
+  const D = H.hd;
+  const names = Object.fromEntries(D.order.map(id => [id, (H.players.get(id) || {}).name || "(퇴장)"]));
+  for (const id of D.order) {
+    const p = H.players.get(id), w = won[id] || 0, t = D.hands[id].total;
+    if (!p) continue;
+    p.chips += w; p.lastNet = w - t;
+    const st = p.st.hd; st.n++; st.net += w - t;
+    if (w > t) st.w++; else if (w < t) st.l++;
+    if (shown && w > 0) st.sd++;
+    p.peak = Math.max(p.peak, p.chips);
+    const sc = score && score[id];
+    announce(p, "hd", t, w, D.hands[id].allin, sc && sc[0] >= 7 ? HNAME[sc[0]] + " 완성" : "");
+  }
+  const pot = D.order.reduce((s, id) => s + D.hands[id].total, 0);
+  const winners = Object.keys(won).filter(id => won[id] > 0);
+  const hand = shown ? Object.fromEntries(shown.map(id => [id, HNAME[score[id][0]]])) : {};
+  D.last = { shown: shown || [], won, hand, pot };
+  D.log = [{ n: D.n, win: winners.map(id => names[id]).join(", "), hand: shown ? hand[winners[0]] : "폴드승", pot }, ...D.log].slice(0, 10);
+  D.phase = "idle"; D.toAct = null;
+  if (D.running) D.nextAt = Date.now() + NEXT_MS;
+}
+function hdLeave(id) {
+  const D = H.hd;
+  if (D.phase !== "play" || !D.hands[id]) return;
+  D.hands[id].folded = true;
+  const live = D.order.filter(x => !D.hands[x].folded);
+  if (D.toAct === id || live.length === 1) hdNext(id);
+}
+function hdView(forId) {
+  const D = H.hd;
+  const reveal = new Set(D.phase === "idle" && D.last ? D.last.shown : []);
+  return { phase: D.phase, running: D.running, wait: D.wait, next: D.nextAt ? Math.max(0, D.nextAt - Date.now()) : 0, n: D.n, btn: D.btn, sb: D.sb, bb: D.bb, board: D.board, street: D.street,
+    curBet: D.curBet, minRaise: D.minRaise, toAct: D.toAct, left: Math.max(0, D.deadline - Date.now()),
+    pot: D.order.reduce((s, id) => s + (D.hands[id] ? D.hands[id].total : 0), 0), last: D.last, log: D.log,
+    hands: D.order.filter(id => D.hands[id]).map(id => {
+      const h = D.hands[id];
+      return { id, cards: id === forId || reveal.has(id) ? h.cards : h.cards.map(() => -1),
+        bet: h.bet, total: h.total, folded: h.folded, allin: h.allin };
+    }) };
+}
+setInterval(() => {
+  const D = H.hd;
+  if (isHost && D.running && D.phase === "idle" && D.nextAt && Date.now() >= D.nextAt) { hdTick(); broadcast(); return; }
+  if (!isHost || D.phase !== "play" || !D.toAct || Date.now() < D.deadline) return;
+  const h = D.hands[D.toAct];
+  hdAct(D.toAct, h.bet >= D.curBet ? "call" : "fold", 0);
+  broadcast();
+}, 1000);
+
+/* one fixed room: first visitor becomes host, everyone else joins; #name in the URL picks another room */
+const ROOM = (location.hash.slice(1).replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "MAIN").slice(0, 12);
+let tries = 0, joinT = 0, lastHost = 0;
+// WebRTC often misses a closed tab, so the host pings and clients treat silence as the host leaving
+setInterval(() => {
+  if (isHost) conns.forEach(c => { try { c.send({ t: "ping" }); } catch {} });
+  else if (S && hostConn && Date.now() - lastHost > 7000) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); }
+}, 2000);
+function enter() { if (peer) return; tries = 0; try { localStorage.setItem("xs-name", nameDraft); } catch {} host(); }
+function retry(msg) {
+  reset();
+  if (++tries > 5) return say(msg, true);
+  say("입장 중… (" + tries + ")");
+  setTimeout(() => { if (!peer) host(); }, 400 + rnd() % 1600);
+}
+function host() {
+  if (peer) return;
+  say("입장 중…");
+  peer = new Peer(PREFIX + ROOM, { debug: 0 });
+  peer.on("open", id => {
+    myId = id; isHost = true; roomCode = ROOM;
+    hostHandle(myId, { t: "hello", name: myName() });
+    say("입장 완료");
+  });
+  peer.on("connection", c => {
+    c.on("open", () => conns.set(c.peer, c));
+    c.on("data", m => hostHandle(c.peer, m));
+    c.on("close", () => {
+      conns.delete(c.peer);
+      if (H.players.delete(c.peer)) { mgLeave(c.peer); hdLeave(c.peer); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast(); }
+    });
+  });
+  peer.on("error", e => {
+    if (e.type === "unavailable-id") { peer.destroy(); peer = null; join(); return; }
+    netErr(e);
+  });
+  peer.on("disconnected", () => { if (peer && !peer.destroyed) peer.reconnect(); });
+}
+function join() {
+  if (peer) return;
+  peer = new Peer({ debug: 0 });
+  peer.on("open", id => {
+    myId = id; roomCode = ROOM;
+    hostConn = peer.connect(PREFIX + ROOM, { reliable: true });
+    joinT = setTimeout(() => { if (!S) retry("입장 실패: 잠시 후 다시 시도하세요"); }, 8000);
+    hostConn.on("open", () => hostConn.send({ t: "hello", name: myName() }));
+    hostConn.on("data", m => {
+      lastHost = Date.now();
+      if (m.t === "state") { clearTimeout(joinT); tries = 0; S = m; render(); }
+      else if (m.t === "err") say(m.m, true);
+      else if (m.t === "event") showEvent(m);
+      else if (m.t === "full") { clearTimeout(joinT); say("인원 초과: 최대 5명", true); reset(); }
+    });
+    // host left: whoever reconnects first becomes the new host
+    hostConn.on("close", () => { if (S) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); } });
+  });
+  peer.on("error", e => {
+    if (e.type === "peer-unavailable") { retry("입장 실패: 잠시 후 다시 시도하세요"); return; }
+    netErr(e);
+  });
+}
+function netErr(e) {
+  const m = e.type === "network" || e.type === "server-error" || e.type === "socket-error"
+    ? "서버 연결 실패: 네트워크(방화벽)를 확인하세요" : "연결 오류: " + e.type;
+  say(m, true); $("saved").textContent = "연결 끊김";
+}
+function reset() {
+  clearTimeout(joinT);
+  try { peer && peer.destroy(); } catch {}
+  peer = null; hostConn = null; isHost = false; S = null; conns.clear(); H = fresh();
+  render();
+}
+
+
+/* ---------- chat / emoticons ---------- */
+const EMO = ["🤡", "😜", "🫵", "🤣", "😭", "💸", "🥱", "👋"];
+let cSeq = -1, cShown = -1;
+function pop(t) {
+  if (view === "decoy") return;
+  const e = document.createElement("div"); e.className = "pop"; e.textContent = t;
+  document.body.append(e); setTimeout(() => e.remove(), 1300);
+}
+function chatSync() {
+  const box = $("chat"), on = !!S && view !== "decoy";
+  box.hidden = !on;
+  if (!S) { cSeq = -1; cShown = -1; }
+  if (!on) return;
+  const L = S.chat || [], z = L[L.length - 1], last = z ? z.k : 0;
+  if (last === cShown) return;
+  cShown = last;
+  const cl = $("cl"); cl.textContent = "";
+  L.slice(-30).forEach(x => {
+    const d = document.createElement("div"), t = document.createElement("span"), n = document.createElement("b");
+    t.className = "m"; t.textContent = new Date(x.t).toTimeString().slice(0, 5) + " ";
+    n.textContent = x.n + " "; d.append(t, n, x.m); if (x.e) d.className = "big"; cl.append(d);
+  });
+  cl.scrollTop = cl.scrollHeight;
+  if (z && z.e && cSeq >= 0 && z.k > cSeq) pop(z.m);
+  cSeq = last;
+}
+EMO.forEach(e => $("emo").append(button(e, () => send({ t: "chat", m: e, e: true }))));
+$("ci").onkeydown = e => {
+  if (e.key !== "Enter") return;
+  e.preventDefault(); const v = $("ci").value.trim();
+  if (v && S) { send({ t: "chat", m: v }); $("ci").value = ""; }
+};
+
+/* ---------- mini games: chess(ch) / omok(om) / four-in-row(c4) ---------- */
+const MGT = { ch: "BOM 대조표 (L1)", om: "검수내역 대조", c4: "이월 정리", tw: "적재 누계 (L2)" };
+function mgNew(g, seats) {
+  return { seats: seats || [null, null], turn: 0, res: "", win: -1, last: -1,
+    b: g === "ch" ? [..."rnbqkbnrpppppppp", ...Array(32).fill(""), ..."PPPPPPPPRNBQKBNR"] : g === "tw" ? [{ x: 6, w: 9 }] : Array(g === "om" ? 225 : 42).fill(0) };
+}
+function mgLeave(id) { for (const G of Object.values(H.mg)) G.seats = G.seats.map(x => x === id ? null : x); }
+/* chess: legal moves incl. check rules; auto-queen; no castling / en passant */
+const chMoves = (b, i) => {
+  const p = b[i], w = p < "a", t = p.toLowerCase(), r = i >> 3, c = i & 7, o = [];
+  const add = (R, C) => { if (R < 0 || R > 7 || C < 0 || C > 7) return false; const q = b[R * 8 + C]; if (q && (q < "a") === w) return false; o.push(R * 8 + C); return !q; };
+  if (t === "p") {
+    const d = w ? -1 : 1, R = r + d;
+    if (R >= 0 && R < 8) {
+      if (!b[R * 8 + c]) { o.push(R * 8 + c); if (r === (w ? 6 : 1) && !b[(r + 2 * d) * 8 + c]) o.push((r + 2 * d) * 8 + c); }
+      for (const dc of [-1, 1]) { const C = c + dc; if (C >= 0 && C < 8) { const q = b[R * 8 + C]; if (q && (q < "a") !== w) o.push(R * 8 + C); } }
+    }
+  } else if (t === "n") [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]].forEach(([a, d]) => add(r + a, c + d));
+  else if (t === "k") { for (let a = -1; a < 2; a++) for (let d = -1; d < 2; d++) if (a || d) add(r + a, c + d); }
+  else {
+    const D = []; if (t !== "b") D.push([1, 0], [-1, 0], [0, 1], [0, -1]); if (t !== "r") D.push([1, 1], [1, -1], [-1, 1], [-1, -1]);
+    D.forEach(([a, d]) => { for (let k = 1; add(r + a * k, c + d * k); k++); });
+  }
+  return o;
+};
+const chInCheck = (b, w) => { const k = b.indexOf(w ? "K" : "k"); return b.some((p, i) => p && (p < "a") !== w && chMoves(b, i).includes(k)); };
+const chApply = (b, f, t) => { const n = b.slice(), p = n[f]; n[t] = p === "P" && t < 8 ? "Q" : p === "p" && t > 55 ? "q" : p; n[f] = ""; return n; };
+const chLegal = (b, i) => chMoves(b, i).filter(t => !chInCheck(chApply(b, i, t), b[i] < "a"));
+const chAny = (b, w) => b.some((p, i) => p && (p < "a") === w && chLegal(b, i).length);
+/* n-in-a-row test around index i on a W-wide, Hh-high board */
+const inRow = (b, i, s, n, W, Hh) => [[1, 0], [0, 1], [1, 1], [1, -1]].some(([a, d]) => {
+  let k = 1;
+  for (const sg of [1, -1]) for (let j = 1; ; j++) {
+    const x = i % W + a * j * sg, y = (i / W | 0) + d * j * sg;
+    if (x < 0 || y < 0 || x >= W || y >= Hh || b[y * W + x] !== s) break; k++;
+  }
+  return k >= n;
+});
+function mgHandle(id, msg) {
+  const g = msg.g, G = H.mg[g]; if (!G) return;
+  if (msg.t === "g-sit") { const s = msg.s === 1 ? 1 : 0; if (G.seats[s] === id) G.seats[s] = null; else if (!G.seats[s] && !G.seats.includes(id)) G.seats[s] = id; }
+  else if (msg.t === "g-new") { if (G.seats.includes(id)) H.mg[g] = mgNew(g, G.seats); }
+  else if (msg.t === "g-mv" && !G.res) {
+    const s = G.seats.indexOf(id); if (s < 0 || s !== G.turn || G.seats.includes(null)) return;
+    let ok = false;
+    if (g === "ch") {
+      const f = msg.f, t = msg.to, p = G.b[f];
+      if (Number.isInteger(f) && Number.isInteger(t) && f >= 0 && f < 64 && p && (p < "a") === (s === 0) && chLegal(G.b, f).includes(t)) {
+        G.b = chApply(G.b, f, t); ok = true; G.last = t;
+        if (!chAny(G.b, s === 1)) { G.res = chInCheck(G.b, s === 1) ? "w" : "d"; G.win = s; }
+      }
+    } else if (g === "om") {
+      const i = msg.i;
+      if (Number.isInteger(i) && i >= 0 && i < 225 && !G.b[i]) {
+        G.b[i] = s + 1; ok = true; G.last = i;
+        if (inRow(G.b, i, s + 1, 5, 15, 15)) { G.res = "w"; G.win = s; } else if (!G.b.includes(0)) G.res = "d";
+      }
+    } else if (g === "tw") {
+      const top = G.b[G.b.length - 1], x = Math.max(0, Math.min(21 - top.w, Math.round(Number(msg.x) || 0)));
+      const ol = Math.max(top.x, x), w = Math.min(top.x + top.w, x + top.w) - ol;
+      ok = true;
+      if (w <= 0) G.res = "e"; else G.b.push({ x: w === top.w ? top.x : ol, w });
+    } else {
+      const c = msg.c;
+      if (Number.isInteger(c) && c >= 0 && c < 7) {
+        for (let y = 5; y >= 0; y--) if (!G.b[y * 7 + c]) {
+          G.b[y * 7 + c] = s + 1; ok = true; G.last = y * 7 + c;
+          if (inRow(G.b, G.last, s + 1, 4, 7, 6)) { G.res = "w"; G.win = s; } else if (!G.b.includes(0)) G.res = "d";
+          break;
+        }
+      }
+    }
+    if (!ok) return;
+    G.turn = 1 - s;
+  } else return;
+  broadcast();
+}
+const CHG = { K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙", k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const chGlyph = q => q ? CHG[q] + "\uFE0E" : "";
+let twKey = "", twT0 = 0, twCur = null, twRun = false;
+const twPos = (G, ms) => {
+  const R = 21 - G.b[G.b.length - 1].w; if (R <= 0) return 0;
+  const m = (ms / 1000 * Math.min(22, 7 + G.b.length * 0.7)) % (2 * R); return m <= R ? m : 2 * R - m;
+};
+function twTick() { twRun = false; if (view === "tw" && S) render(); }
+function twDrop() {
+  const G = twCur; if (!G || G.res || view !== "tw" || !S || G.seats.includes(null) || G.seats.indexOf(myId) !== G.turn) return;
+  twCur = null; send({ t: "g-mv", g: "tw", x: Math.round(twPos(G, performance.now() - twT0)) });
+}
+let chSel = -1;
+function layoutMg(put) {
+  const g = view, G = S.mg && S.mg[g]; if (!G) return;
+  const W = { ch: 8, om: 15, c4: 7, tw: 21 }[g], k = W < 10 ? 3 : 5, mine = G.seats.indexOf(myId);
+  const nm = i => { const p = G.seats[i] && S.players.find(q => q.id === G.seats[i]); return p ? p.name : ""; };
+  put(0, 0, MGT[g], "b", 6);
+  put(1, 0, "담당", "h");
+  [0, 1].forEach(i => put(1, 1 + i * k, button((G.turn === i && !G.res && !G.seats.includes(null) ? "▶ " : "") + (nm(i) || "지정"), () => send({ t: "g-sit", g, s: i }), G.seats[i] === myId), "btn " + (i ? "out" : "in"), k));
+  if (mine >= 0) put(1, 1 + 2 * k, button("초기화", () => send({ t: "g-new", g })), "btn", Math.max(1, W - 2 * k));
+  const chk = g === "ch" && !G.res && chInCheck(G.b, G.turn === 0) ? " · 체크" : g === "tw" ? " · 누계 " + (G.b.length - 1) : "";
+  put(2, 0, "상태", "h");
+  put(2, 1, G.res ? "종료 · " + (G.res === "w" ? nm(G.win) + " 승" : g === "tw" ? "누계 " + (G.b.length - 1) : "무승부") : G.seats.includes(null) ? "대기 중 · 두 자리 지정 필요" : nm(G.turn) + " 차례" + chk, "b", W);
+  const myTurn = mine >= 0 && mine === G.turn && !G.res && !G.seats.includes(null);
+  if (g === "ch") {
+    const mv = chSel >= 0 ? chLegal(G.b, chSel) : [];
+    for (let c = 0; c < 8; c++) put(3, 1 + c, "abcdefgh"[c], "h c");
+    for (let r = 0; r < 8; r++) {
+      put(4 + r, 0, 8 - r, "h c");
+      for (let c = 0; c < 8; c++) {
+        const i = r * 8 + c, q = G.b[i];
+        put(4 + r, 1 + c, button(chGlyph(q), () => {
+          if (!myTurn) return;
+          if (chSel >= 0 && mv.includes(i)) { send({ t: "g-mv", g, f: chSel, to: i }); chSel = -1; }
+          else if (q && (q < "a") === (mine === 0)) { chSel = chSel === i ? -1 : i; render(); }
+          else { chSel = -1; render(); }
+        }, chSel === i || mv.includes(i) || G.last === i), "pc ch btn" + ((r + c) % 2 ? "" : " num") + (q ? (q < "a" ? " in" : " out") : ""));
+      }
+    }
+  } else if (g === "om") {
+    for (let c = 0; c < 15; c++) put(3, 1 + c, c + 1, "h c");
+    for (let r = 0; r < 15; r++) {
+      put(4 + r, 0, r + 1, "h c");
+      for (let c = 0; c < 15; c++) {
+        const i = r * 15 + c, v = G.b[i];
+        put(4 + r, 1 + c, button(v === 1 ? "O" : v === 2 ? "X" : "", () => { if (myTurn && !v) send({ t: "g-mv", g, i }); }, G.last === i), "pc btn num" + (v === 1 ? " in" : v === 2 ? " out" : ""));
+      }
+    }
+  } else if (g === "tw") {
+    const key = G.b.length + G.res; if (twKey !== key) { twKey = key; twT0 = performance.now(); }
+    twCur = G;
+    const top = G.b[G.b.length - 1], live = !G.res && !G.seats.includes(null);
+    put(3, 0, "▶", "h c");
+    if (!G.res) { const px = live ? Math.round(twPos(G, performance.now() - twT0)) : top.x; for (let c = px; c < px + top.w; c++) put(3, 1 + c, "", "tb2"); }
+    G.b.slice(-12).reverse().forEach((L, j) => {
+      put(4 + j, 0, G.b.length - j, "h c");
+      for (let c = L.x; c < L.x + L.w; c++) put(4 + j, 1 + c, "", "tb");
+    });
+    put(17, 1, myTurn ? "▼ 여기를 클릭하거나 Space 키로 놓기" : G.res ? "" : "대기 중", "c b twc", 21);
+    if (live && !twRun) { twRun = true; setTimeout(twTick, 60); }
+  } else {
+    for (let c = 0; c < 7; c++) put(3, 1 + c, button("↓", () => { if (myTurn) send({ t: "g-mv", g, c }); }), "btn");
+    for (let y = 0; y < 6; y++) {
+      put(4 + y, 0, 6 - y, "h c");
+      for (let c = 0; c < 7; c++) { const v = G.b[y * 7 + c]; put(4 + y, 1 + c, v ? "●" : "", "c b" + (v === 1 ? " in" : v === 2 ? " out" : "") + (G.last === y * 7 + c ? " me" : "")); }
+    }
+  }
+}
+
+
+/* ---------- random defense · 진격의 거인 (view "rd"): everyone in the room starts together, friends can watch ---------- */
+/* tunables */
+const RD_CAP = 48, RD_COST = 20, RD_START = 150, RD_T = 30, RD_LIM = 50, RD_STAGES = 50, RD_SPD = 1.9;
+const RD_BASE = [0, 8, 28.8, 104, 373, 1344], RD_MUL = [0.9, 1, 1.1, 1.2], RD_UPM = 0.2, RD_UPMAX = 12, RD_UPC = 150;
+const RD_RANGE = [0, 2.6, 3.0, 3.5, 4.2, 5.0];
+const RD_CD = [0, 1.0, 0.9, 0.8, 0.7, 0.6];      // seconds between hits, per tier
+const RD_HP0 = 20, RD_G = 1.175, RD_G2 = 0.0015;  // titan hp(s) = HP0 · G^(s-1) · (1 + G2·s²)
+const RD_ODD = 6, RD_BT = 50;                    // 기행종 from stage 6 · boss must die within RD_BT seconds
+const RD_GB = [[2, 45, "홀짝"], [5, 18, "주사위"], [20, 4, "잭팟"]];  // gold gamble: [payout ×, win %, name]
+const RD_STK = [50, 100, 500, 0.5, 1];                              // stake: fixed gold, or share of current gold
+const RD_GACHA = 60;                                                // unit gacha cost: 2% R4 · 7% R3 · 45% R2 · 46% 꽝
+const RD_SELL = 0.5;                                                // sell refund: share of the R1 summons a unit is worth (3^(t-1) × cost)
+const RDN = [null, ["코니", "사샤", "장", "마르코"], ["아르민", "크리스타", "하네스", "프로크"], ["한지", "미케", "올루오", "나나바"], ["에렌", "미카사", "지크", "라이너"], ["리바이", "에르빈", "공격거인", "시조거인"]];
+const RDT = ["", "훈련병", "조사병", "정예", "영웅", "최종"];
+const RDB = [
+  { n: "초대형 거인", x: 10, sp: 0.55, ab: "증기 폭발 — 8초마다 주변 병사 2초 마비", steam: 1 },
+  { n: "갑옷 거인", x: 7, sp: 0.8, ab: "경질화 — 1·2티어 공격 70% 감소", armor: 1 },
+  { n: "짐승 거인", x: 4, sp: 0.7, ab: "투석 — 5초마다 병사 5명 3초 기절", rock: 1 },
+  { n: "턱 거인", x: 5, sp: 1.8, ab: "민첩 — 공격 30% 회피 · 고속 이동", dodge: 30 },
+  { n: "시조의 거인", x: 7, sp: 0.5, ab: "좌표 — 초당 1% 재생 · 6초마다 거인 3마리 소환", regen: 0.01, summon: 1 },
+];
+const RING = [];
+for (let c = 0; c < 14; c++) RING.push([0, c]);
+for (let r = 1; r < 7; r++) RING.push([r, 13]);
+for (let c = 12; c >= 0; c--) RING.push([6, c]);
+for (let r = 5; r >= 1; r--) RING.push([r, 0]);
+/* 60 unit slots (5 rows x 12 cols) inside the ring; DIST[slot][ringCell] decides who can hit whom */
+const DIST = Array.from({ length: 60 }, (_, i) => RING.map(([a, b]) => Math.hypot(a - (1 + (i / 12 | 0)), b - (1 + i % 12))));
+const SLOT_ORDER = [...Array(60).keys()].sort((a, b) => DIST[b].filter(d => d <= 3.5).length - DIST[a].filter(d => d <= 3.5).length || a - b);
+const rdNew = () => ({ sl: Array(60).fill(null), sel: -1, up: [0, 0, 0, 0, 0, 0], gold: RD_START, stage: 0, t: 0, clock: 0, en: [], spawned: 0, cur: null, run: false, over: "", msg: "대기 중", mp: false,
+  fx: Array(RING.length).fill(-9), kx: Array(RING.length).fill(-9) });
+const rdCount = R => R.sl.reduce((a, x) => a + (x ? 1 : 0), 0);
+const rdNum = (R, t, k) => R.sl.reduce((a, x) => a + (x && x.t === t && x.k === k ? 1 : 0), 0);
+const rdAtk = (R, t, k) => RD_BASE[t] * RD_MUL[k] * (1 + RD_UPM * R.up[t]);
+const rdDps = R => R.sl.reduce((a, x) => a + (x ? rdAtk(R, x.t, x.k) : 0), 0);
+const rdUpCost = t => RD_UPC * (rd.up[t] + 1) * t;
+const rdLbl = u => RDN[u.t][u.k].slice(0, 2) + u.t;
+const rdTier = u => u ? " t" + u.t + ({ 2: " in", 3: " hold", 4: " out" }[u.t] || "") : "";
+const rdHp = s => RD_HP0 * Math.pow(RD_G, s - 1) * (1 + RD_G2 * s * s);
+const rdPos = (e, clk) => Math.floor(Math.max(0, clk - e.t0) * e.sp) % RING.length;
+let rd = rdNew();
+function rdStart() {
+  const s = ++rd.stage, boss = s % 10 === 0;
+  rd.cur = { boss, b: boss ? s / 10 - 1 : -1, hp: rdHp(s), sp: RD_SPD * (1 + 0.01 * s), n: boss ? 9 : Math.min(40, 12 + (s * 0.6 | 0)), rew: 2 + (s >> 2) };
+  rd.t = 0; rd.spawned = 0;
+  if (boss) { const B = RDB[rd.cur.b]; rd.msg = "⚠ " + B.n + " 출현! " + RD_BT + "초 안에 처치"; rdBanner("⚠ " + B.n); }
+  else rd.msg = "거인 습격 · " + s + "단계";
+}
+/* one titan; the first spawn of a boss stage is the boss itself */
+function rdSpawn(c) {
+  const ck = rd.clock;
+  if (c.boss && rd.spawned === 0) {
+    const B = RDB[c.b], hp = c.hp * B.x;
+    rd.en.push({ hp, max: hp, t0: ck, sp: c.sp * B.sp, k: 1, b: B, bi: c.b, nx: ck + 4, rew: 40 + rd.stage * 4 });
+    return;
+  }
+  const odd = rd.stage >= RD_ODD && rnd() % 100 < Math.min(40, 10 + rd.stage);
+  const hp = c.hp * (odd ? 0.7 : 1);
+  rd.en.push({ hp, max: hp, t0: ck, sp: c.sp * (odd ? 1.7 : 1), k: odd ? 2 : 0, rew: c.rew });
+}
+function rdBossAct(B, dt) {
+  const ck = rd.clock, b = B.b;
+  if (b.regen) B.hp = Math.min(B.max, B.hp + B.max * b.regen * dt);
+  if (ck < B.nx) return;
+  if (b.steam) {
+    B.nx = ck + 8; const at = rdPos(B, ck); let n = 0;
+    rd.sl.forEach((u, s) => { if (u && DIST[s][at] <= 3) { u.stun = ck + 2; n++; } });
+    rd.msg = "증기 폭발! 병사 " + n + "명 마비";
+  } else if (b.rock) {
+    B.nx = ck + 5; const ix = []; rd.sl.forEach((u, s) => { if (u) ix.push(s); });
+    for (let i = 0; i < 5 && ix.length; i++) { const s = ix.splice(rnd() % ix.length, 1)[0]; rd.sl[s].stun = ck + 3; }
+    rd.msg = "짐승 거인의 투석!";
+  } else if (b.summon) {
+    B.nx = ck + 6;
+    for (let i = 0; i < 3; i++) rd.en.push({ hp: rd.cur.hp, max: rd.cur.hp, t0: ck - i * 0.6, sp: rd.cur.sp, k: 0, rew: 0 });
+    rd.msg = "시조의 거인이 거인을 불러냈다!";
+  } else B.nx = 1e12;
+}
+/* every ready unit hits the front-most titan in range once per cooldown; overkill spills to the next */
+function rdAttack(dt) {
+  const en = rd.en, ck = rd.clock; if (!en.length) { rd.sl.forEach(u => { if (u) u.cd = Math.max(0, (u.cd || 0) - dt); }); return; }
+  const idx = en.map(e => rdPos(e, ck));
+  rd.sl.forEach((u, s) => {
+    if (!u) return;
+    u.cd = (u.cd || 0) - dt;
+    if (u.cd > 0 || u.stun > ck) { if (u.cd < 0) u.cd = 0; return; }
+    u.cd = 0;
+    const rg = RD_RANGE[u.t];
+    let dmg = rdAtk(rd, u.t, u.k) * RD_CD[u.t], fired = false;
+    for (let j = 0; j < en.length && dmg > 0; j++) {
+      const e = en[j]; if (e.hp <= 0 || DIST[s][idx[j]] > rg) continue;
+      fired = true; rd.fx[idx[j]] = ck;
+      if (e.b && e.b.dodge && rnd() % 100 < e.b.dodge) break;
+      const m = e.b && e.b.armor && u.t < 3 ? 0.3 : 1;
+      if (e.hp <= dmg * m) { dmg -= e.hp / m; e.hp = 0; rd.kx[idx[j]] = ck; } else { e.hp -= dmg * m; dmg = 0; }
+    }
+    if (fired) { u.cd = RD_CD[u.t]; u.f = ck; }
+  });
+  rd.en = en.filter(e => {
+    if (e.hp > 0) return true;
+    rd.gold += e.rew;
+    if (e.b) { rd.msg = e.b.n + " 토벌! +" + e.rew + "G"; rdBanner("🗡 " + e.b.n + " 토벌!"); }
+    return false;
+  });
+}
+function rdStep(dt) {
+  if (!rd.run || rd.over) return;
+  rd.clock += dt; rd.t += dt;
+  if (rd.stage < RD_STAGES && rd.t >= RD_T) rdStart();
+  const c = rd.cur, tgt = Math.min(c.n, Math.floor(rd.t / (RD_T * 0.66) * c.n) + 1);
+  while (rd.spawned < tgt) { rdSpawn(c); rd.spawned++; }
+  const B = rd.en.find(e => e.b);
+  if (B) rdBossAct(B, dt);
+  rdAttack(dt);
+  const lose = m => { rd.over = "lose"; rd.run = false; rd.msg = m; rdBanner("💀 패배"); rdEvent({ k: "die", s: rd.stage, b: B && B.hp > 0 ? B.bi : -1 }); render(); };
+  if (rd.en.length >= RD_LIM) lose("패배 — 거인 " + RD_LIM + "마리 돌파 (" + rd.stage + "단계)");
+  else if (B && B.hp > 0 && rd.clock - B.t0 > RD_BT) lose("패배 — " + B.b.n + " 제한시간 초과");
+  else if (rd.stage === RD_STAGES && rd.spawned >= rd.cur.n && !rd.en.length) { rd.over = "clear"; rd.run = false; rd.msg = "클리어! 50단계 방어 성공"; rdBanner("🏆 클리어!"); rdEvent({ k: "clear" }); render(); }
+}
+function rdCombine(t, k) {
+  if (t >= 5) return false;
+  const ix = []; rd.sl.forEach((x, i) => { if (x && x.t === t && x.k === k) ix.push(i); });
+  if (ix.length < 3) return false;
+  ix.sort((a, b) => SLOT_ORDER.indexOf(a) - SLOT_ORDER.indexOf(b));
+  const take = ix.slice(0, 3); take.forEach(i => rd.sl[i] = null);
+  const nk = rnd() % 4; rd.sl[take[0]] = { t: t + 1, k: nk }; rd.sel = -1; rd.msg = "조합: " + RDN[t + 1][nk];
+  if (t + 1 >= 4) rdEvent({ k: "un", t: t + 1, u: nk, via: 0 });
+  return true;
+}
+function rdCombineAll() { let n = 0, ch = true; while (ch) { ch = false; for (let t = 1; t < 5; t++) for (let k = 0; k < 4; k++) while (rdCombine(t, k)) { ch = true; n++; } } return n; }
+function rdSummon() {
+  if (rd.over || rd.gold < RD_COST || rdCount(rd) >= RD_CAP) return false;
+  const i = SLOT_ORDER.find(j => !rd.sl[j]), k = rnd() % 4;
+  rd.gold -= RD_COST; rd.sl[i] = { t: 1, k }; rd.msg = "모집: " + RDN[1][k]; return true;
+}
+function rdUpgrade(t) {
+  if (rd.over || rd.up[t] >= RD_UPMAX || rd.gold < rdUpCost(t)) return false;
+  rd.gold -= rdUpCost(t); rd.up[t]++; rd.msg = "L" + t + " 강화 Lv" + rd.up[t]; return true;
+}
+const rdStake = i => { const v = RD_STK[i]; return v > 1 ? v : Math.floor(rd.gold * v); };
+function rdGamble(g, si) {
+  const [x, p, name] = RD_GB[g], a = rdStake(si);
+  if (rd.over || a < 1 || rd.gold < a) return false;
+  rd.gold -= a;
+  const win = rnd() % 100 < p;
+  rdEvent({ k: "gb", g, a, win });
+  if (win) { rd.gold += a * x; rd.msg = name + " 성공! +" + fmt(a * (x - 1)) + "G"; rdBanner(x >= 20 ? "💰 잭팟 ×" + x : "🎲 ×" + x); }
+  else rd.msg = name + " 실패 −" + fmt(a) + "G";
+  return true;
+}
+const rdSellPrice = u => Math.floor(RD_COST * Math.pow(3, u.t - 1) * RD_SELL);
+function rdSell(i) {
+  const u = rd.sl[i]; if (rd.over || !u) return false;
+  const g = rdSellPrice(u); rd.gold += g; rd.sl[i] = null; rd.sel = -1; rd.msg = "판매: " + RDN[u.t][u.k] + " +" + g + "G"; return true;
+}
+function rdGacha() {
+  if (rd.over || rd.gold < RD_GACHA || rdCount(rd) >= RD_CAP) return false;
+  rd.gold -= RD_GACHA;
+  const r = rnd() % 100, t = r < 2 ? 4 : r < 9 ? 3 : r < 54 ? 2 : 0;
+  if (!t) { rd.msg = "뽑기 꽝…"; return true; }
+  const i = SLOT_ORDER.find(j => !rd.sl[j]), k = rnd() % 4;
+  rd.sl[i] = { t, k }; rd.msg = "뽑기: " + RDT[t] + " " + RDN[t][k] + "!";
+  if (t >= 3) rdBanner("✨ " + RDN[t][k]);
+  if (t >= 4) rdEvent({ k: "un", t, u: k, via: 1 });
+  return true;
+}
+let rdEls = null, rdLast = performance.now(), rdSent = 0, rdWatch = null, rdW = { sig: "", recv: 0, R: null }, rdGoSeen = -1, rdSi = 0;
+function rdBanner(t) {
+  if (view !== "rd") return;
+  const e = document.createElement("div"); e.className = "pop"; e.style.fontSize = "40px"; e.style.whiteSpace = "nowrap"; e.textContent = t;
+  document.body.append(e); setTimeout(() => e.remove(), 1300);
+}
+/* room start: host bumps rdGo when everyone pressed ready → every client restarts its own run at the same moment */
+function rdSyncGo() {
+  if (!S) { rdGoSeen = -1; return; }
+  const g = S.rdGo || 0;
+  if (rdGoSeen < 0) { rdGoSeen = g; return; }
+  if (g <= rdGoSeen) return;
+  rdGoSeen = g;
+  rd = rdNew(); rd.mp = true; rd.run = true; rdWatch = null; rdLast = performance.now(); rdStart(); rd.msg = "전원 준비 완료 · 동시 출격!";
+  if (view !== "decoy") { view = lastGame = "rd"; document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.v === "rd")); }
+}
+/* own state, or a friend's state decoded from the room snapshot */
+function rdSrc() {
+  if (!rdWatch || !S) return rd;
+  const p = S.players.find(q => q.id === rdWatch);
+  if (!p) { rdWatch = null; return rd; }
+  const d = p.rd; if (!d) return null;
+  const sig = rdWatch + ":" + d.clock + ":" + d.stage + ":" + d.gold + ":" + d.sl.join();
+  if (rdW.sig !== sig) rdW = { sig, recv: performance.now(), R: { ...d, sl: d.sl.map(v => v < 0 ? null : { t: v >> 2, k: v & 3 }), en: d.en.map(([t0, k, sp]) => ({ t0, k, sp })) } };
+  return rdW.R;
+}
+const rdBoss = () => rd.en.find(e => e.b);
+const rdPack = () => {
+  const B = rdBoss();
+  return { sl: rd.sl.map(x => x ? x.t * 4 + x.k : -1), up: rd.up, gold: Math.floor(rd.gold), stage: rd.stage, t: +rd.t.toFixed(1), clock: +rd.clock.toFixed(2), run: rd.run, over: rd.over, msg: rd.msg,
+    en: rd.en.map(e => [+e.t0.toFixed(2), e.k, +e.sp.toFixed(3)]), bi: B ? B.bi : -1, bh: B ? +(B.hp / B.max).toFixed(3) : 0, bt: B ? +Math.max(0, RD_BT - (rd.clock - B.t0)).toFixed(1) : 0 };
+};
+function rdPaint() {
+  const E = rdEls; if (!E) return;
+  const R = rdSrc(); if (!R || R !== E.R) return;
+  const own = R === rd, clk = own ? rd.clock : R.clock + (R.run ? (performance.now() - rdW.recv) / 1000 : 0);
+  E.stage.textContent = R.stage + " / " + RD_STAGES; E.gold.textContent = fmt(R.gold);
+  E.alive.textContent = R.en.length + " / " + RD_LIM; E.time.textContent = R.stage && !R.over ? Math.max(0, Math.ceil(RD_T - R.t)) + "s" : "-";
+  E.dps.textContent = fmt(rdDps(R)); E.cnt.textContent = rdCount(R) + "/" + RD_CAP;
+  E.msg.textContent = R.msg;
+  E.aliveTd.className = "c b" + (R.en.length >= RD_LIM * 0.7 ? " rwarn" : "");
+  /* boss bar */
+  const B = own ? rdBoss() : null, bi = own ? (B ? B.bi : -1) : R.bi, bh = own ? (B ? B.hp / B.max : 0) : R.bh, bt = own ? (B ? RD_BT - (rd.clock - B.t0) : 0) : R.bt;
+  if (bi >= 0) {
+    const pc = Math.max(0, Math.min(100, bh * 100));
+    E.bbar.textContent = "👹 " + RDB[bi].n + "  HP " + pc.toFixed(1) + "%  ·  남은 시간 " + Math.max(0, Math.ceil(bt)) + "s  ·  " + RDB[bi].ab;
+    E.bbar.parentElement.style.background = "linear-gradient(90deg,#e5484d " + pc + "%,#3a2326 " + pc + "%)";
+    E.bbar.parentElement.className = "rboss" + (bt < 10 ? " rwarn" : "");
+  } else {
+    const nb = Math.floor(R.stage / 10) + 1;
+    E.bbar.textContent = nb <= 5 ? "다음 보스: " + RDB[nb - 1].n + " (" + nb * 10 + "단계) — " + RDB[nb - 1].ab : "";
+    E.bbar.parentElement.style.background = ""; E.bbar.parentElement.className = "m";
+  }
+  /* titans on the ring; red flash = being hit, 💥 = killed */
+  const cnt = Array(RING.length).fill(0), boss = Array(RING.length).fill(false), odd = Array(RING.length).fill(false), sel = own && R.sel >= 0 ? R.sl[R.sel] : null;
+  R.en.forEach(e => { const i = rdPos(e, clk); cnt[i]++; if (e.k === 1) boss[i] = true; if (e.k === 2) odd[i] = true; });
+  E.ring.forEach((sp, i) => {
+    const td = sp.parentElement; if (!td) return;
+    const hit = own && clk - rd.fx[i] < 0.22, kill = own && clk - rd.kx[i] < 0.35;
+    sp.textContent = boss[i] ? "👹" + (cnt[i] > 1 ? cnt[i] : "") : kill && !cnt[i] ? "💥" : cnt[i] ? (odd[i] ? "!" : "") + cnt[i] : "";
+    td.className = (boss[i] ? "tb c rbossc" : kill ? "c rkill" : cnt[i] ? (hit ? "c b rhit" : odd[i] ? "c b rodd" : "tb2 c b") : sel && DIST[R.sel][i] <= RD_RANGE[sel.t] ? "me c" : "h c");
+  });
+  /* units flash when they swing, grey while stunned */
+  if (own) E.units.forEach((el, i) => {
+    const u = rd.sl[i], td = el && el.parentElement; if (!td) return;
+    td.classList.toggle("rfire", !!u && clk - (u.f ?? -9) < 0.2);
+    td.classList.toggle("rstun", !!u && u.stun > clk);
+  });
+  $("st-cnt").textContent = "개수: " + rdCount(R) + "/" + RD_CAP; $("st-sum").textContent = "합계: " + fmt(R.gold);
+}
+setInterval(() => {
+  const n = performance.now(), dt = Math.min(1, (n - rdLast) / 1000); rdLast = n;
+  if (rd.run && (view === "rd" || rd.mp)) rdStep(dt);
+  if (view === "rd" && rdEls) rdPaint();
+  if (S && rd.stage > 0 && n - rdSent > 1000) { rdSent = n; send({ t: "rd", d: rdPack() }); }
+}, 100);
+function layoutRd(put) {
+  const R = rdSrc(), own = R === rd, sp = () => document.createElement("span");
+  const E = rdEls = { R, ring: RING.map(sp), units: [], stage: sp(), gold: sp(), alive: sp(), time: sp(), dps: sp(), msg: sp(), cnt: sp(), bbar: sp() };
+  const wp = !own && S && S.players.find(q => q.id === rdWatch);
+  const note = m => { if (m) rd.msg = m; render(); };
+  put(0, 0, own ? "랜덤 디펜스 · 진격의 거인" : "관전 · " + (wp ? wp.name : ""), "b", 5);
+  if (S) {
+    put(11, 1, button("내 화면", () => { rdWatch = null; render(); }, own), "btn", 2);
+    S.players.filter(q => q.id !== myId).slice(0, 4).forEach((q, i) => {
+      const d = q.rd, tag = !d ? " (대기)" : d.over === "lose" ? " 💀" + d.stage : d.over === "clear" ? " 🏆" : " " + d.stage + "단";
+      put(11, 3 + i * 3, button(q.name + tag, () => { rdWatch = q.id; render(); }, rdWatch === q.id), "btn in", 3);
+    });
+  }
+  if (!R) { put(8, 1, "친구가 아직 시작하지 않았습니다", "m", 10); return; }
+  put(0, 5, "단계", "h c"); put(0, 6, E.stage, "b c", 2); put(0, 8, "골드", "h c"); put(0, 9, E.gold, "n b", 2);
+  put(0, 11, "거인", "h c"); put(0, 12, E.alive, "c b", 2); put(0, 14, E.time, "m c");
+  E.aliveTd = E.alive.parentElement;
+  RING.forEach(([r, c], i) => put(1 + r, 1 + c, E.ring[i], "h c"));
+  for (let i = 0; i < 60; i++) {
+    const u = R.sl[i], r = 2 + (i / 12 | 0), c = 2 + i % 12;
+    if (own) put(r, c, E.units[i] = button(u ? rdLbl(u) : "", () => {
+      if (rd.over) return;
+      if (rd.sel < 0) { if (rd.sl[i]) rd.sel = i; }
+      else if (rd.sel === i) rd.sel = -1;
+      else { const a = rd.sl[rd.sel]; rd.sl[rd.sel] = rd.sl[i]; rd.sl[i] = a; rd.sel = -1; }
+      render();
+    }, rd.sel === i), "btn" + (u ? "" : " num") + rdTier(u));
+    else put(r, c, u ? rdLbl(u) : "", "c b" + rdTier(u));
+  }
+  put(8, 1, E.msg, "b", 8); put(8, 9, "합산", "h c"); put(8, 10, E.dps, "n b", 2); put(8, 12, "보유", "h c"); put(8, 13, E.cnt, "c", 2);
+  put(12, 1, E.bbar, "m", 14);
+  if (own) {
+    const me = meP(), ended = !rd.stage || rd.over;
+    if (S && me && ended) {
+      put(9, 1, button(me.rdReady ? "준비완료 ✓ " + S.players.filter(q => q.rdReady).length + "/" + S.players.length : "준비 " + S.players.filter(q => q.rdReady).length + "/" + S.players.length, () => send({ t: "rd-ready" }), !!me.rdReady), "btn", 3);
+    } else put(9, 1, button(rd.over ? "종료" : rd.mp ? "진행 중" : rd.run ? "일시정지" : rd.stage ? "계속" : "시작", () => {
+      if (rd.over || rd.mp) return; rd.run = !rd.run; if (rd.run && !rd.stage) rdStart(); rdLast = performance.now(); render();
+    }), "btn", 3);
+    put(9, 4, button("병사 모집 −" + RD_COST, () => {
+      if (rd.over) return;
+      if (rd.gold < RD_COST) return say("골드 부족: " + fmt(rd.gold), true);
+      if (rdCount(rd) >= RD_CAP) return say("배치 한도 초과: 조합으로 비우세요", true);
+      rdSummon(); render();
+    }), "btn in", 4);
+    put(9, 8, button("전체조합", () => { const n = rdCombineAll(); note(n ? "조합 " + n + "회" : "조합 가능한 유닛 없음"); }), "btn hold", 4);
+    put(9, 12, button("초기화", () => { if (rd.mp && rd.run && !rd.over) return say("함께하는 게임 중에는 초기화할 수 없습니다", true); rd = rdNew(); render(); }), "btn out", 3);
+    const su = rd.sel >= 0 && rd.sl[rd.sel];
+    if (su) {
+      put(10, 1, "선택: " + RDN[su.t][su.k] + " · " + RDT[su.t] + " · 공격 " + fmt(rdAtk(rd, su.t, su.k)) + "/s · 사거리 " + RD_RANGE[su.t] + " (파란 칸이 공격 범위)", "m", 11);
+      put(10, 12, button("판매 +" + rdSellPrice(su) + "G", () => { rdSell(rd.sel); note(); }), "btn red", 3);
+    } else put(10, 1, S && ended ? "방 인원 전원이 준비하면 동시에 시작합니다" : "유닛을 눌러 선택 → 빈 칸이나 다른 유닛을 누르면 이동·교환 · 판매 · 주황=공격 · 빨강=피격", "m", 14);
+  } else put(10, 1, wp ? wp.name + " 님의 화면을 보는 중 (읽기 전용)" : "", "m", 14);
+  put(13, 1, "코드", "h c", 2); put(13, 3, "이름", "h c", 3); put(13, 6, "단계", "h c"); put(13, 7, "보유", "h c"); put(13, 8, "공격력", "h c", 2); put(13, 10, "조합", "h c", 2);
+  for (let t = 1; t < 6; t++) for (let k = 0; k < 4; k++) {
+    const r = 14 + (t - 1) * 4 + k, n = rdNum(R, t, k);
+    put(r, 1, "R" + t + "-" + "ABCD"[k], "m", 2); put(r, 3, RDN[t][k], n ? "b" : "", 3); put(r, 6, t === 5 ? "5 최종" : RDT[t], "c"); put(r, 7, n || "", "n b" + (n >= 3 && t < 5 ? " in" : ""));
+    put(r, 8, fmt(rdAtk(R, t, k)), "n m", 2);
+    if (own && n >= 3 && t < 5) put(r, 10, button("조합", () => { rdCombine(t, k); note(); }), "btn in", 2);
+  }
+  put(35, 1, "강화", "h c", 2); put(35, 3, "Lv", "h c"); put(35, 4, "효과", "h c", 2); put(35, 6, "비용", "h c", 2);
+  for (let t = 1; t < 6; t++) {
+    const r = 35 + t, max = R.up[t] >= RD_UPMAX;
+    put(r, 1, "L" + t + " " + RDT[t], "m", 2); put(r, 3, R.up[t], "n b"); put(r, 4, "+" + Math.round(R.up[t] * RD_UPM * 100) + "%", "n", 2); put(r, 6, max ? "MAX" : fmt(RD_UPC * (R.up[t] + 1) * t), "n", 2);
+    if (own && !max) put(r, 8, button("강화", () => {
+      if (rd.gold < rdUpCost(t)) return say("골드 부족: " + fmt(rd.gold), true);
+      rdUpgrade(t); note();
+    }), "btn out", 2);
+  }
+  /* gold gamble */
+  if (own) {
+    put(35, 10, "골드 도박", "h c b", 5);
+    RD_STK.forEach((v, i) => put(36, 10 + i, button(v > 1 ? String(v) : v === 1 ? "올인" : "절반", () => { rdSi = i; render(); }, rdSi === i), "btn" + (v === 1 ? " out" : " num")));
+    RD_GB.forEach(([x, p, name], g) => {
+      put(37 + g, 10, name, "m", 2); put(37 + g, 12, "×" + x + " · " + p + "%", "c", 2);
+      put(37 + g, 14, button("걸기", () => {
+        const a = rdStake(rdSi);
+        if (a < 1 || rd.gold < a) return say("골드 부족: " + fmt(rd.gold), true);
+        rdGamble(g, rdSi); note();
+      }), "btn red");
+    });
+    put(40, 10, "병사 뽑기", "m", 2); put(40, 12, "R2~R4 · " + RD_GACHA + "G", "c", 2);
+    put(40, 14, button("뽑기", () => {
+      if (rd.gold < RD_GACHA) return say("골드 부족: " + fmt(rd.gold), true);
+      if (rdCount(rd) >= RD_CAP) return say("배치 한도 초과: 조합으로 비우세요", true);
+      rdGacha(); note();
+    }), "btn hold");
+    put(41, 10, "판돈: " + (RD_STK[rdSi] > 1 ? RD_STK[rdSi] + "G" : RD_STK[rdSi] === 1 ? "보유 골드 전부" : "보유 골드 절반"), "m", 5);
+  }
+}
+
+/* ---------- grid helpers ---------- */
+function mk(content, cls, span) {
+  const td = document.createElement("td");
+  if (cls) td.className = cls;
+  if (span > 1) td.colSpan = span;
+  if (content instanceof Node) td.append(content); else td.textContent = content ?? "";
+  return td;
+}
+function button(text, onclick, pressed) {
+  const b = document.createElement("button"); b.type = "button"; b.textContent = text; b.onclick = onclick;
+  if (pressed !== undefined) b.setAttribute("aria-pressed", pressed);
+  return b;
+}
+function field(id, ph, get, set, onEnter, upper) {
+  const el = document.createElement("input");
+  el.id = id; el.placeholder = ph; el.autocomplete = "off"; el.value = get();
+  if (upper) { el.maxLength = 4; el.style.textTransform = "uppercase"; }
+  el.oninput = () => set(el.value);
+  el.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); onEnter(); } };
+  return el;
+}
+function cardsEl(cs) {
+  const w = document.createElement("span"); w.className = "cards";
+  cs.forEach(c => { const s = document.createElement("span"); s.textContent = label(c); if (isRed(c)) s.className = "red"; w.append(s); });
+  return w;
+}
+const meP = () => S && S.players.find(p => p.id === myId);
+const readyCount = g => S.players.filter(p => p.ready[g]).length + "/" + S.players.length;
+function readyBtn(g, put, r, c, span) {
+  const me = meP(); if (!me) return;
+  put(r, c, button(me.ready[g] ? "준비완료 ✓ " + readyCount(g) : "준비 " + readyCount(g), () => send({ t: "ready", g }), me.ready[g]), "btn", span);
+}
+function amountRow(put, r, cols, span, withAll = true) {
+  AMTS.forEach((a, i) => put(r, cols[i], button(man(a), () => { amt = a; allIn = false; render(); }, amt === a && !(withAll && allIn)), "btn", span));
+  if (withAll) put(r, cols[AMTS.length], button("올인", () => { allIn = !allIn; render(); if (allIn) say("올인 모드: 누른 칸에 잔액 전부 베팅"); }, allIn), "btn out", span);
+}
+/* payload for one bet click; all-in mode is one-shot so a stray click later can't shove everything in */
+function bet() { const m = allIn ? { all: true } : { amt }; if (allIn) { allIn = false; queueMicrotask(render); } return m; }
+function refillBtn(put, r, c, span) {
+  const me = meP(); if (me && canRefill(me)) put(r, c, button("충전 +" + man(START), () => send({ t: "refill" })), "btn in", span);
+}
+function header(put, codeCol, span) {
+  put(0, 0, "2026 4Q 자재 집계", "b", 3);
+  put(0, codeCol, "전표코드", "m", span); put(0, codeCol + span, S.code, "b", span);
+}
+
+/* ---------- views ---------- */
+function layoutLobby(put) {
+  put(0, 0, "2026 4Q 자재 집계", "b", 3);
+  put(2, 0, "담당", "h"); put(2, 1, field("in-name", "이름", () => nameDraft, v => nameDraft = v, enter), "me");
+  put(3, 0, "입장", "h"); put(3, 1, button("입장", enter), "btn");
+  put(2, 3, "이름 입력 → 입장", "m", 6);
+  put(3, 3, "Esc: 시트 전환 · F9: 준비", "m", 6);
+}
+
+function layoutBac(put) {
+  const me = meP();
+  header(put, 6, 1);
+  if (me) {
+    put(2, 0, "담당", "h"); put(2, 1, me.name, "me b");
+    put(3, 0, "잔액", "h"); put(3, 1, fmt(me.chips), "n me");
+    put(4, 0, "P", "h c in"); put(4, 1, me.bac.p ? fmt(me.bac.p) : "", "n");
+    put(5, 0, "B", "h c out"); put(5, 1, me.bac.b ? fmt(me.bac.b) : "", "n");
+    put(6, 0, "T", "h c hold"); put(6, 1, me.bac.t ? fmt(me.bac.t) : "", "n");
+    put(7, 0, "직전", "h"); put(7, 1, me.lastNet ? sgn(me.lastNet) : "", netCls(me.lastNet));
+    refillBtn(put, 8, 0, 2);
+  }
+  const r = sq ? sq.r : S.bac.rounds[0];
+  const fr = !sq && r && seen.bac !== undefined && r.n > seen.bac ? " new" : "";
+  put(2, 2, "No", "h"); put(2, 3, r ? code5(r.n) : "-", "n", 2); put(2, 5, sq ? "오픈 중" : "다음 " + (S.bac.n + 1), sq ? "sqh c" : "m n");
+  put(3, 2, "P", "h c in"); put(4, 2, "B", "h c out");
+  [[3, "P"], [4, "B"]].forEach(([row, side]) => { for (let i = 0; i < 3; i++) {
+    const c = r ? r[side][i] : undefined, st = c === undefined ? "none" : sq ? sqState(side, i) : "open", red = isRed(c) ? " red" : "";
+    if (st === "none") put(row, 3 + i, "", "c");
+    else if (st === "back") put(row, 3 + i, "", "c cb");
+    else if (st === "live") {
+      const w = document.createElement("span"), v = document.createElement("div");
+      w.textContent = label(c); v.className = "sqv"; v.style.width = (1 - sq.p) * 100 + "%"; w.append(v);
+      put(row, 3 + i, w, "c sqc" + red);
+    } else put(row, 3 + i, label(c), "c" + red + fr);
+  } });
+  const tot = side => sq ? sqOpen(side) : r ? r[side.toLowerCase()] : null;
+  put(5, 2, "합", "h c"); put(5, 3, tot("P") !== null ? "P " + tot("P") : "", "c in"); put(5, 4, tot("B") !== null ? "B " + tot("B") : "", "c out");
+  put(5, 5, r && !sq ? W[r.w][0] + " 승" : "", "c b " + (r && !sq ? W[r.w][1] : "") + fr);
+  const road = document.createElement("span"); road.className = "road";
+  S.bac.rounds.slice(0, 12).reverse().forEach(x => { const s = document.createElement("span"); s.textContent = W[x.w][0]; s.className = W[x.w][1]; road.append(s); });
+  put(6, 2, "추이", "h"); put(6, 3, road, "n", 3);
+  if (me && sq) {
+    put(8, 2, sq.live ? "▶ 카드를 문질러 쬐기 · 탭 = 바로 오픈" : "딜링 중…", "sqh", 6);
+    put(9, 2, button("전체 오픈", () => sqEnd()), "btn", 4);
+  } else if (me) {
+    amountRow(put, 8, [2, 3, 4, 5, 6, 7]);
+    put(9, 2, button("P", () => send({ t: "bac-add", k: "p", ...bet() })), "btn in");
+    put(9, 3, button("B", () => send({ t: "bac-add", k: "b", ...bet() })), "btn out");
+    put(9, 4, button("T", () => send({ t: "bac-add", k: "t", ...bet() })), "btn hold");
+    put(9, 5, button("취소", () => send({ t: "bac-clear" })), "btn");
+    readyBtn("bac", put, 10, 2, 4);
+  }
+  put(2, 6, "담당", "h"); put(2, 7, "잔액", "h"); put(2, 8, "베팅", "h"); put(2, 9, "직전", "h");
+  const others = S.players.filter(p => p.id !== myId);
+  for (let i = 0; i < MAX - 1; i++) {
+    const o = others[i];
+    if (!o) { put(3 + i, 6, "-", "m"); continue; }
+    const bt = ["p", "b", "t"].filter(k => o.bac[k]).map(k => k.toUpperCase() + man(o.bac[k])).join(" ");
+    put(3 + i, 6, (o.ready.bac ? "✓ " : "") + o.name, o.ready.bac ? "in" : "");
+    put(3 + i, 7, fmt(o.chips), "n"); put(3 + i, 8, bt, "m");
+    put(3 + i, 9, o.lastNet ? sgn(o.lastNet) : "", netCls(o.lastNet));
+  }
+  anaBac(put, 12);
+}
+
+function layoutRl(put) {
+  const me = meP(), mine = me ? me.rl : {};
+  header(put, 9, 2);
+  const last = S.rl.hist[0];
+  const fr = S.rl.n && seen.rl !== undefined && S.rl.n > seen.rl ? " new" : "";
+  const bcell = (r, c, k, text, cls, span) => {
+    const has = !!mine[k];
+    put(r, c, me ? button(text, () => send({ t: "rl-add", k, ...bet() }), has) : text,
+      (me ? "btn num " : "c ") + (cls || "") + (k === "n" + last && S.rl.n ? fr : "") + (spin && k === "n" + spin.cur ? " spin" : ""), span);
+  };
+  bcell(2, 0, "n0", "0", "hold");
+  put(3, 0, "", "m"); put(4, 0, "", "m");
+  for (let j = 1; j <= 12; j++) {
+    for (let row = 0; row < 3; row++) {
+      const n = 3 * j - row;
+      bcell(2 + row, j, "n" + n, String(n), rlCls(n));
+    }
+  }
+  bcell(2, 13, "c3", "2:1"); bcell(3, 13, "c2", "2:1"); bcell(4, 13, "c1", "2:1");
+  bcell(5, 1, "d1", "1~12", "", 4); bcell(5, 5, "d2", "13~24", "", 4); bcell(5, 9, "d3", "25~36", "", 4);
+  bcell(6, 1, "low", "1-18", "", 2); bcell(6, 3, "even", "짝", "", 2); bcell(6, 5, "red", "RED", "red", 2);
+  bcell(6, 7, "black", "BLK", "", 2); bcell(6, 9, "odd", "홀", "", 2); bcell(6, 11, "high", "19-36", "", 2);
+  if (me) {
+    amountRow(put, 7, [1, 3, 5, 7, 9, 11], 2);
+    put(8, 1, button("취소", () => send({ t: "rl-clear" })), "btn", 2);
+    refillBtn(put, 8, 3, 4);
+    readyBtn("rl", put, 8, 11, 3);
+  }
+  put(9, 0, "결과", "h");
+  if (spin) put(9, 1, spin.cur === undefined ? "…" : String(spin.cur), "c spin", 2);
+  else put(9, 1, S.rl.n ? String(last) : "-", "c b " + (S.rl.n ? rlCls(last) : "") + fr, 2);
+  const hist = document.createElement("span"); hist.className = "road";
+  S.rl.hist.slice(0, 15).forEach(n => { const s = document.createElement("span"); s.textContent = n; s.className = rlCls(n); hist.append(s); });
+  put(9, 3, hist, "", 11);
+  put(10, 0, "내역", "h");
+  put(10, 1, Object.entries(mine).map(([k, a]) => rlName(k) + ":" + man(a)).join("  "), "m", 13);
+
+  put(12, 0, "담당", "h", 3); put(12, 3, "잔액", "h", 3); put(12, 6, "베팅", "h", 3); put(12, 9, "준비", "h", 2); put(12, 11, "직전", "h", 3);
+  S.players.forEach((p, i) => {
+    const cls = p.id === myId ? "me" : "";
+    put(13 + i, 0, p.name, cls, 3); put(13 + i, 3, fmt(p.chips), "n " + cls, 3);
+    put(13 + i, 6, sum(p.rl) ? fmt(sum(p.rl)) : "", "n m", 3);
+    put(13 + i, 9, p.ready.rl ? "✓" : "대기", "c " + (p.ready.rl ? "in" : "m"), 2);
+    put(13 + i, 11, p.lastNet ? sgn(p.lastNet) : "", netCls(p.lastNet), 3);
+  });
+  anaRl(put, 19);
+}
+
+function layoutBj(put) {
+  const me = meP(), play = S.bj.phase === "play";
+  header(put, 6, 1);
+  const d = S.bj.dealer;
+  put(2, 0, "딜러", "h b"); put(2, 1, cardsEl(d), "", 6);
+  put(2, 7, d.length ? (play ? hv([d[0]]) + "+?" : String(hv(d))) : "", "n b");
+  put(2, 8, play ? "진행중" : "베팅", "c " + (play ? "out" : "m"));
+  put(2, 9, "No " + S.bj.n, "n m");
+  ["담당", "베팅", "카드", "", "", "", "", "합", "상태", "직전"].forEach((h, i) => { if (i < 3 || i > 6) put(4, i, h, "h", i === 2 ? 5 : 1); });
+  S.players.forEach((p, i) => {
+    const r = 5 + i, cls = p.id === myId ? "me" : "", h = p.bj;
+    put(r, 0, p.name, cls); put(r, 1, h.bet ? fmt(h.bet) : "", "n " + cls);
+    put(r, 2, cardsEl(h.cards), "", 5);
+    put(r, 7, h.cards.length ? String(hv(h.cards)) : "", "n");
+    let st;
+    if (play) st = h.cards.length ? (h.done ? h.res : "진행") : "-";
+    else st = p.ready.bj ? "✓ 준비" : (h.res || "대기");
+    const stc = /승|BJ/.test(st) || st === "✓ 준비" ? "in" : /패|버스트/.test(st) ? "out" : "m";
+    put(r, 8, st, "c " + stc);
+    put(r, 9, p.lastNet ? sgn(p.lastNet) : "", netCls(p.lastNet));
+  });
+  anaBj(put, 15);
+  if (!me) return;
+  const myHand = me.bj;
+  if (play && myHand.cards.length && !myHand.done) {
+    put(11, 0, button("히트", () => send({ t: "bj-hit" })), "btn in", 2);
+    put(11, 2, button("스탠드", () => send({ t: "bj-stand" })), "btn", 3);
+    if (myHand.cards.length === 2) put(11, 5, button("더블", () => send({ t: "bj-double" })), "btn out", 2);
+    put(11, 7, "권장: " + bjHint(myHand.cards, d[0]), "b hold", 3);
+  } else if (play) {
+    put(11, 0, "다른 담당자 처리 대기 중", "m", 6);
+  } else {
+    amountRow(put, 11, [0, 1, 2, 3, 4, 5]);
+    put(12, 0, button("베팅", () => send({ t: "bj-add", ...bet() })), "btn in", 2);
+    put(12, 2, button("취소", () => send({ t: "bj-clear" })), "btn", 2);
+    readyBtn("bj", put, 12, 4, 3);
+  }
+  put(13, 0, "잔액", "h"); put(13, 1, fmt(me.chips), "n me");
+  refillBtn(put, 13, 2, 3);
+}
+
+/* ---------- analysis (below each game) ---------- */
+const pct = (a, b) => b ? (a * 100 / b).toFixed(1) + "%" : "-";
+const bar = (a, b, len) => b ? "█".repeat(Math.round(a / b * len)) : "";
+const winRate = t => t.w + t.l ? pct(t.w, t.w + t.l) : "-";
+
+function anaBac(put, r0) {
+  const R = S.bac.rounds, N = R.length;
+  put(r0, 0, `■ 분석 (최근 ${N}전표)`, "b", 6);
+  ["구분", "", "횟수", "비율", "막대", "", "", "최근10", "최근30", "이론"].forEach((h, i) => { if (i !== 1 && (i < 5 || i > 6)) put(r0 + 1, i, h, "h c", i === 0 ? 2 : i === 4 ? 3 : 1); });
+  const cnt = (arr, w) => arr.filter(x => x.w === w).length;
+  [["P", "in", "44.6%"], ["B", "out", "45.9%"], ["T", "hold", "9.5%"]].forEach(([w, cls, th], i) => {
+    const c = cnt(R, w), r = r0 + 2 + i;
+    put(r, 0, w, "c b " + cls, 2); put(r, 2, String(c), "n"); put(r, 3, pct(c, N), "n");
+    put(r, 4, bar(c, N, 14), cls, 3);
+    put(r, 7, String(cnt(R.slice(0, 10), w)), "n"); put(r, 8, String(cnt(R.slice(0, 30), w)), "n"); put(r, 9, th, "n m");
+  });
+  // streaks (oldest → newest, ties skipped)
+  const seq = R.slice().reverse().filter(x => x.w !== "T");
+  let cur = null, len = 0; const best = { P: 0, B: 0 };
+  for (const x of seq) { len = x.w === cur ? len + 1 : 1; cur = x.w; best[cur] = Math.max(best[cur], len); }
+  const r = r0 + 5;
+  put(r, 0, "현재연속", "h", 2); put(r, 2, cur ? cur + " " + len : "-", "c b " + (cur ? W[cur][1] : ""), 2);
+  put(r, 4, "최장P", "h"); put(r, 5, String(best.P), "n"); put(r, 6, "최장B", "h"); put(r, 7, String(best.B), "n");
+  put(r, 8, "내추럴", "h"); put(r, 9, pct(R.filter(x => x.P.length === 2 && x.B.length === 2 && (x.p >= 8 || x.b >= 8)).length, N), "n");
+  const pp = R.filter(x => rank(x.P[0]) === rank(x.P[1])).length, bp = R.filter(x => rank(x.B[0]) === rank(x.B[1])).length;
+  put(r + 1, 0, "P페어", "h", 2); put(r + 1, 2, String(pp), "n"); put(r + 1, 3, pct(pp, N), "n");
+  put(r + 1, 4, "B페어", "h"); put(r + 1, 5, String(bp), "n"); put(r + 1, 6, pct(bp, N), "n");
+
+  // big road: a new column each time the winner changes, ties mark the previous cell
+  const road = [];
+  for (const x of R.slice().reverse()) {
+    if (x.w === "T") { const col = road[road.length - 1]; if (col) col.t[col.t.length - 1]++; continue; }
+    const col = road[road.length - 1];
+    if (col && col.w === x.w) col.t.push(0); else road.push({ w: x.w, t: [0] });
+  }
+  const rb = r0 + 8;
+  put(rb, 0, "■ 빅로드 (최근 10열 · /T = 타이)", "b", 6);
+  road.slice(-10).forEach((col, ci) => {
+    for (let i = 0; i < 6 && i < col.t.length; i++) {
+      const more = i === 5 && col.t.length > 6 ? "+" + (col.t.length - 5) : "";
+      put(rb + 1 + i, ci, more || col.w + (col.t[i] ? "/T" : ""), "c b " + W[col.w][1]);
+    }
+  });
+  playersBac(put, rb + 8);
+}
+function playersBac(put, r) {
+  put(r, 0, "■ 담당자 성적", "b", 6);
+  [["담당", 0, 2], ["판수", 2], ["승", 3], ["패", 4], ["승률", 5], ["누적손익", 6, 2], ["최고잔액", 8, 2]].forEach(([h, c, s]) => put(r + 1, c, h, "h c", s));
+  S.players.forEach((p, i) => {
+    const t = p.st.bac, y = r + 2 + i, me = p.id === myId ? " me" : "";
+    put(y, 0, p.name, me, 2); put(y, 2, String(t.n), "n"); put(y, 3, String(t.w), "n"); put(y, 4, String(t.l), "n");
+    put(y, 5, winRate(t), "n"); put(y, 6, t.net ? sgn(t.net) : "0", netCls(t.net), 2); put(y, 8, fmt(p.peak), "n", 2);
+  });
+}
+
+function anaRl(put, r0) {
+  const Hh = S.rl.hist, N = Hh.length;
+  put(r0, 0, `■ 분석 (최근 ${N}회)`, "b", 8);
+  [["구분", 0], ["횟수", 2], ["비율", 4], ["막대", 6, 6], ["이론", 12]].forEach(([h, c, s]) => put(r0 + 1, c, h, "h c", s || 2));
+  const rows = [
+    ["RED", n => REDS.has(n), "red", 48.6], ["BLK", n => n && !REDS.has(n), "", 48.6], ["0", n => n === 0, "hold", 2.7],
+    ["홀", n => n % 2 === 1, "", 48.6], ["짝", n => n && n % 2 === 0, "", 48.6],
+    ["1-18", n => n >= 1 && n <= 18, "", 48.6], ["19-36", n => n >= 19, "", 48.6],
+    ["1~12", n => n >= 1 && n <= 12, "", 32.4], ["13~24", n => n >= 13 && n <= 24, "", 32.4], ["25~36", n => n >= 25, "", 32.4],
+  ];
+  rows.forEach(([name, f, cls, th], i) => {
+    const c = Hh.filter(f).length, y = r0 + 2 + i;
+    put(y, 0, name, "c b " + cls, 2); put(y, 2, String(c), "n", 2); put(y, 4, pct(c, N), "n", 2);
+    put(y, 6, bar(c, N, 12), cls || "in", 6); put(y, 12, th + "%", "n m", 2);
+  });
+  const freq = Array(37).fill(0); Hh.forEach(n => freq[n]++);
+  const gap = Array.from({ length: 37 }, (_, n) => { const i = Hh.indexOf(n); return i < 0 ? N : i; });
+  const nums = [...Array(37).keys()];
+  const y = r0 + 13;
+  const list = (arr, f) => arr.slice(0, 6).map(n => `${n}(${f(n)})`).join("  ");
+  put(y, 0, "HOT", "h b out", 2); put(y, 2, N ? list(nums.slice().sort((a, b) => freq[b] - freq[a]), n => freq[n] + "회") : "-", "", 12);
+  put(y + 1, 0, "COLD", "h b in", 2); put(y + 1, 2, N ? list(nums.slice().sort((a, b) => freq[a] - freq[b]), n => freq[n] + "회") : "-", "", 12);
+  put(y + 2, 0, "미출현", "h", 2); put(y + 2, 2, N ? list(nums.slice().sort((a, b) => gap[b] - gap[a]), n => gap[n] + "회째") : "-", "", 12);
+  let col = null, len = 0;
+  for (const n of Hh) { const c = n === 0 ? "0" : REDS.has(n) ? "RED" : "BLK"; if (col === null) { col = c; len = 1; } else if (c === col) len++; else break; }
+  put(y + 3, 0, "연속", "h", 2); put(y + 3, 2, col ? `${col} ${len}연속` : "-", "b " + (col === "RED" ? "red" : col === "0" ? "hold" : ""), 12);
+  const r = y + 5;
+  put(r, 0, "■ 담당자 성적", "b", 8);
+  [["담당", 0, 3], ["판수", 3, 2], ["승", 5, 2], ["패", 7, 2], ["승률", 9, 2], ["누적손익", 11, 3]].forEach(([h, c, s]) => put(r + 1, c, h, "h c", s));
+  S.players.forEach((p, i) => {
+    const t = p.st.rl, yy = r + 2 + i, me = p.id === myId ? " me" : "";
+    put(yy, 0, p.name, me, 3); put(yy, 3, String(t.n), "n", 2); put(yy, 5, String(t.w), "n", 2); put(yy, 7, String(t.l), "n", 2);
+    put(yy, 9, winRate(t), "n", 2); put(yy, 11, t.net ? sgn(t.net) : "0", netCls(t.net), 3);
+  });
+}
+
+function anaBj(put, r0) {
+  put(r0, 0, "■ 담당자 성적", "b", 4);
+  ["담당", "판수", "승", "패", "무", "BJ", "버스트", "승률", "누적손익", "최고잔액"].forEach((h, i) => put(r0 + 1, i, h, "h c"));
+  S.players.forEach((p, i) => {
+    const t = p.st.bj, y = r0 + 2 + i, me = p.id === myId ? " me" : "";
+    put(y, 0, p.name, me);
+    [t.n, t.w, t.l, t.push, t.bj, t.bust].forEach((v, k) => put(y, 1 + k, String(v), "n"));
+    put(y, 7, winRate(t), "n"); put(y, 8, t.net ? sgn(t.net) : "0", netCls(t.net)); put(y, 9, fmt(p.peak), "n");
+  });
+  const ds = S.bj.ds, r = r0 + 8, stood = ds.n - ds.bust;
+  put(r, 0, "■ 딜러", "b", 4);
+  put(r + 1, 0, "판수", "h"); put(r + 1, 1, String(ds.n), "n");
+  put(r + 1, 2, "버스트율", "h", 2); put(r + 1, 4, pct(ds.bust, ds.n), "n", 2);
+  put(r + 1, 6, "평균점수", "h", 2); put(r + 1, 8, stood ? (ds.sum / stood).toFixed(1) : "-", "n");
+  const keys = ["17", "18", "19", "20", "21", "BJ", "버스트", "기타"];
+  keys.forEach((k, i) => {
+    put(r + 2, i, k, "h c");
+    put(r + 3, i, String(ds.dist[k] || 0), "n");
+    put(r + 4, i, pct(ds.dist[k] || 0, ds.n), "n m");
+  });
+}
+
+/* basic strategy for one hand without splitting: returns a hint string */
+function bjHint(cs, up) {
+  let s = 0, ace = false;
+  for (const c of cs) { const r = Math.min(rank(c), 10); s += r; if (r === 1) ace = true; }
+  const soft = ace && s + 10 <= 21, v = soft ? s + 10 : s;
+  const u = Math.min(rank(up), 10) === 1 ? 11 : Math.min(rank(up), 10);
+  const two = cs.length === 2;
+  const dbl = (cond, alt) => cond ? (two ? "더블" : alt) : alt;
+  if (soft) {
+    if (v >= 19) return "스탠드";
+    if (v === 18) return u >= 3 && u <= 6 ? dbl(true, "스탠드") : u <= 8 ? "스탠드" : "히트";
+    if (v === 17) return dbl(u >= 3 && u <= 6, "히트");
+    if (v >= 15) return dbl(u >= 4 && u <= 6, "히트");
+    return dbl(u >= 5 && u <= 6, "히트");
+  }
+  if (v >= 17) return "스탠드";
+  if (v >= 13) return u <= 6 ? "스탠드" : "히트";
+  if (v === 12) return u >= 4 && u <= 6 ? "스탠드" : "히트";
+  if (v === 11) return dbl(u <= 10, "히트");
+  if (v === 10) return dbl(u <= 9, "히트");
+  if (v === 9) return dbl(u >= 3 && u <= 6, "히트");
+  return "히트";
+}
+
+/* ---------- hold'em view ---------- */
+let hdDeadline = 0, hdNextAt = 0, hdSeen = null;
+const STREET = ["프리플랍", "플랍", "턴", "리버", "쇼다운"];
+function cardCell(put, r, c, card, extra) {
+  put(r, c, card === undefined ? "" : label(card), "c " + (isRed(card) ? "red " : "") + (extra || ""));
+}
+function layoutHd(put) {
+  const D = S.hd, me = meP(), play = D.phase === "play";
+  if (D !== hdSeen) { hdSeen = D; hdDeadline = Date.now() + D.left; hdNextAt = D.next ? Date.now() + D.next : 0; }
+  const nameOf = id => (S.players.find(p => p.id === id) || {}).name || "(퇴장)";
+  header(put, 6, 1);
+  put(2, 0, "보드", "h b"); put(2, 1, "팟 " + fmt(D.pot), "n b");
+  for (let i = 0; i < 5; i++) cardCell(put, 2, 2 + i, D.board[i], "b");
+  put(2, 7, play ? STREET[D.street] : D.running ? (D.wait ? "리바인대기" : "다음 핸드") : D.n ? "종료" : "대기", "c " + (play || D.running ? "out" : "m"));
+  put(2, 8, "No " + D.n, "n m");
+  const timer = document.createElement("span"); timer.id = "hd-timer";
+  timer.textContent = hdTimerText(D);
+  put(2, 9, timer, "n out");
+
+  ["담당", "잔액", "카드", "", "족보", "", "리바인", "베팅", "상태", "결과"].forEach((h, i) => { if (h) put(4, i, h, "h c", i === 2 || i === 4 ? 2 : 1); });
+  const inHand = new Set(D.hands.map(h => h.id));
+  const rows = D.hands.concat(S.players.filter(p => !inHand.has(p.id)).map(p => ({ id: p.id, cards: [], watch: true })));
+  rows.forEach((h, i) => {
+    const r = 5 + i, p = S.players.find(x => x.id === h.id), mine = h.id === myId, cls = mine ? "me" : "";
+    const tag = (h.id === D.btn ? "Ⓓ" : "") + (D.toAct === h.id ? "▶" : "");
+    put(r, 0, (tag ? tag + " " : "") + nameOf(h.id), cls + (D.toAct === h.id ? " b out" : ""));
+    put(r, 1, p ? fmt(p.chips) : "-", "n " + cls);
+    cardCell(put, r, 2, h.cards[0], h.folded ? "m" : ""); cardCell(put, r, 3, h.cards[1], h.folded ? "m" : "");
+    let hn = "";
+    if (D.last && !play && D.last.hand[h.id]) hn = D.last.hand[h.id];
+    else if (mine && h.cards.length && h.cards[0] >= 0) hn = handName(h.cards.concat(D.board));
+    put(r, 4, hn, "c", 2);
+    put(r, 6, p && p.rebuy ? p.rebuy + "회" : "", "n" + (p && p.rebuy ? " out" : " m"));
+    put(r, 7, play && h.bet ? fmt(h.bet) : "", "n");
+    let st = "";
+    const seat = p && p.hdSeat ? (p.chips > 0 ? "착석" : "파산") : "관전";
+    if (play && !h.watch) st = h.folded ? "폴드" : h.allin ? "올인" : D.toAct === h.id ? "차례" : "";
+    else if (D.running) st = play && p && p.hdSeat ? "다음 핸드" : seat;
+    else st = p && p.ready.hd ? "✓ 준비" : "대기";
+    put(r, 8, st, "c " + (st === "✓ 준비" || st === "착석" || st === "다음 핸드" ? "in" : st === "차례" || st === "올인" || st === "파산" ? "out" : "m"));
+    if (!play && D.last && !h.watch) { const net = (D.last.won[h.id] || 0) - h.total; put(r, 9, net ? sgn(net) : "0", netCls(net)); }
+  });
+
+  if (me) {
+    const my = D.hands.find(h => h.id === myId);
+    if (play && D.toAct === myId && my) {
+      const toCall = D.curBet - my.bet, raise = Math.max(amt, D.minRaise);
+      put(11, 0, button("폴드", () => send({ t: "hd", a: "fold" })), "btn out");
+      put(11, 1, button(toCall > 0 ? "콜 " + man(Math.min(toCall, me.chips)) : "체크", () => send({ t: "hd", a: "call" })), "btn in");
+      amountRow(put, 11, [2, 3, 4, 5, 6], 1, false);
+      put(11, 7, button((D.curBet ? "레이즈 +" : "벳 ") + man(raise), () => send({ t: "hd", a: "raise", amt })), "btn", 2);
+      put(11, 9, button("올인", () => send({ t: "hd", a: "allin" })), "btn out");
+    } else {
+      if (D.running) put(11, 0, button(me.hdSeat ? "일어나기" : "참가", () => send({ t: "hd-seat" })), "btn " + (me.hdSeat ? "out" : "in"), 2);
+      else readyBtn("hd", put, 11, 0, 2);
+      const info = play ? (D.toAct ? nameOf(D.toAct) + " 차례 (30초 초과 시 체크/폴드)" : "") + (D.running && !me.hdSeat ? " · 참가 시 다음 핸드부터" : "")
+        : D.running ? (D.wait ? "잔액 있는 착석자 2명 이상 필요 · 리바인 대기" : me.hdSeat ? "다음 핸드 자동 시작" : "참가 누르면 다음 핸드부터")
+        : "전원 준비 시 테이블 시작 (이후 자동 진행) · SB 5천 / BB 1만";
+      put(11, 2, info, "m", 8);
+    }
+    put(12, 0, "잔액", "h"); put(12, 1, fmt(me.chips), "n me");
+    if (canRefill(me)) put(12, 2, button("리바인 +" + man(START), () => send({ t: "refill" })), "btn in", 2);
+    if (play && my && !my.folded && my.cards[0] >= 0) {
+      const opp = D.hands.filter(h => h.id !== myId && !h.folded).length;
+      const eq = equity(my.cards, D.board, opp);
+      const toCall = Math.min(D.curBet - my.bet, me.chips);
+      const odds = toCall > 0 ? toCall / (D.pot + toCall) : 0;
+      put(12, 2, "승률추정", "h", 2); put(12, 4, (eq * 100).toFixed(0) + "%", "n b");
+      put(12, 5, "팟오즈", "h", 2); put(12, 7, toCall ? (odds * 100).toFixed(0) + "%" : "-", "n");
+      const verdict = toCall === 0 ? (eq > 0.5 ? "벳 고려" : "체크") : eq > odds ? "콜 유리" : "폴드 고려";
+      put(12, 8, verdict, "c b " + (verdict === "폴드 고려" ? "out" : "in"), 2);
+    }
+  }
+  if (!play && D.last) {
+    const ws = Object.keys(D.last.won).filter(id => D.last.won[id] > 0);
+    put(13, 0, "결과", "h");
+    put(13, 1, ws.map(id => nameOf(id) + " +" + fmt(D.last.won[id]) + (D.last.hand[id] ? " (" + D.last.hand[id] + ")" : "")).join("  ·  ") || "-", "b in", 9);
+  }
+  anaHd(put, 15);
+}
+function anaHd(put, r0) {
+  const D = S.hd;
+  put(r0, 0, "■ 담당자 성적", "b", 3);
+  [["담당", 0], ["판수", 1], ["승", 2], ["패", 3], ["승률", 4], ["쇼다운승", 5], ["리바인", 6, 2], ["누적손익", 8], ["최고잔액", 9]].forEach(([h, c, s]) => put(r0 + 1, c, h, "h c", s));
+  S.players.forEach((p, i) => {
+    const t = p.st.hd, y = r0 + 2 + i, me = p.id === myId ? " me" : "";
+    put(y, 0, p.name, me); put(y, 1, String(t.n), "n"); put(y, 2, String(t.w), "n"); put(y, 3, String(t.l), "n");
+    put(y, 4, winRate(t), "n"); put(y, 5, String(t.sd), "n"); put(y, 6, (p.rebuy || 0) + "회", "n" + (p.rebuy ? " out" : ""), 2);
+    put(y, 8, t.net ? sgn(t.net) : "0", netCls(t.net)); put(y, 9, fmt(p.peak), "n");
+  });
+  const r = r0 + 8;
+  put(r, 0, "■ 최근 핸드", "b", 3);
+  [["No", 0], ["승자", 1, 3], ["족보", 4, 3], ["팟", 7, 3]].forEach(([h, c, s]) => put(r + 1, c, h, "h c", s));
+  D.log.forEach((x, i) => {
+    put(r + 2 + i, 0, String(x.n), "n m"); put(r + 2 + i, 1, x.win || "-", "", 3);
+    put(r + 2 + i, 4, x.hand, "c", 3); put(r + 2 + i, 7, fmt(x.pot), "n", 3);
+  });
+}
+setInterval(() => {
+  const el = document.getElementById("hd-timer");
+  if (el && S) el.textContent = hdTimerText(S.hd);
+}, 500);
+function hdTimerText(D) {
+  if (D.phase === "play") return Math.ceil(Math.max(0, hdDeadline - Date.now()) / 1000) + "초";
+  if (D.running && hdNextAt) return Math.ceil(Math.max(0, hdNextAt - Date.now()) / 1000) + "초 후";
+  return "";
+}
+
+const ITEMS = ["볼트 M8×25","너트 M8","평와셔 8","육각렌치 5mm","케이블타이 200","절연테이프 19mm","덕트 40×40","단자대 10P","릴레이 24VDC","근접센서 M12","에어호스 Ø8","피팅 8mm","리미트스위치 SPDT","퓨즈 5A","차단기 2P20A","전선 1.5SQ","압착단자 1.25-4","DIN레일 1m","팬필터 120","표시등 적색"];
+function layoutDecoy(put) {
+  ["코드", "품명", "규격", "단위", "안전", "현재고", "단가", "금액"].forEach((h, i) => put(0, i, h, "h c"));
+  ITEMS.forEach((name, i) => {
+    const k = name.indexOf(" "), qty = 40 + ((i * 37) % 160), price = 300 + ((i * 911) % 9000);
+    put(i + 1, 0, "M" + (1001 + i), "m"); put(i + 1, 1, name.slice(0, k)); put(i + 1, 2, name.slice(k + 1), "c");
+    put(i + 1, 3, i % 3 ? "EA" : "BOX", "c"); put(i + 1, 4, fmt(20 + ((i * 13) % 60)), "n"); put(i + 1, 5, fmt(qty), "n");
+    put(i + 1, 6, fmt(price), "n"); put(i + 1, 7, fmt(qty * price), "n");
+  });
+}
+
+const LAYOUT = { bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
+const colName = i => i < 26 ? String.fromCharCode(65 + i) : "A" + String.fromCharCode(39 + i);
+
+/* roulette spin: when a new result arrives, run a highlight around the board in wheel order,
+   decelerating onto the result; meanwhile the sheet shows the pre-result state so nothing leaks */
+const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const SPIN_MS = 3200;
+let spin = null, rlShown = null, prevS = null;
+function watchSpin() {
+  if (!S) { spin = null; rlShown = null; prevS = null; return; }
+  if (rlShown === null || S.rl.n < rlShown) rlShown = S.rl.n;
+  else if (S.rl.n > rlShown) {
+    rlShown = S.rl.n;
+    if (spin || view !== "rl" || !prevS || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const from = WHEEL.indexOf(prevS.rl.n ? prevS.rl.hist[0] : 0), to = WHEEL.indexOf(S.rl.hist[0]);
+    spin = { base: prevS, from, steps: 37 * 3 + (to - from + 37) % 37, t0: performance.now(), cur: undefined };
+    requestAnimationFrame(spinTick);
+  }
+}
+function spinTick() {
+  if (!spin) return;
+  const x = Math.min(1, (performance.now() - spin.t0) / SPIN_MS);
+  if (x >= 1) { spin = null; render(); return; }
+  const cur = WHEEL[Math.floor(spin.from + spin.steps * (1 - Math.pow(1 - x, 3))) % 37];
+  if (cur !== spin.cur) { spin.cur = cur; render(); }
+  requestAnimationFrame(spinTick);
+}
+
+/* baccarat squeeze: a new round is dealt card by card — first P/B cards flip, the rest stay
+   face-down until rubbed open (drag peels the back off; tap opens; idle slowly peels by itself).
+   Like the spin, the sheet shows the pre-result state meanwhile, and win toasts wait. */
+const SQ_PX = 150, SQ_IDLE = 1200, SQ_AUTO = 0.4, SQ_FLIP = 500, SQ_GAP = 700;
+let sq = null, bacShown = null;
+function watchSq() {
+  if (!S) { sq = null; bacShown = null; return; }
+  if (bacShown === null || S.bac.n < bacShown) { bacShown = S.bac.n; return; }
+  if (S.bac.n <= bacShown) return;
+  bacShown = S.bac.n;
+  if (sq) sqEnd(true);
+  const r = S.bac.rounds[0];
+  if (view !== "bac" || !prevS || !r || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const seq = [{ s: "P", i: 0, auto: 1 }, { s: "B", i: 0, auto: 1 }, { s: "P", i: 1 }, { s: "B", i: 1 }];
+  if (r.P[2] !== undefined) seq.push({ s: "P", i: 2 });
+  if (r.B[2] !== undefined) seq.push({ s: "B", i: 2 });
+  const now = performance.now();
+  sq = { base: prevS, r, seq, k: 0, p: 0, live: false, at: now + SQ_FLIP, tt: now, last: now, drag: null, q: [] };
+  requestAnimationFrame(sqTick);
+}
+function sqState(side, i) {
+  const k = sq.seq.findIndex(x => x.s === side && x.i === i);
+  if (k < sq.k) return "open";
+  if (k === sq.k && sq.live) return "live";
+  return i === 2 && k > sq.k ? "none" : "back";
+}
+function sqOpen(side) {
+  const cs = sq.seq.slice(0, sq.k).filter(x => x.s === side).map(x => sq.r[side][x.i]);
+  return cs.length ? btot(cs) : null;
+}
+function sqTick() {
+  if (!sq) return;
+  const now = performance.now(), dt = Math.min(0.1, (now - sq.tt) / 1000); sq.tt = now;
+  if (now >= sq.at) {
+    if (sq.seq[sq.k].auto) return sqNext(now);
+    if (!sq.live) { sq.live = true; sq.last = now; render(); }
+    if (!sq.drag && now - sq.last > SQ_IDLE) sq.p = Math.min(1, sq.p + dt * SQ_AUTO);
+    if (sq.p >= 1) return sqNext(now);
+    sqPaint();
+  }
+  requestAnimationFrame(sqTick);
+}
+function sqNext(now) {
+  sq.k++; sq.p = 0; sq.live = false; sq.drag = null;
+  if (sq.k >= sq.seq.length) return sqEnd();
+  sq.at = now + (sq.seq[sq.k].auto ? SQ_FLIP : SQ_GAP);
+  render();
+  requestAnimationFrame(sqTick);
+}
+function sqEnd(silent) {
+  if (!sq) return;
+  const q = sq.q; sq = null;
+  if (!silent) render();
+  q.forEach(m => showEvent({ ...m, delay: 0, held: 1 }));
+}
+function sqPaint() {
+  const v = grid.querySelector(".sqv");
+  if (v) v.style.width = (1 - sq.p) * 100 + "%";
+}
+grid.addEventListener("pointerdown", e => {
+  if (!sq || !sq.live || !e.target.closest("td.sqc")) return;
+  e.preventDefault();
+  sq.drag = { x: e.clientX, y: e.clientY, p: sq.p, t: performance.now(), m: 0 };
+});
+addEventListener("pointermove", e => {
+  if (!sq || !sq.drag) return;
+  const d = Math.hypot(e.clientX - sq.drag.x, e.clientY - sq.drag.y);
+  sq.drag.m = Math.max(sq.drag.m, d);
+  sq.p = Math.min(1, Math.max(sq.p, sq.drag.p + d / SQ_PX));
+  sq.last = performance.now();
+  sqPaint();
+});
+const sqUp = () => {
+  if (!sq || !sq.drag) return;
+  if (sq.drag.m < 6 && performance.now() - sq.drag.t < 300) sq.p = 1;
+  sq.drag = null; sq.last = performance.now();
+};
+addEventListener("pointerup", sqUp); addEventListener("pointercancel", sqUp);
+
+// host snapshots share live objects with H, so keep a detached copy as the pre-result base
+const clone = o => { try { return structuredClone(o); } catch { return o; } };
+function render() {
+  const a = document.activeElement;
+  if (!S && a && a.id === "in-name") return;
+  watchSpin();
+  watchSq();
+  rdSyncGo();
+  const real = S;
+  if (spin && view === "rl") S = spin.base;
+  if (sq && view === "bac") S = sq.base;
+  try { draw_(); } finally { S = real; prevS = isHost && real ? clone(real) : real; }
+  chatSync();
+}
+function draw_() {
+  const widths = VIEWS[view === "decoy" || view === "rd" || S ? view : "bac"];
+  const nc = widths.length;
+  const cells = Array.from({ length: NROWS }, () => Array(nc).fill(null));
+  const put = (r, c, content, cls, span) => {
+    if (r >= NROWS || c >= nc) return;
+    cells[r][c] = mk(content, cls, span);
+    for (let k = 1; k < (span || 1) && c + k < nc; k++) cells[r][c + k] = false;
+  };
+  (view === "decoy" ? layoutDecoy : S || view === "rd" ? LAYOUT[view] : layoutLobby)(put);
+  grid.textContent = "";
+  const cg = document.createElement("colgroup");
+  [24, ...widths].forEach(w => { const c = document.createElement("col"); c.style.width = w + "px"; cg.append(c); });
+  const thead = document.createElement("thead"), hr = document.createElement("tr");
+  hr.append(document.createElement("th"));
+  widths.forEach((_, i) => { const th = document.createElement("th"); th.textContent = colName(i); hr.append(th); });
+  thead.append(hr);
+  const tb = document.createElement("tbody");
+  cells.forEach((row, i) => {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th"); th.textContent = i + 1; tr.append(th);
+    row.forEach(td => { if (td !== false) tr.append(td || mk("")); });
+    tb.append(tr);
+  });
+  grid.append(cg, thead, tb);
+  if (S && view !== "decoy") {
+    if (view === "bac" && S.bac.rounds[0]) seen.bac = S.bac.rounds[0].n;
+    if (view === "rl") seen.rl = S.rl.n;
+  }
+  const me = meP();
+  $("st-cnt").textContent = "개수: " + (view === "decoy" ? ITEMS.length : S ? S.players.length : 0);
+  $("st-sum").textContent = "합계: " + (view === "decoy" ? "96,240" : me ? fmt(me.chips) : "-");
+  if (view === "rd") rdPaint();
+}
+
+/* ---------- tabs / keys ---------- */
+function setView(v) {
+  if (sq && v !== "bac") sqEnd(true);
+  view = v; if (v !== "decoy") lastGame = v;
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.v === v));
+  document.activeElement && document.activeElement.blur && document.activeElement.blur();
+  render();
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => setView(b.dataset.v));
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { e.preventDefault(); setView(view === "decoy" ? lastGame : "decoy"); }
+  else if (e.key === " " && view === "tw" && !(document.activeElement && document.activeElement.tagName === "INPUT")) { e.preventDefault(); twDrop(); }
+  else if (e.key === "F9") { e.preventDefault(); if (S && view !== "decoy") send({ t: "ready", g: view }); }
+});
+grid.addEventListener("pointerdown", e => { if (view === "tw" && e.target.closest("td.twc")) twDrop(); });
+grid.addEventListener("click", e => {
+  const td = e.target.closest("td"); if (!td) return;
+  grid.querySelectorAll(".cur").forEach(x => x.classList.remove("cur"));
+  td.classList.add("cur");
+  let col = 0; for (let x = td.previousElementSibling; x && x.tagName === "TD"; x = x.previousElementSibling) col += x.colSpan;
+  $("ref").textContent = colName(col) + td.parentElement.rowIndex;
+});
+window.addEventListener("beforeunload", () => { try { peer && peer.destroy(); } catch {} });
+
+try { nameDraft = localStorage.getItem("xs-name") || ""; } catch {}
+if (typeof Peer === "undefined") say("네트워크 모듈을 불러오지 못했습니다 (인터넷 연결 확인)", true);
+render();
+})();
+</script>
+</body>
+</html>
