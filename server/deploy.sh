@@ -20,8 +20,9 @@ if [ ! -x /usr/local/lib/nodejs/bin/node ]; then
   curl -fsSLO "https://nodejs.org/dist/latest-v22.x/$V"
   curl -fsS https://nodejs.org/dist/latest-v22.x/SHASUMS256.txt | grep " $V\$" | sha256sum -c -
   sudo mkdir -p /usr/local/lib/nodejs && sudo tar xJf "$V" -C /usr/local/lib/nodejs --strip-components=1
-  sudo restorecon -R /usr/local/lib/nodejs 2>/dev/null || true
 fi
+# SELinux: 서비스가 실행할 파일은 bin_t 위치(/usr/local/bin)에 있어야 함 (lib_t면 V8이 메모리 실행 권한을 못 받아 죽음)
+[ -x /usr/local/bin/node ] || { sudo install -m 755 /usr/local/lib/nodejs/bin/node /usr/local/bin/node; sudo restorecon /usr/local/bin/node 2>/dev/null || true; }
 if [ ! -x /usr/local/bin/caddy ]; then
   echo "-- Caddy 설치"
   U=$(curl -fsS https://api.github.com/repos/caddyserver/caddy/releases/latest | grep -o 'https://[^"]*caddy_[0-9.]*_linux_amd64.tar.gz' | head -1)
@@ -44,7 +45,7 @@ sudo systemctl restart shs999 caddy-shs
 sleep 3
 echo "-- 상태"
 systemctl is-active shs999 caddy-shs
-curl -s http://127.0.0.1:8099/status; echo
+curl -s http://127.0.0.1:8099/status || echo "게임 서버 응답 없음: sudo journalctl -u shs999 -n 30"; echo
 free -m | sed -n 2p
 EOF
 

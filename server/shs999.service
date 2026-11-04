@@ -6,7 +6,7 @@ After=network-online.target
 User=opc
 WorkingDirectory=/home/opc/shs999
 Environment=PORT=8099 DATA=/home/opc/shs999/data
-ExecStart=/usr/local/lib/nodejs/bin/node --max-old-space-size=96 server.js
+ExecStart=/usr/local/bin/node --max-old-space-size=96 server.js
 Restart=always
 RestartSec=2
 MemoryMax=160M
