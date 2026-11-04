@@ -71,6 +71,9 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 .toast.special{border-left-color:#8b6fd6}
 .toast.fail{border-left-color:#868e96;background:#26292e}
 .toast.die{border-left-color:#e5484d;background:#1d1f23}
+.toast.join{border-left-color:#4c8bf5}
+.t-br{color:#b0703c} .t-si{color:#9aa4ae} .t-go{color:#d4a017} .t-pl{color:#2bb3a3} .t-em{color:#2f9e55}
+.t-di{color:#5b8def} .t-ma{color:#a45ee5} .t-gm{color:#e5484d} .t-ch{color:#f0b429;font-weight:700}
 @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.new{animation:none}.toast{animation:none}}
 .chat{background:var(--bg);border-top:1px solid var(--line);padding:2px 8px}
@@ -125,6 +128,7 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
   <button type="button" role="tab" data-v="c4" aria-selected="false">이월</button>
   <button type="button" role="tab" data-v="tw" aria-selected="false">누계표</button>
   <button type="button" role="tab" data-v="rd" aria-selected="false">랜덤디펜스</button>
+  <button type="button" role="tab" data-v="rk" aria-selected="false">실적평가</button>
   <button type="button" role="tab" data-v="decoy" aria-selected="false">품목마스터</button>
 </div>
 <div class="status"><span id="ready">준비</span><span class="r"><span id="st-cnt">개수: -</span><span id="st-sum">합계: -</span></span></div>
@@ -155,6 +159,7 @@ const VIEWS = {
   c4: [34, ...Array(7).fill(42)],
   tw: [26, ...Array(21).fill(18)],
   rd: [26, ...Array(14).fill(48)],
+  rk: [34, 70, 84, 96, 44, 84],
 };
 const $ = id => document.getElementById(id);
 const grid = $("grid"), formula = $("formula");
@@ -315,7 +320,7 @@ const empty = () => ({ p: 0, b: 0, t: 0 });
 let peer = null, isHost = false, hostConn = null, myId = null, roomCode = "";
 let conns = new Map();
 let H = fresh();
-function fresh() { return { players: new Map(), bac: { rounds: [], n: 0 }, rl: { hist: [], n: 0 }, bj: { phase: "bet", dealer: [], n: 0, ds: { n: 0, bust: 0, sum: 0, dist: {} } }, hd: hdFresh(), chat: [], cs: 0, mg: { ch: mgNew("ch"), om: mgNew("om"), c4: mgNew("c4"), tw: mgNew("tw") } }; }
+function fresh() { return { board: {}, players: new Map(), bac: { rounds: [], n: 0 }, rl: { hist: [], n: 0 }, bj: { phase: "bet", dealer: [], n: 0, ds: { n: 0, bust: 0, sum: 0, dist: {} } }, hd: hdFresh(), chat: [], cs: 0, mg: { ch: mgNew("ch"), om: mgNew("om"), c4: mgNew("c4"), tw: mgNew("tw") } }; }
 let S = null;
 let view = "bac", lastGame = "bac", amt = AMTS[0], allIn = false, nameDraft = "", seen = {};
 
@@ -339,7 +344,7 @@ function snapshot(forId) {
     bac: H.bac, rl: H.rl,
     bj: { phase: H.bj.phase, n: H.bj.n, ds: H.bj.ds, dealer: hide ? [H.bj.dealer[0], -1] : H.bj.dealer },
     hd: hdView(forId),
-    players: [...H.players].map(([id, p]) => ({ id, ...p })) };
+    board: H.board, players: [...H.players].map(([id, p]) => ({ id, ...p })) };
 }
 /* random defense: everyone ready → bump rdGo, each client starts its own run on seeing it */
 function rdReadyCheck() {
@@ -349,6 +354,8 @@ function rdReadyCheck() {
   H.rdGo = (H.rdGo || 0) + 1;
 }
 function broadcast() {
+  const n = Date.now();
+  for (const p of H.players.values()) H.board[p.name] = [acct(p), n];
   for (const [id, c] of conns) if (c.open) c.send(snapshot(id));
   S = snapshot(myId); render();
 }
@@ -407,7 +414,8 @@ function showEvent(m) {
     const box = $("toasts"); if (!box) return;
     const el = document.createElement("div");
     const a = document.createElement("b"); a.textContent = String(m.name || "").slice(0, 8);
-    if (m.rd) { if (!rdToast(el, a, m)) return; }
+    if (m.sys) { el.className = "toast join"; el.append(m.k === "join" ? "👋 " : "🚪 ", a, m.k === "join" ? " 님이 입장했어요" : " 님이 나갔어요"); }
+    else if (m.rd) { if (!rdToast(el, a, m)) return; }
     else {
       el.className = "toast " + (["allin", "big", "jackpot", "special"].includes(m.kind) ? m.kind : "");
       const n = document.createElement("b"); n.textContent = "+" + fmt(Number(m.net) || 0);
@@ -453,7 +461,11 @@ function hostHandle(id, msg) {
   if (msg.t === "hello") {
     if (!p) {
       if (H.players.size >= MAX) { const c = conns.get(id); if (c) { c.send({ t: "full" }); setTimeout(() => c.close(), 300); } return; }
-      H.players.set(id, newPlayer(String(msg.name || "담당").slice(0, 8)));
+      const np = newPlayer(String(msg.name || "담당").slice(0, 8));
+      restore(np, msg.acct);
+      H.players.set(id, np);
+      boardMerge(H.board, msg.board);
+      emit({ sys: 1, k: "join", name: np.name });
       for (const q of H.players.values()) q.ready = { bac: false, rl: false, bj: false, hd: false };
     }
   } else if (!p) return;
@@ -777,8 +789,8 @@ function host() {
   say("입장 중…");
   peer = new Peer(PREFIX + ROOM, { debug: 0 });
   peer.on("open", id => {
-    myId = id; isHost = true; roomCode = ROOM;
-    hostHandle(myId, { t: "hello", name: myName() });
+    myId = id; isHost = true; roomCode = ROOM; boardMerge(H.board, board);
+    hostHandle(myId, { t: "hello", name: myName(), acct: loadAcct(), board });
     say("입장 완료");
   });
   peer.on("connection", c => {
@@ -786,7 +798,8 @@ function host() {
     c.on("data", m => hostHandle(c.peer, m));
     c.on("close", () => {
       conns.delete(c.peer);
-      if (H.players.delete(c.peer)) { mgLeave(c.peer); hdLeave(c.peer); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast(); }
+      const q = H.players.get(c.peer);
+      if (H.players.delete(c.peer)) { mgLeave(c.peer); hdLeave(c.peer); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast(); emit({ sys: 1, k: "leave", name: q.name }); }
     });
   });
   peer.on("error", e => {
@@ -802,7 +815,7 @@ function join() {
     myId = id; roomCode = ROOM;
     hostConn = peer.connect(PREFIX + ROOM, { reliable: true });
     joinT = setTimeout(() => { if (!S) retry("입장 실패: 잠시 후 다시 시도하세요"); }, 8000);
-    hostConn.on("open", () => hostConn.send({ t: "hello", name: myName() }));
+    hostConn.on("open", () => hostConn.send({ t: "hello", name: myName(), acct: loadAcct(), board }));
     hostConn.on("data", m => {
       lastHost = Date.now();
       if (m.t === "state") { clearTimeout(joinT); tries = 0; S = m; render(); }
@@ -1371,6 +1384,53 @@ function cardsEl(cs) {
   return w;
 }
 const meP = () => S && S.players.find(p => p.id === myId);
+
+/* ---------- tiers / saved account ---------- */
+// account = chips minus every refill taken, so living on refills goes negative (브론즈)
+const TIERS = [[1e10, "챌린저", "ch"], [3e9, "그랜드마스터", "gm"], [1e9, "마스터", "ma"], [2e8, "다이아몬드", "di"], [5e7, "에메랄드", "em"],
+  [1e7, "플래티넘", "pl"], [3e6, "골드", "go"], [0, "실버", "si"], [-Infinity, "브론즈", "br"]];
+const tierOf = v => TIERS.find(t => v >= t[0]);
+const acct = p => p.chips - START * (p.rebuy || 0);
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+const loadAcct = () => lsGet("xs-acct:" + myName());
+/* leaderboard: name -> [account, time]; every player keeps a copy and the host merges them, so it survives host changes */
+function boardMerge(dst, src) {
+  if (!src || typeof src !== "object") return dst;
+  for (const [n, e] of Object.entries(src).slice(0, 200)) {
+    const k = String(n).slice(0, 8), v = Number(e && e[0]), t = Number(e && e[1]);
+    if (!k || k === "__proto__" || !Number.isFinite(v) || !Number.isFinite(t)) continue;
+    if (!dst[k] || dst[k][1] < t) dst[k] = [v, t];
+  }
+  const keep = new Set(Object.entries(dst).sort((a, b) => b[1][1] - a[1][1]).slice(0, 40).map(e => e[0]));
+  for (const k of Object.keys(dst)) if (!keep.has(k)) delete dst[k];
+  return dst;
+}
+let board = boardMerge({}, lsGet("xs-board")), savedA = "", savedB = "";
+function persist() {
+  const me = meP();
+  if (me) {
+    const a = JSON.stringify({ chips: me.chips, rebuy: me.rebuy, peak: me.peak, st: me.st });
+    if (a !== savedA) { savedA = a; lsSet("xs-acct:" + me.name, a); }
+  }
+  if (S && S.board) {
+    boardMerge(board, S.board);
+    const b = JSON.stringify(board);
+    if (b !== savedB) { savedB = b; lsSet("xs-board", b); }
+  }
+}
+/* host side: restore a returning player's saved account (friends-only game, so values are only range-checked) */
+function restore(p, a) {
+  if (!a || typeof a !== "object") return;
+  const c = Number(a.chips), r = Number(a.rebuy), pk = Number(a.peak);
+  if (Number.isFinite(c) && c >= 0 && c <= 1e13) p.chips = Math.floor(c);
+  if (Number.isInteger(r) && r >= 0 && r <= 1e6) p.rebuy = r;
+  p.peak = Math.max(p.chips, Number.isFinite(pk) && pk <= 1e13 ? pk : 0);
+  if (a.st && typeof a.st === "object") for (const g of Object.keys(p.st)) for (const k of Object.keys(p.st[g])) {
+    const v = Number(a.st[g] && a.st[g][k]);
+    if (Number.isFinite(v) && Math.abs(v) <= 1e13) p.st[g][k] = v;
+  }
+}
 const readyCount = g => S.players.filter(p => p.ready[g]).length + "/" + S.players.length;
 function readyBtn(g, put, r, c, span) {
   const me = meP(); if (!me) return;
@@ -1800,7 +1860,26 @@ function layoutDecoy(put) {
   });
 }
 
-const LAYOUT = { bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
+function layoutRk(put) {
+  put(0, 0, "2026 4Q 담당자 실적평가", "b", 3); put(0, 3, "전표코드", "m"); put(0, 4, S.code, "b", 2);
+  const live = new Set(S.players.map(p => p.name)), me = meP();
+  const rows = Object.entries(S.board || {}).map(([n, e]) => ({ n, v: e[0], t: e[1] })).sort((a, b) => b.v - a.v);
+  ["순위", "담당", "등급", "계좌", "상태", "최종"].forEach((h, i) => put(2, i, h, "h c"));
+  rows.slice(0, 25).forEach((r, i) => {
+    const y = 3 + i, t = tierOf(r.v), mine = me && r.n === me.name ? " me" : "", d = new Date(r.t);
+    put(y, 0, String(i + 1), "c" + mine + (i < 3 ? " b" : "")); put(y, 1, r.n, mine.trim());
+    put(y, 2, t[1], "c t-" + t[2] + mine); put(y, 3, fmt(r.v), "n" + (r.v < 0 ? " out" : "") + mine);
+    put(y, 4, live.has(r.n) ? "접속" : "", "c in" + mine);
+    put(y, 5, (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"), "c m" + mine);
+  });
+  const ry = 4 + Math.min(rows.length, 25);
+  put(ry, 0, "■ 등급 기준 (계좌 = 잔액 − 충전 " + man(START) + " × 횟수)", "b", 6);
+  TIERS.forEach((t, i) => {
+    put(ry + 1 + i, 1, t[1], "t-" + t[2]);
+    put(ry + 1 + i, 2, t[0] === -Infinity ? "마이너스" : fmt(t[0]) + " 이상", "n m", 2);
+  });
+}
+const LAYOUT = { rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
 const colName = i => i < 26 ? String.fromCharCode(65 + i) : "A" + String.fromCharCode(39 + i);
 
 /* roulette spin: when a new result arrives, run a highlight around the board in wheel order,
@@ -1919,6 +1998,7 @@ function render() {
   if (spin && view === "rl") S = spin.base;
   if (sq && view === "bac") S = sq.base;
   try { draw_(); } finally { S = real; prevS = isHost && real ? clone(real) : real; }
+  persist();
   chatSync();
 }
 function draw_() {
