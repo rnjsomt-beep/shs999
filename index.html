@@ -1387,9 +1387,16 @@ const meP = () => S && S.players.find(p => p.id === myId);
 
 /* ---------- tiers / saved account ---------- */
 // account = chips minus every refill taken, so living on refills goes negative (브론즈)
-const TIERS = [[1e10, "챌린저", "ch"], [3e9, "그랜드마스터", "gm"], [1e9, "마스터", "ma"], [2e8, "다이아몬드", "di"], [5e7, "에메랄드", "em"],
-  [1e7, "플래티넘", "pl"], [3e6, "골드", "go"], [0, "실버", "si"], [-Infinity, "브론즈", "br"]];
+// major tiers: [floor, name, css, floors of divisions 5..1 (null = apex, no divisions)]
+const MAJORS = [[1e10, "챌린저", "ch"], [3e9, "그랜드마스터", "gm"], [1e9, "마스터", "ma"],
+  [2e8, "다이아몬드", "di", 1e9], [5e7, "에메랄드", "em", 2e8], [1e7, "플래티넘", "pl", 5e7], [3e6, "골드", "go", 1e7], [0, "실버", "si", 3e6],
+  [-Infinity, "브론즈", "br", 0]].map(([lo, n, c, hi]) => [lo, n, c, hi === undefined ? null :
+    lo === -Infinity ? [-Infinity, -4e6, -3e6, -2e6, -1e6]            // 브론즈 1 ≥ -100만 … 브론즈 5 < -400만
+    : [0, 1, 2, 3, 4].map(k => lo + (hi - lo) * k / 5)]);              // even fifths of the band
+// flat list, best first: [floor, "실버 3", css]
+const TIERS = MAJORS.flatMap(([lo, n, c, d]) => d ? d.map((f, k) => [f, n + " " + (5 - k), c]).reverse() : [[lo, n, c]]);
 const tierOf = v => TIERS.find(t => v >= t[0]);
+const short = v => (v < 0 ? "-" : "") + (a => a >= 1e8 ? +(a / 1e8).toFixed(1) + "억" : a >= 1e4 ? +(a / 1e4).toFixed(1) + "만" : fmt(a))(Math.abs(v));
 const acct = p => p.chips - START * (p.rebuy || 0);
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
@@ -1874,9 +1881,12 @@ function layoutRk(put) {
   });
   const ry = 4 + Math.min(rows.length, 25);
   put(ry, 0, "■ 등급 기준 (계좌 = 잔액 − 충전 " + man(START) + " × 횟수)", "b", 6);
-  TIERS.forEach((t, i) => {
-    put(ry + 1 + i, 1, t[1], "t-" + t[2]);
-    put(ry + 1 + i, 2, t[0] === -Infinity ? "마이너스" : fmt(t[0]) + " 이상", "n m", 2);
+  ["등급", "5", "4", "3", "2", "1"].forEach((h, i) => put(ry + 1, i, h, "h c"));
+  MAJORS.forEach(([lo, n, c, d], i) => {
+    const y = ry + 2 + i;
+    put(y, 0, n, "c t-" + c);
+    if (d) d.forEach((f, k) => put(y, 1 + k, f === -Infinity ? "그 미만" : short(f) + "↑", "n m t-" + c));
+    else put(y, 1, short(lo) + " 이상", "n m t-" + c, 5);
   });
 }
 const LAYOUT = { rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
