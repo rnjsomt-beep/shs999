@@ -108,6 +108,80 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 .grid td.sqc{position:relative;cursor:grab;touch-action:none;user-select:none;outline:2px solid #e3a008;outline-offset:-2px;font-weight:700}
 .sqv{position:absolute;left:0;top:0;bottom:0;width:100%;background:repeating-linear-gradient(45deg,#2f6fb2 0 3px,#4c86c4 3px 6px);border-right:1px solid #fff;box-shadow:3px 0 4px rgba(0,0,0,.4)}
 .grid td.sqh{color:#b26a00;font-weight:700}
+/* table-mode baccarat (felt) */
+#felt{flex:1;min-height:0;overflow:auto;background:radial-gradient(ellipse at 50% 30%,#1b7a4f,#0c4a30 75%);color:#f3f3f3;font:12px/1.3 var(--ui);padding:8px 10px 12px}
+#felt[hidden]{display:none}
+.f-in{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.f-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.f-top .f-tag{background:rgba(0,0,0,.3);padding:2px 8px;border-radius:10px;font-family:var(--num)}
+.f-top .f-me{margin-left:auto;font-weight:700}
+.f-top .pos{color:#7ee2a8} .f-top .neg{color:#ff9b94}
+.f-roads{display:flex;flex-wrap:wrap;gap:6px;background:#fff;border-radius:4px;padding:4px}
+.road6{display:grid;grid-template-rows:repeat(6,14px);grid-auto-flow:column;grid-auto-columns:14px;gap:1px;background:#e3e6ea;border:1px solid #e3e6ea;flex:none}
+.road6 i{background:#fff;position:relative;display:block}
+.bead i b{position:absolute;inset:1px;border-radius:50%;color:#fff;font:700 8px/12px var(--ui);text-align:center;font-style:normal}
+.bead .P b{background:#1d5fa8}.bead .B b{background:#c8102e}.bead .T b{background:#2f7d46}
+.big i b{position:absolute;inset:2px;border-radius:50%;border:2px solid}
+.big .P b{border-color:#1d5fa8}.big .B b{border-color:#c8102e}
+.big i s{position:absolute;left:50%;top:-1px;bottom:-1px;width:2px;background:#2f7d46;transform:rotate(45deg)}
+.big i u{position:absolute;right:0;bottom:-2px;font:700 7px var(--ui);color:#2f7d46;text-decoration:none}
+.f-cards{display:flex;gap:10px}
+.f-side{flex:1;border:2px solid rgba(255,255,255,.35);border-radius:10px;padding:6px;display:flex;flex-direction:column;align-items:center;gap:6px;min-height:118px}
+.f-side.f-P{border-color:#5b9be6}.f-side.f-B{border-color:#ef6b6b}
+.f-side.win{box-shadow:0 0 0 3px #ffd43b,0 0 18px rgba(255,212,59,.6)}
+.f-sh{display:flex;gap:8px;align-items:center;font-weight:700;letter-spacing:.06em}
+.f-sc{min-width:26px;text-align:center;background:#fff;color:#111;border-radius:12px;padding:0 6px;font-family:var(--num)}
+.f-row{display:flex;gap:5px;align-items:center;min-height:70px}
+.f-slot{width:48px;height:67px;border:1px dashed rgba(255,255,255,.35);border-radius:4px}
+.f-row .third{transform:rotate(90deg);margin-inline:10px}
+.f-row .lv{outline:3px solid #ffd43b;outline-offset:1px;animation:lv 1s ease-in-out infinite}
+@keyframes lv{50%{outline-color:rgba(255,212,59,.3)}}
+.f-res{text-align:center;font:700 18px var(--ui);letter-spacing:.08em;padding:3px;border-radius:6px;background:rgba(0,0,0,.35)}
+.f-res.f-P{color:#8fc1ff}.f-res.f-B{color:#ff9b94}.f-res.f-T{color:#8be0a8}
+.f-res.new{animation:pulse 1.2s ease-out}
+@keyframes pulse{from{transform:scale(1.15);background:rgba(255,212,59,.5)}}
+.f-msg{text-align:center;color:#ffe08a;font-weight:700}
+.f-bets{display:grid;grid-template-columns:1fr .8fr 1fr;gap:6px}
+.f-bet{font:inherit;color:#fff;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.55);border-radius:12px;padding:8px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:74px}
+.f-bet:hover{background:rgba(255,255,255,.14)}
+.f-bet:disabled{cursor:default;opacity:.75}
+.f-bet b{font-size:15px;letter-spacing:.06em}.f-bet small{opacity:.75}
+.f-bet.k-p{border-color:#5b9be6}.f-bet.k-p b{color:#8fc1ff}
+.f-bet.k-b{border-color:#ef6b6b}.f-bet.k-b b{color:#ff9b94}
+.f-bet.k-t{border-color:#6fd19a}.f-bet.k-t b{color:#8be0a8}
+.f-bet .mine{background:#ffd43b;color:#111;border-radius:10px;padding:0 8px;font-weight:700;font-family:var(--num)}
+.f-bet .oth{font-size:11px;opacity:.8;font-family:var(--num)}
+.f-rack{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.chip{width:42px;height:42px;border-radius:50%;border:4px dashed #fff;font:700 11px var(--ui);color:#fff;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.4);padding:0}
+.chip.c0{background:#6c757d}.chip.c1{background:#c8102e}.chip.c2{background:#1d5fa8}.chip.c3{background:#2f7d46}.chip.c4{background:#111}.chip.call{background:#e3a008;color:#111}
+.chip.on{transform:translateY(-4px);box-shadow:0 0 0 3px #ffd43b,0 4px 8px rgba(0,0,0,.5)}
+.f-act{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.f-act button{font:inherit;font-weight:700;border:0;border-radius:6px;padding:7px 14px;cursor:pointer;background:#f3f3f3;color:#111}
+.f-act button.go{background:#ffd43b}.f-act button.go[aria-pressed="true"]{background:#2f9e55;color:#fff}
+.f-act button.fill{background:#8fc1ff}
+.f-ps{display:flex;gap:6px;flex-wrap:wrap}
+.f-ps div{background:rgba(0,0,0,.28);border-radius:6px;padding:3px 8px;font-variant-numeric:tabular-nums}
+.f-ps .rdy{color:#7ee2a8}.f-ps .me{outline:1px solid #ffd43b}
+.sqwrap{position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;font:13px var(--ui)}
+.sqwrap .sqt{font-weight:700;font-size:15px}
+.sqwrap button{font:inherit;font-weight:700;border:0;border-radius:6px;padding:7px 16px;background:#f3f3f3;cursor:pointer}
+.sqbig{position:relative;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.sqbig .cover{position:absolute;inset:0;width:auto;height:auto}
+.sqflap{position:absolute;pointer-events:none;border-radius:6px;box-shadow:0 0 10px rgba(0,0,0,.55)}
+/* playing card: --cw sets the size, everything inside scales with it */
+.pc{--cw:48px;position:relative;width:var(--cw);height:calc(var(--cw)*1.4);font-size:calc(var(--cw)*.2);background:#fff;color:#1a1a1a;border-radius:calc(var(--cw)*.08);box-shadow:0 1px 3px rgba(0,0,0,.5);font-family:Georgia,"Times New Roman",serif;flex:none;overflow:hidden}
+.pc.rd{color:#c8102e}
+.pc .ix{position:absolute;display:flex;flex-direction:column;align-items:center;line-height:.95}
+.pc .ix b{font-weight:700}.pc .ix i{font-style:normal;font-size:.85em}
+.pc .tl{left:5%;top:4%}.pc .br{right:5%;bottom:4%;transform:rotate(180deg)}
+.pc .pa{position:absolute;left:28%;right:28%;top:15%;bottom:15%}
+.pc .pp{position:absolute;transform:translate(-50%,-50%);line-height:1;font-size:1.1em}
+.pc .pp.fl{transform:translate(-50%,-50%) rotate(180deg)}
+.pc .pp.ace{font-size:3.2em}
+.pc .fc{position:absolute;inset:-4% -12%;border:1px solid currentColor;border-radius:4%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,#fff6d8,#fff 60%)}
+.pc .fc b{font-size:2.6em;line-height:1}.pc .fc i{font-style:normal;font-size:1.5em}
+.pc.bk{background:repeating-linear-gradient(45deg,#8b1a1a 0 3px,#b03030 3px 6px);box-shadow:inset 0 0 0 calc(var(--cw)*.06) #fff,0 1px 3px rgba(0,0,0,.5)}
+@media (prefers-reduced-motion:reduce){.f-row .lv,.f-res.new{animation:none}}
 </style>
 </head>
 <body>
@@ -117,6 +191,7 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
   <div class="fbar"><div class="ref" id="ref">A1</div><div class="fx">fx</div><div class="formula" id="formula">=SUMIFS(재고!C:C,재고!A:A,$A4)</div></div>
 </div>
 <div class="wrap"><table class="grid" id="grid"></table></div>
+<div id="felt" hidden></div>
 <div class="chat" id="chat" hidden><div class="cl" id="cl"></div><div class="cb"><span class="emo" id="emo"></span><input id="ci" placeholder="비고 입력 후 Enter" autocomplete="off" maxlength="60"></div></div>
 <div class="tabs" role="tablist" id="tabs">
   <button type="button" role="tab" data-v="bac" aria-selected="true">집계</button>
@@ -129,6 +204,7 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
   <button type="button" role="tab" data-v="tw" aria-selected="false">누계표</button>
   <button type="button" role="tab" data-v="rd" aria-selected="false">랜덤디펜스</button>
   <button type="button" role="tab" data-v="rk" aria-selected="false">실적평가</button>
+  <button type="button" role="tab" data-v="cfg" aria-selected="false">설정</button>
   <button type="button" role="tab" data-v="decoy" aria-selected="false">품목마스터</button>
 </div>
 <div class="status"><span id="ready">준비</span><span class="r"><span id="st-cnt">개수: -</span><span id="st-sum">합계: -</span></span></div>
@@ -159,8 +235,21 @@ const VIEWS = {
   c4: [34, ...Array(7).fill(42)],
   tw: [26, ...Array(21).fill(18)],
   rd: [26, ...Array(14).fill(48)],
-  rk: [34, 70, 84, 96, 44, 84],
+  rk: [34, 70, 84, 96, 64, 84],
+  cfg: [84, 96, 110, 240],
 };
+/* settings (per viewer): normal = real game names instead of the spreadsheet disguise, table = felt baccarat */
+let MODE = { normal: false, table: false };
+try { Object.assign(MODE, JSON.parse(localStorage.getItem("xs-mode")) || {}); } catch {}
+const NTAB = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", ch: "체스", om: "오목", c4: "사목", tw: "탑쌓기", rd: "랜덤디펜스", rk: "랭킹", cfg: "설정", decoy: "품목마스터" };
+const NRULE = [
+  [/^2026 4Q 자재 집계$/, () => NTAB[view] || "카지노"], [/^2026 4Q 담당자 실적평가$/, "랭킹"],
+  [/^BOM 대조표 \(L1\)$/, "체스"], [/^검수내역 대조$/, "오목"], [/^이월 정리$/, "사목 (4목)"], [/^적재 누계 \(L2\)$/, "탑 쌓기"],
+  [/전표코드/, "방"], [/(\d+)전표/, "$1판"], [/■ 분석/, "■ 통계"], [/담당자/g, "플레이어"], [/^담당$/, "플레이어"],
+  [/^잔액$/, "칩"], [/^최고잔액$/, "최고칩"], [/^계좌$/, "자산"], [/^추이$/, "출목"], [/^검토:/, "홀덤:"], [/^비고 입력 후 Enter$/, "채팅 입력 후 Enter"],
+];
+const NM = t => typeof t !== "string" || !MODE.normal ? t : NRULE.reduce((s, [re, to]) => s.replace(re, to), t);
+const DEF_F = () => MODE.normal ? "" : "=SUMIFS(재고!C:C,재고!A:A,$A4)";
 const $ = id => document.getElementById(id);
 const grid = $("grid"), formula = $("formula");
 const fmt = n => Math.round(n).toLocaleString("ko-KR");
@@ -170,9 +259,9 @@ const code5 = n => "ST-" + String(n).padStart(5, "0");
 const netCls = n => "n " + (n > 0 ? "in" : n < 0 ? "out" : "");
 
 function say(text, err) {
-  formula.textContent = text; formula.classList.toggle("err", !!err);
+  formula.textContent = NM(text); formula.classList.toggle("err", !!err);
   clearTimeout(say.t);
-  say.t = setTimeout(() => { formula.textContent = "=SUMIFS(재고!C:C,재고!A:A,$A4)"; formula.classList.remove("err"); }, 3500);
+  say.t = setTimeout(() => { formula.textContent = DEF_F(); formula.classList.remove("err"); }, 3500);
 }
 
 /* ---------- cards: 0–51, rank = n%13+1, suit = n/13 ---------- */
@@ -327,7 +416,7 @@ let view = "bac", lastGame = "bac", amt = AMTS[0], allIn = false, nameDraft = ""
 const myName = () => (nameDraft.trim() || "담당").slice(0, 8);
 
 function newPlayer(name) {
-  return { name, chips: START, lastNet: 0, bac: empty(), rl: {}, bj: { bet: 0, cards: [], done: false, res: "" }, ready: { bac: false, rl: false, bj: false, hd: false }, hdSeat: false, rebuy: 0, rdReady: false,
+  return { name, chips: START, lastNet: 0, bac: empty(), rl: {}, bj: { bet: 0, cards: [], done: false, res: "" }, ready: { bac: false, rl: false, bj: false, hd: false }, hdSeat: false, rebuy: 0, rdReady: false, vw: "bac",
     peak: START, st: { bac: { n: 0, w: 0, l: 0, net: 0 }, rl: { n: 0, w: 0, l: 0, net: 0 }, bj: { n: 0, w: 0, l: 0, net: 0, push: 0, bj: 0, bust: 0 }, hd: { n: 0, w: 0, l: 0, net: 0, sd: 0 } } };
 }
 function rec(q, g, s, ret, res) {
@@ -463,12 +552,14 @@ function hostHandle(id, msg) {
       if (H.players.size >= MAX) { const c = conns.get(id); if (c) { c.send({ t: "full" }); setTimeout(() => c.close(), 300); } return; }
       const np = newPlayer(String(msg.name || "담당").slice(0, 8));
       restore(np, msg.acct);
+      if (VIEWS[msg.v]) np.vw = msg.v;
       H.players.set(id, np);
       boardMerge(H.board, msg.board);
       emit({ sys: 1, k: "join", name: np.name });
       for (const q of H.players.values()) q.ready = { bac: false, rl: false, bj: false, hd: false };
     }
   } else if (!p) return;
+  else if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; p.vw = msg.v; }
   else if (msg.t === "ready" && GAMES.includes(msg.g)) {
     if (msg.g === "bj" && H.bj.phase !== "bet") return;
     if (msg.g === "hd" && (H.hd.running || H.hd.phase !== "idle")) return;
@@ -774,8 +865,9 @@ const ROOM = (location.hash.slice(1).replace(/[^A-Za-z0-9]/g, "").toUpperCase() 
 let tries = 0, joinT = 0, lastHost = 0;
 // WebRTC often misses a closed tab, so the host pings and clients treat silence as the host leaving
 setInterval(() => {
-  if (isHost) conns.forEach(c => { try { c.send({ t: "ping" }); } catch {} });
-  else if (S && hostConn && Date.now() - lastHost > 7000) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); }
+  if (isHost) conns.forEach(c => { try { c.send({ t: "ping" }); } catch {} if (Date.now() - (c.seen || 0) > 9000) drop(c); });
+  else if (hostConn && hostConn.open) try { hostConn.send({ t: "ping" }); } catch {}
+  if (!isHost && S && hostConn && Date.now() - lastHost > 7000) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); }
 }, 2000);
 function enter() { if (peer) return; tries = 0; try { localStorage.setItem("xs-name", nameDraft); } catch {} host(); }
 function retry(msg) {
@@ -790,23 +882,26 @@ function host() {
   peer = new Peer(PREFIX + ROOM, { debug: 0 });
   peer.on("open", id => {
     myId = id; isHost = true; roomCode = ROOM; boardMerge(H.board, board);
-    hostHandle(myId, { t: "hello", name: myName(), acct: loadAcct(), board });
+    hostHandle(myId, { t: "hello", name: myName(), acct: loadAcct(), board, v: view });
     say("입장 완료");
   });
   peer.on("connection", c => {
-    c.on("open", () => conns.set(c.peer, c));
-    c.on("data", m => hostHandle(c.peer, m));
-    c.on("close", () => {
-      conns.delete(c.peer);
-      const q = H.players.get(c.peer);
-      if (H.players.delete(c.peer)) { mgLeave(c.peer); hdLeave(c.peer); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast(); emit({ sys: 1, k: "leave", name: q.name }); }
-    });
+    c.on("open", () => { c.seen = Date.now(); conns.set(c.peer, c); });
+    c.on("data", m => { c.seen = Date.now(); hostHandle(c.peer, m); });
+    c.on("close", () => drop(c));
   });
   peer.on("error", e => {
     if (e.type === "unavailable-id") { peer.destroy(); peer = null; join(); return; }
     netErr(e);
   });
   peer.on("disconnected", () => { if (peer && !peer.destroyed) peer.reconnect(); });
+}
+function drop(c) {
+  if (conns.get(c.peer) !== c) return;
+  conns.delete(c.peer);
+  try { c.close(); } catch {}
+  const q = H.players.get(c.peer);
+  if (H.players.delete(c.peer)) { mgLeave(c.peer); hdLeave(c.peer); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast(); emit({ sys: 1, k: "leave", name: q.name }); }
 }
 function join() {
   if (peer) return;
@@ -815,7 +910,7 @@ function join() {
     myId = id; roomCode = ROOM;
     hostConn = peer.connect(PREFIX + ROOM, { reliable: true });
     joinT = setTimeout(() => { if (!S) retry("입장 실패: 잠시 후 다시 시도하세요"); }, 8000);
-    hostConn.on("open", () => hostConn.send({ t: "hello", name: myName(), acct: loadAcct(), board }));
+    hostConn.on("open", () => hostConn.send({ t: "hello", name: myName(), acct: loadAcct(), board, v: view }));
     hostConn.on("data", m => {
       lastHost = Date.now();
       if (m.t === "state") { clearTimeout(joinT); tries = 0; S = m; render(); }
@@ -1362,11 +1457,11 @@ function mk(content, cls, span) {
   const td = document.createElement("td");
   if (cls) td.className = cls;
   if (span > 1) td.colSpan = span;
-  if (content instanceof Node) td.append(content); else td.textContent = content ?? "";
+  if (content instanceof Node) td.append(content); else td.textContent = NM(content) ?? "";
   return td;
 }
 function button(text, onclick, pressed) {
-  const b = document.createElement("button"); b.type = "button"; b.textContent = text; b.onclick = onclick;
+  const b = document.createElement("button"); b.type = "button"; b.textContent = NM(text); b.onclick = onclick;
   if (pressed !== undefined) b.setAttribute("aria-pressed", pressed);
   return b;
 }
@@ -1868,15 +1963,19 @@ function layoutDecoy(put) {
 }
 
 function layoutRk(put) {
-  put(0, 0, "2026 4Q 담당자 실적평가", "b", 3); put(0, 3, "전표코드", "m"); put(0, 4, S.code, "b", 2);
-  const live = new Set(S.players.map(p => p.name)), me = meP();
-  const rows = Object.entries(S.board || {}).map(([n, e]) => ({ n, v: e[0], t: e[1] })).sort((a, b) => b.v - a.v);
+  put(0, 0, "2026 4Q 담당자 실적평가", "b", 3); put(0, 3, "전표코드", "m"); put(0, 4, S ? S.code : "-", "b", 2);
+  // offline players stay listed: local copy of the board merged with the room's
+  const live = new Map(S ? S.players.map(p => [p.name, p.vw]) : []), me = meP(), myN = me ? me.name : nameDraft.trim();
+  const all = S ? boardMerge(boardMerge({}, board), S.board) : board;
+  const rows = Object.entries(all).map(([n, e]) => ({ n, v: e[0], t: e[1] })).sort((a, b) => b.v - a.v);
+  if (!rows.length) put(3, 0, S ? "기록 없음" : "기록 없음 · 입장하면 다른 사람 기록도 받아옵니다", "m", 6);
   ["순위", "담당", "등급", "계좌", "상태", "최종"].forEach((h, i) => put(2, i, h, "h c"));
   rows.slice(0, 25).forEach((r, i) => {
-    const y = 3 + i, t = tierOf(r.v), mine = me && r.n === me.name ? " me" : "", d = new Date(r.t);
+    const y = 3 + i, t = tierOf(r.v), mine = myN && r.n === myN ? " me" : "", d = new Date(r.t);
     put(y, 0, String(i + 1), "c" + mine + (i < 3 ? " b" : "")); put(y, 1, r.n, mine.trim());
     put(y, 2, t[1], "c t-" + t[2] + mine); put(y, 3, fmt(r.v), "n" + (r.v < 0 ? " out" : "") + mine);
-    put(y, 4, live.has(r.n) ? "접속" : "", "c in" + mine);
+    const at = live.get(r.n);
+    put(y, 4, live.has(r.n) ? "접속" + (MODE.normal && at !== "decoy" && NTAB[at] ? " · " + NTAB[at] : "") : "오프라인", "c " + (live.has(r.n) ? "in" : "m") + mine);
     put(y, 5, (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"), "c m" + mine);
   });
   const ry = 4 + Math.min(rows.length, 25);
@@ -1889,7 +1988,27 @@ function layoutRk(put) {
     else put(y, 1, short(lo) + " 이상", "n m t-" + c, 5);
   });
 }
-const LAYOUT = { rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
+function layoutCfg(put) {
+  put(0, 0, "설정", "b", 2);
+  const set = (k, v) => { MODE[k] = v; lsSet("xs-mode", JSON.stringify(MODE)); applyMode(); render(); };
+  put(2, 0, "표시 모드", "h");
+  put(2, 1, button("위장모드", () => set("normal", false), !MODE.normal), "btn");
+  put(2, 2, button("일반모드", () => set("normal", true), MODE.normal), "btn");
+  put(2, 3, MODE.normal ? "게임 이름·용어를 그대로 표시 (Esc 위장 시트는 유지)" : "업무 시트처럼 위장해서 표시", "m");
+  put(4, 0, "바카라 화면", "h");
+  put(4, 1, button("시트형", () => set("table", false), !MODE.table), "btn");
+  put(4, 2, button("테이블형 (테스트)", () => set("table", true), MODE.table), "btn");
+  put(4, 3, MODE.table ? "실제 테이블 · 출목표(본매/대로) · 카드 쬐기" : "기존 스프레드시트 화면", "m");
+  put(6, 0, "쬐기", "h"); put(6, 1, "테이블형: 카드 가장자리를 잡고 안쪽으로 끌면 그 방향으로 젖혀집니다 · 탭 = 바로 오픈", "m", 3);
+  put(8, 0, "※ 설정은 이 기기에만 저장됩니다", "m", 4);
+}
+function applyMode() {
+  const t = MODE.normal ? "카지노" : "4Q_자재수불부_v3";
+  document.title = t; document.querySelector(".doc").textContent = t;
+  $("ci").placeholder = NM("비고 입력 후 Enter");
+  if (!formula.classList.contains("err")) formula.textContent = DEF_F();
+}
+const LAYOUT = { cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
 const colName = i => i < 26 ? String.fromCharCode(65 + i) : "A" + String.fromCharCode(39 + i);
 
 /* roulette spin: when a new result arrives, run a highlight around the board in wheel order,
@@ -1960,7 +2079,7 @@ function sqTick() {
   requestAnimationFrame(sqTick);
 }
 function sqNext(now) {
-  sq.k++; sq.p = 0; sq.live = false; sq.drag = null;
+  sq.k++; sq.p = 0; sq.live = false; sq.drag = null; sq.dir = null;
   if (sq.k >= sq.seq.length) return sqEnd();
   sq.at = now + (sq.seq[sq.k].auto ? SQ_FLIP : SQ_GAP);
   render();
@@ -1975,7 +2094,151 @@ function sqEnd(silent) {
 function sqPaint() {
   const v = grid.querySelector(".sqv");
   if (v) v.style.width = (1 - sq.p) * 100 + "%";
+  feltPaint();
 }
+
+/* ---------- table-mode baccarat ---------- */
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+// pip spots on a 0–100 grid (x 0/50/100 = columns); y > 50 drawn upside down like a real card
+const PIPS = { 1: [[50, 50]], 2: [[50, 0], [50, 100]], 3: [[50, 0], [50, 50], [50, 100]], 4: [[0, 0], [100, 0], [0, 100], [100, 100]] };
+PIPS[5] = [...PIPS[4], [50, 50]];
+PIPS[6] = [[0, 0], [100, 0], [0, 50], [100, 50], [0, 100], [100, 100]];
+PIPS[7] = [...PIPS[6], [50, 25]]; PIPS[8] = [...PIPS[7], [50, 75]];
+PIPS[9] = [[0, 0], [100, 0], [0, 33.3], [100, 33.3], [0, 66.7], [100, 66.7], [0, 100], [100, 100], [50, 50]];
+PIPS[10] = [[0, 0], [100, 0], [0, 33.3], [100, 33.3], [0, 66.7], [100, 66.7], [0, 100], [100, 100], [50, 16.7], [50, 83.3]];
+function cardFace(c, w) {
+  const d = el("div", "pc" + (isRed(c) ? " rd" : "")), r = rank(c), s = SUIT[Math.floor(c / 13)];
+  d.style.setProperty("--cw", w + "px");
+  for (const k of ["tl", "br"]) { const i = el("div", "ix " + k); i.append(el("b", "", RK[r]), el("i", "", s)); d.append(i); }
+  const a = el("div", "pa");
+  if (r > 10) { const f = el("div", "fc"); f.append(el("b", "", RK[r]), el("i", "", s)); a.append(f); }
+  else PIPS[r].forEach(([x, y]) => { const p = el("span", "pp" + (y > 50 ? " fl" : "") + (r === 1 ? " ace" : ""), s); p.style.left = x + "%"; p.style.top = y + "%"; a.append(p); });
+  d.append(a);
+  return d;
+}
+const cardBack = w => { const d = el("div", "pc bk"); d.style.setProperty("--cw", w + "px"); return d; };
+// rounds are newest first; roads read oldest → newest, filling columns of 6
+function beadEl(rs) {
+  const g = el("div", "road6 bead"), list = rs.slice(0, 72).reverse();
+  for (let i = 0; i < 72; i++) {
+    const x = list[i], c = el("i", x ? x.w : "");
+    if (x) c.append(el("b", "", x.w === "T" ? "T" : String(x.w === "P" ? x.p : x.b)));
+    g.append(c);
+  }
+  return g;
+}
+// big road: a streak runs down the column, turns right at the bottom (dragon tail); ties mark the last cell
+function bigEl(rs) {
+  const cells = new Map(); let sc = -1, cc = 0, row = 0, tail = false, last = null, lc = null, pre = 0;
+  for (const x of rs.slice().reverse()) {
+    if (x.w === "T") { if (lc) lc.t++; else pre++; continue; }
+    if (x.w !== last) { sc++; cc = sc; row = 0; tail = false; last = x.w; }
+    else if (!tail && row < 5 && !cells.has(cc + "," + (row + 1))) row++;
+    else { tail = true; cc++; }
+    lc = { w: x.w, t: pre }; pre = 0; cells.set(cc + "," + row, lc);
+  }
+  let max = 0; for (const k of cells.keys()) max = Math.max(max, +k.split(",")[0]);
+  const from = Math.max(0, max - 23), g = el("div", "road6 big");
+  for (let c = from; c < from + 24; c++) for (let r = 0; r < 6; r++) {
+    const v = cells.get(c + "," + r), i = el("i", v ? v.w : "");
+    if (v) { i.append(el("b")); if (v.t) { i.append(el("s")); if (v.t > 1) i.append(el("u", "", String(v.t))); } }
+    g.append(i);
+  }
+  return g;
+}
+function drawFelt() {
+  const F = $("felt"), me = meP(), r = sq ? sq.r : S.bac.rounds[0];
+  const fresh = !sq && r && seen.bac !== undefined && r.n > seen.bac;
+  F.textContent = "";
+  const W = el("div", "f-in"); F.append(W);
+  const top = el("div", "f-top");
+  top.append(el("span", "f-tag", "No " + (r ? code5(r.n) : "-")), el("span", "", sq ? "카드 오픈 중" : "다음 " + code5(S.bac.n + 1)));
+  if (me) {
+    top.append(el("span", "f-me", me.name + " · " + fmt(me.chips)));
+    if (me.lastNet) top.append(el("span", me.lastNet > 0 ? "pos" : "neg", sgn(me.lastNet)));
+  }
+  W.append(top);
+  const roads = el("div", "f-roads"); roads.append(beadEl(S.bac.rounds), bigEl(S.bac.rounds)); W.append(roads);
+  const cards = el("div", "f-cards");
+  for (const side of ["P", "B"]) {
+    const box = el("div", "f-side f-" + side), sc = sq ? sqOpen(side) : r ? r[side.toLowerCase()] : null;
+    if (r && !sq && r.w === side) box.classList.add("win");
+    const h = el("div", "f-sh"); h.append(el("span", "", side === "P" ? "PLAYER" : "BANKER"), el("span", "f-sc", sc === null ? "-" : String(sc)));
+    const row = el("div", "f-row");
+    for (let i = 0; i < 3; i++) {
+      const c = r ? r[side][i] : undefined, st = c === undefined ? "none" : sq ? sqState(side, i) : "open";
+      let k;
+      if (st === "none") { if (i < 2) row.append(el("div", "f-slot")); continue; }
+      if (st === "open") k = cardFace(c, 48); else { k = cardBack(48); if (st === "live") k.classList.add("lv"); }
+      if (i === 2) k.classList.add("third");
+      row.append(k);
+    }
+    box.append(h, row); cards.append(box);
+  }
+  W.append(cards);
+  if (r && !sq) W.append(el("div", "f-res f-" + r.w + (fresh ? " new" : ""), { P: "PLAYER WIN", B: "BANKER WIN", T: "TIE" }[r.w] + "   " + r.p + " : " + r.b));
+  else if (sq) {
+    W.append(el("div", "f-msg", sq.live ? "카드를 쬐세요" : "딜링 중…"));
+    const act = el("div", "f-act"), ob = el("button", "", "전체 오픈"); ob.type = "button"; ob.onclick = () => sqEnd(); act.append(ob); W.append(act);
+  }
+  const bets = el("div", "f-bets"), others = S.players.filter(p => p.id !== myId);
+  [["p", "PLAYER", "1 : 1"], ["t", "TIE", "8 : 1"], ["b", "BANKER", "0.95 : 1"]].forEach(([k, n, o]) => {
+    const b = el("button", "f-bet k-" + k); b.type = "button"; b.disabled = !me || !!sq;
+    b.append(el("b", "", n), el("small", "", o));
+    if (me && me.bac[k]) b.append(el("span", "mine", man(me.bac[k])));
+    const os = others.reduce((s, q) => s + q.bac[k], 0);
+    if (os) b.append(el("span", "oth", "다른 사람 " + man(os)));
+    b.onclick = () => send({ t: "bac-add", k, ...bet() });
+    bets.append(b);
+  });
+  W.append(bets);
+  if (me && !sq) {
+    const rack = el("div", "f-rack");
+    AMTS.forEach((a, i) => { const c = el("button", "chip c" + i + (amt === a && !allIn ? " on" : ""), man(a)); c.type = "button"; c.onclick = () => { amt = a; allIn = false; render(); }; rack.append(c); });
+    const al = el("button", "chip call" + (allIn ? " on" : ""), "올인"); al.type = "button"; al.onclick = () => { allIn = !allIn; render(); }; rack.append(al);
+    W.append(rack);
+    const act = el("div", "f-act");
+    const cl = el("button", "", "베팅 취소"); cl.type = "button"; cl.onclick = () => send({ t: "bac-clear" });
+    const go = el("button", "go", (me.ready.bac ? "준비완료 ✓ " : "딜 준비 ") + readyCount("bac")); go.type = "button"; go.setAttribute("aria-pressed", me.ready.bac); go.onclick = () => send({ t: "ready", g: "bac" });
+    act.append(cl, go);
+    if (canRefill(me)) { const f = el("button", "fill", "충전 +" + man(START)); f.type = "button"; f.onclick = () => send({ t: "refill" }); act.append(f); }
+    W.append(act);
+  }
+  const ps = el("div", "f-ps");
+  S.players.forEach(p => {
+    const bt = ["p", "b", "t"].filter(k => p.bac[k]).map(k => k.toUpperCase() + " " + man(p.bac[k])).join(" ");
+    ps.append(el("div", (p.ready.bac ? "rdy" : "") + (p.id === myId ? " me" : ""), (p.ready.bac ? "✓ " : "") + p.name + " " + short(p.chips) + (bt ? " · " + bt : "")));
+  });
+  W.append(ps);
+  if (sq && sq.live) {
+    const cur = sq.seq[sq.k], c = sq.r[cur.s][cur.i], ov = el("div", "sqwrap");
+    const big = el("div", "sqbig"), sz = Math.round(Math.min(190, innerWidth * .46, innerHeight * .34));
+    const back = cardBack(sz); back.classList.add("cover");
+    big.append(cardFace(c, sz), back, el("div", "sqflap"));
+    const ob = el("button", "", "전체 오픈"); ob.type = "button"; ob.onclick = () => sqEnd();
+    ov.append(el("div", "sqt", (cur.s === "P" ? "PLAYER" : "BANKER") + " " + (cur.i + 1) + "번째 카드"), big,
+      el("div", "", "가장자리를 잡고 안쪽으로 끌어서 쬐기 · 탭 = 바로 오픈"), ob);
+    F.append(ov);
+    feltPaint();
+  }
+}
+// peel the back off from the grabbed edge; the lifted part shows as a pale flap folded over the rest
+function feltPaint() {
+  const b = document.querySelector("#felt .sqbig"); if (!b || !sq) return;
+  const P = sq.p * 100, L = Math.min(P * .9, 100 - P), dir = sq.dir || "b";
+  b.querySelector(".cover").style.clipPath = "inset(" + { t: P + "% 0 0 0", b: "0 0 " + P + "% 0", l: "0 0 0 " + P + "%", r: "0 " + P + "% 0 0" }[dir] + " round 6px)";
+  const g = { t: "to bottom", b: "to top", l: "to right", r: "to left" }[dir], f = b.querySelector(".sqflap");
+  f.style.cssText = P <= 0 ? "display:none" : (dir === "t" || dir === "b" ? "left:0;right:0;height:" : "top:0;bottom:0;width:") + L + "%;" +
+    { t: "top", b: "bottom", l: "left", r: "right" }[dir] + ":" + P + "%;background:linear-gradient(" + g + ",#9a9a9a,#f4f4f4 35%,#fff 70%,#e2e2e2)";
+}
+$("felt").addEventListener("pointerdown", e => {
+  const b = e.target.closest(".sqbig");
+  if (!sq || !sq.live || !b) return;
+  e.preventDefault();
+  const R = b.getBoundingClientRect();
+  if (!sq.dir) { const d = { t: e.clientY - R.top, b: R.bottom - e.clientY, l: e.clientX - R.left, r: R.right - e.clientX }; sq.dir = Object.keys(d).reduce((a, k) => d[k] < d[a] ? k : a); }
+  sq.drag = { x: e.clientX, y: e.clientY, p: sq.p, t: performance.now(), m: 0, dir: sq.dir, dim: sq.dir === "t" || sq.dir === "b" ? R.height : R.width };
+});
 grid.addEventListener("pointerdown", e => {
   if (!sq || !sq.live || !e.target.closest("td.sqc")) return;
   e.preventDefault();
@@ -1983,9 +2246,10 @@ grid.addEventListener("pointerdown", e => {
 });
 addEventListener("pointermove", e => {
   if (!sq || !sq.drag) return;
-  const d = Math.hypot(e.clientX - sq.drag.x, e.clientY - sq.drag.y);
-  sq.drag.m = Math.max(sq.drag.m, d);
-  sq.p = Math.min(1, Math.max(sq.p, sq.drag.p + d / SQ_PX));
+  const D = sq.drag, dx = e.clientX - D.x, dy = e.clientY - D.y, d = Math.hypot(dx, dy);
+  D.m = Math.max(D.m, d);
+  if (D.dir) { sq.p = Math.min(1, Math.max(sq.p, D.p + Math.max(0, { b: -dy, t: dy, l: dx, r: -dx }[D.dir]) / D.dim)); if (sq.p > .85) sq.p = 1; }
+  else sq.p = Math.min(1, Math.max(sq.p, D.p + d / SQ_PX));
   sq.last = performance.now();
   sqPaint();
 });
@@ -2012,7 +2276,13 @@ function render() {
   chatSync();
 }
 function draw_() {
-  const widths = VIEWS[view === "decoy" || view === "rd" || S ? view : "bac"];
+  const solo = view === "decoy" || view === "rd" || view === "rk" || view === "cfg";
+  tabsSync();
+  const felt = !!(S && view === "bac" && MODE.table);
+  $("felt").hidden = !felt; document.querySelector(".wrap").hidden = felt;
+  if (felt) { drawFelt(); const me = meP(); $("st-cnt").textContent = "인원: " + S.players.length; $("st-sum").textContent = "칩: " + (me ? fmt(me.chips) : "-"); return; }
+  $("felt").textContent = "";
+  const widths = VIEWS[solo || S ? view : "bac"];
   const nc = widths.length;
   const cells = Array.from({ length: NROWS }, () => Array(nc).fill(null));
   const put = (r, c, content, cls, span) => {
@@ -2020,7 +2290,7 @@ function draw_() {
     cells[r][c] = mk(content, cls, span);
     for (let k = 1; k < (span || 1) && c + k < nc; k++) cells[r][c + k] = false;
   };
-  (view === "decoy" ? layoutDecoy : S || view === "rd" ? LAYOUT[view] : layoutLobby)(put);
+  (view === "decoy" ? layoutDecoy : S || solo ? LAYOUT[view] : layoutLobby)(put);
   grid.textContent = "";
   const cg = document.createElement("colgroup");
   [24, ...widths].forEach(w => { const c = document.createElement("col"); c.style.width = w + "px"; cg.append(c); });
@@ -2047,9 +2317,19 @@ function draw_() {
 }
 
 /* ---------- tabs / keys ---------- */
+document.querySelectorAll("#tabs button").forEach(b => b.dataset.l = b.textContent);
+// tab label + how many players are on that sheet right now, e.g. "집계 (2/5)"
+function tabsSync() {
+  document.querySelectorAll("#tabs button").forEach(b => {
+    const v = b.dataset.v, n = S && v !== "decoy" && v !== "cfg" ? S.players.filter(p => p.vw === v).length : 0;
+    const t = (MODE.normal ? NTAB[v] : b.dataset.l) + (n ? " (" + n + "/" + MAX + ")" : "");
+    if (b.textContent !== t) b.textContent = t;
+  });
+}
 function setView(v) {
   if (sq && v !== "bac") sqEnd(true);
   view = v; if (v !== "decoy") lastGame = v;
+  if (S) send({ t: "view", v });
   document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.v === v));
   document.activeElement && document.activeElement.blur && document.activeElement.blur();
   render();
@@ -2071,6 +2351,7 @@ grid.addEventListener("click", e => {
 window.addEventListener("beforeunload", () => { try { peer && peer.destroy(); } catch {} });
 
 try { nameDraft = localStorage.getItem("xs-name") || ""; } catch {}
+applyMode();
 if (typeof Peer === "undefined") say("네트워크 모듈을 불러오지 못했습니다 (인터넷 연결 확인)", true);
 render();
 })();
