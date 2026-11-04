@@ -560,7 +560,7 @@ function hostHandle(id, msg) {
       for (const q of H.players.values()) q.ready = { bac: false, rl: false, bj: false, hd: false };
     }
   } else if (!p) return;
-  else if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; p.vw = msg.v; }
+  else if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; if (p.vw === "bac") p.ready.bac = false; p.vw = msg.v; }
   else if (msg.t === "ready" && GAMES.includes(msg.g)) {
     if (msg.g === "bj" && H.bj.phase !== "bet") return;
     if (msg.g === "hd" && (H.hd.running || H.hd.phase !== "idle")) return;
@@ -617,9 +617,10 @@ const canRefill = me => broke(me, S.hd.phase === "play" && S.hd.hands.find(h => 
 function checkReady() {
   if (!H.players.size) return;
   for (const g of GAMES) {
-    const all = [...H.players.values()].every(q => q.ready[g]);
-    if (!all) continue;
-    for (const q of H.players.values()) q.ready[g] = false;
+    /* baccarat: only players on the baccarat sheet need to be ready */
+    const ps = [...H.players.values()].filter(q => g !== "bac" || q.vw === "bac");
+    if (!ps.length || !ps.every(q => q.ready[g])) continue;
+    for (const q of ps) q.ready[g] = false;
     if (g === "bac") runBac(); else if (g === "rl") runRl(); else if (g === "bj") runBj(); else hdStart();
   }
   hdTick();
@@ -627,7 +628,7 @@ function checkReady() {
 function runBac() {
   const r = { n: ++H.bac.n, ...bacPlay() };
   for (const q of H.players.values()) {
-    const s = sum(q.bac); if (!s) continue;
+    const s = sum(q.bac); if (!s || q.vw !== "bac") continue;
     const allin = q.chips === 0 && !sum(q.rl) && !q.bj.bet;
     const ret = bacPay(q.bac, r.w); q.chips += ret; q.lastNet = ret - s; rec(q, "bac", s, ret);
     announce(q, "bac", s, ret, allin, r.w === "T" && q.bac.t >= EV_SPECIAL_MIN ? "타이 적중" : "");
@@ -1537,7 +1538,8 @@ function restore(p, a) {
     if (Number.isFinite(v) && Math.abs(v) <= 1e13) p.st[g][k] = v;
   }
 }
-const readyCount = g => S.players.filter(p => p.ready[g]).length + "/" + S.players.length;
+const roomOf = g => g === "bac" ? S.players.filter(p => p.vw === "bac") : S.players;
+const readyCount = g => { const ps = roomOf(g); return ps.filter(p => p.ready[g]).length + "/" + ps.length; };
 function readyBtn(g, put, r, c, span) {
   const me = meP(); if (!me) return;
   put(r, c, button(me.ready[g] ? "준비완료 ✓ " + readyCount(g) : "준비 " + readyCount(g), () => send({ t: "ready", g }), me.ready[g]), "btn", span);
@@ -1609,7 +1611,7 @@ function layoutBac(put) {
     readyBtn("bac", put, 10, 2, 4);
   }
   put(2, 6, "담당", "h"); put(2, 7, "잔액", "h"); put(2, 8, "베팅", "h"); put(2, 9, "직전", "h");
-  const others = S.players.filter(p => p.id !== myId);
+  const others = roomOf("bac").filter(p => p.id !== myId);
   for (let i = 0; i < MAX - 1; i++) {
     const o = others[i];
     if (!o) { put(3 + i, 6, "-", "m"); continue; }
@@ -2186,7 +2188,7 @@ function drawFelt() {
     W.append(el("div", "f-msg", sq.live ? "카드를 쬐세요" : "딜링 중…"));
     const act = el("div", "f-act"), ob = el("button", "", "전체 오픈"); ob.type = "button"; ob.onclick = () => sqEnd(); act.append(ob); W.append(act);
   }
-  const bets = el("div", "f-bets"), others = S.players.filter(p => p.id !== myId);
+  const bets = el("div", "f-bets"), others = roomOf("bac").filter(p => p.id !== myId);
   [["p", "PLAYER", "1 : 1"], ["t", "TIE", "8 : 1"], ["b", "BANKER", "0.95 : 1"]].forEach(([k, n, o]) => {
     const b = el("button", "f-bet k-" + k); b.type = "button"; b.disabled = !me || !!sq;
     b.append(el("b", "", n), el("small", "", o));
@@ -2210,7 +2212,7 @@ function drawFelt() {
     W.append(act);
   }
   const ps = el("div", "f-ps");
-  S.players.forEach(p => {
+  roomOf("bac").forEach(p => {
     const bt = ["p", "b", "t"].filter(k => p.bac[k]).map(k => k.toUpperCase() + " " + man(p.bac[k])).join(" ");
     const d = el("div", (p.ready.bac ? "rdy" : "") + (p.id === myId ? " me" : ""), p.ready.bac ? "✓ " : "");
     d.append(el("b", tierCls(p.name).trim(), p.name), " " + short(p.chips) + (bt ? " · " + bt : "")); ps.append(d);
