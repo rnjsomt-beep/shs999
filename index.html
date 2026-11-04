@@ -929,11 +929,38 @@ setInterval(() => {
 const ROOM = (location.hash.slice(1).replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "MAIN").slice(0, 12);
 let tries = 0, joinT = 0, lastHost = 0;
 // WebRTC often misses a closed tab, so the host pings and clients treat silence as the host leaving
+// (generous limits: a busy or slow host must not make everyone reconnect)
+const HOST_SILENT = 12000, CLIENT_SILENT = 15000;
 setInterval(() => {
-  if (isHost) conns.forEach(c => { try { c.send({ t: "ping" }); } catch {} if (Date.now() - (c.seen || 0) > 9000) drop(c); });
+  if (isHost) [...conns.values()].forEach(c => { try { c.send({ t: "ping" }); } catch {} if (Date.now() - (c.seen || 0) > CLIENT_SILENT) drop(c); });
   else if (hostConn && hostConn.open) try { hostConn.send({ t: "ping" }); } catch {}
-  if (!isHost && S && hostConn && Date.now() - lastHost > 7000) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); }
+  if (!isHost && S && hostConn && Date.now() - lastHost > HOST_SILENT) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); }
+  // the host must stay registered on the signalling server, otherwise the next visitor takes the room id
+  // and opens a second, separate room (people then vanish from each other's ranking)
+  if (isHost && peer && !peer.destroyed && peer.disconnected && Date.now() - rcAt > 4000) { rcAt = Date.now(); try { peer.reconnect(); } catch {} }
+  if (isHost && claim && !claim.destroyed && claim.disconnected && Date.now() - rcAt > 4000) { rcAt = Date.now(); try { claim.reconnect(); } catch {} }
 }, 2000);
+let rcAt = 0, claim = null, carry = null;
+/* true once the other side's browser answered the connection request, i.e. someone is really there
+   (the WebRTC link itself may still need several seconds on slow / firewalled networks) */
+const answered = c => { try { return !!(c && c.peerConnection && c.peerConnection.remoteDescription); } catch { return false; } };
+/* host lost: remember the room's history so whoever becomes the next host carries it on */
+function keep() {
+  if (!S) return;
+  carry = JSON.parse(JSON.stringify({ bac: S.bac, rl: S.rl, chat: S.chat, bjn: S.bj.n, ds: S.bj.ds, hdn: S.hd.n, log: S.hd.log, rdGo: S.rdGo }));
+}
+function takeCarry() {
+  const c = carry; carry = null;
+  if (!c) return;
+  try {
+    if (c.bac && Array.isArray(c.bac.rounds)) H.bac = { rounds: c.bac.rounds.slice(0, 100), n: Number(c.bac.n) || 0 };
+    if (c.rl && Array.isArray(c.rl.hist)) H.rl = { hist: c.rl.hist.slice(0, 300), n: Number(c.rl.n) || 0 };
+    if (Array.isArray(c.chat)) { H.chat = c.chat.slice(-40); H.cs = H.chat.reduce((m, x) => Math.max(m, Number(x.k) || 0), 0); }
+    H.bj.n = Number(c.bjn) || 0; if (c.ds && typeof c.ds === "object") H.bj.ds = c.ds;
+    H.hd.n = Number(c.hdn) || 0; if (Array.isArray(c.log)) H.hd.log = c.log.slice(0, 10);
+    H.rdGo = Number(c.rdGo) || 0;
+  } catch {}
+}
 /* the room lives on slot 0; a closed/sleeping host tab can keep its id registered for a while,
    so when nobody answers there we move on to the next slot, and a host on a higher slot merges
    everyone back down as soon as a lower slot answers again */
@@ -941,6 +968,7 @@ const SLOTS = 4, slotId = k => PREFIX + ROOM + (k ? "-" + k : "");
 let slot = 0, hops = 0, wd = 0, probing = false;
 function enter() { if (peer) return; tries = 0; hops = 0; try { localStorage.setItem("xs-name", nameDraft); } catch {} host(0); }
 function retry(msg) {
+  keep();
   reset();
   if (++tries > 5) return say(msg, true);
   hops = 0; say("입장 중… (" + tries + ")");
@@ -953,25 +981,42 @@ function host(k) {
   if (peer) return;
   slot = k; say("입장 중…" + (k ? " (예비 " + k + ")" : ""));
   const pr = peer = new Peer(slotId(k), { debug: 0 });
+  let opened = false;
   watchdog();
   pr.on("open", id => {
     clearTimeout(wd);
-    myId = id; isHost = true; roomCode = ROOM; boardMerge(H.board, board); boardMerge(H.adm, adm);
+    if (opened) { $("saved").textContent = "저장됨"; return; } // signalling reconnect: same room, nothing to redo
+    opened = true;
+    myId = id; isHost = true; roomCode = ROOM; takeCarry(); boardMerge(H.board, board); boardMerge(H.adm, adm);
     hostHandle(myId, { t: "hello", name: myName(), acct: loadAcct(), board, adm, v: view });
-    say("입장 완료");
+    say("입장 완료"); $("saved").textContent = "저장됨";
   });
-  pr.on("connection", c => {
-    c.on("open", () => { c.seen = Date.now(); conns.set(c.peer, c); });
-    c.on("data", m => { c.seen = Date.now(); hostHandle(c.peer, m); });
-    c.on("close", () => drop(c));
-  });
+  pr.on("connection", accept);
   pr.on("error", e => {
     if (pr !== peer) return;
-    if (e.type === "unavailable-id") { clearTimeout(wd); pr.destroy(); peer = null; hop(join, k); return; }
+    if (e.type === "unavailable-id") {
+      // our room id was taken while we were disconnected from the signalling server: someone opened a
+      // second room under it. Bring everyone over there instead of leaving two rooms side by side.
+      if (opened) return moveAll(k);
+      clearTimeout(wd); pr.destroy(); peer = null; hop(join, k); return;
+    }
     if (e.type === "peer-unavailable") return; // a merge probe found an empty slot
     netErr(e);
   });
-  pr.on("disconnected", () => { if (pr === peer && !pr.destroyed) pr.reconnect(); });
+  pr.on("disconnected", () => setTimeout(() => {
+    if (pr === peer && !pr.destroyed && pr.disconnected) { rcAt = Date.now(); try { pr.reconnect(); } catch {} }
+  }, 1500));
+}
+function accept(c) {
+  c.on("open", () => { c.seen = Date.now(); conns.set(c.peer, c); });
+  c.on("data", m => { c.seen = Date.now(); hostHandle(c.peer, m); });
+  c.on("close", () => drop(c));
+}
+/* send everyone (and ourselves) to the room on slot j */
+function moveAll(j) {
+  const pr = peer;
+  for (const x of conns.values()) try { x.send({ t: "move", s: j }); } catch {}
+  setTimeout(() => { if (pr !== peer) return; reset(); hops = 0; join(j); }, 400);
 }
 function join(k) {
   if (peer) return;
@@ -982,17 +1027,21 @@ function join(k) {
     clearTimeout(wd);
     myId = id; roomCode = ROOM;
     const hc = hostConn = pr.connect(slotId(k), { reliable: true });
-    // id is taken but nobody answers: try the next slot
-    joinT = setTimeout(() => {
+    // id is taken but nobody answers: try the next slot. If the host did answer and only the link is
+    // slow, keep waiting — giving up here used to open a lonely second room on the next slot.
+    const t0 = Date.now();
+    const check = () => {
       if (S || pr !== peer) return;
-      reset();
+      if (answered(hc) && Date.now() - t0 < 25000) { say("입장 중… (연결 느림)"); joinT = setTimeout(check, 2000); return; }
+      keep(); reset();
       if (k + 1 < SLOTS) hop(host, k + 1); else retry("입장 실패: 잠시 후 다시 시도하세요");
-    }, 6000);
+    };
+    joinT = setTimeout(check, 7000);
     hc.on("open", () => hc.send({ t: "hello", name: myName(), acct: loadAcct(), board, adm, v: view }));
     hc.on("data", m => {
       if (hc !== hostConn) return;
       lastHost = Date.now();
-      if (m.t === "state") { clearTimeout(joinT); tries = 0; S = m; render(); }
+      if (m.t === "state") { clearTimeout(joinT); tries = 0; carry = null; S = m; render(); }
       else if (m.t === "err") say(m.m, true);
       else if (m.t === "event") showEvent(m);
       else if (m.t === "move") { const s = Math.max(0, Math.min(SLOTS - 1, m.s | 0)); reset(); hops = 0; setTimeout(() => join(s), rnd() % 400); }
@@ -1008,22 +1057,39 @@ function join(k) {
     netErr(e);
   });
 }
-// host on a spare slot: every 10s check the slots below; if one answers, send everyone there
-setInterval(() => { if (isHost && slot > 0 && !probing && peer && peer.open) { probing = true; probe(0); } }, 10000);
+/* host on a spare slot: every 10s try to also register the main slot 0 for this same room. Once that
+   works, newcomers land here directly and nobody has to move (moving used to reconnect everyone and
+   wipe the tables). If slot 0 is held by a live host after all, send everyone there. */
+setInterval(() => { if (isHost && slot > 0 && !claim && !probing && peer && peer.open) tryClaim(); }, 10000);
+function tryClaim() {
+  const pr = peer;
+  probing = true;
+  const cp = claim = new Peer(slotId(0), { debug: 0 });
+  setTimeout(() => { if (claim === cp && !cp.open) { claim = null; probing = false; try { cp.destroy(); } catch {} } }, 12000);
+  cp.on("open", () => { if (pr !== peer) { cp.destroy(); return; } probing = false; });
+  cp.on("connection", accept);
+  cp.on("disconnected", () => setTimeout(() => { if (claim === cp && !cp.destroyed && cp.disconnected) { rcAt = Date.now(); try { cp.reconnect(); } catch {} } }, 1500));
+  cp.on("error", e => {
+    if (claim !== cp) return;
+    if (e.type === "peer-unavailable") return;
+    if (e.type === "unavailable-id" && !cp.open && pr === peer) { claim = null; try { cp.destroy(); } catch {} probe(0); return; }
+    if (!cp.open) { claim = null; probing = false; try { cp.destroy(); } catch {} }
+  });
+}
 function probe(j) {
   const pr = peer;
   if (!isHost || pr !== peer || j >= slot) { probing = false; return; }
   const c = pr.connect(slotId(j), { reliable: true });
   let done = false;
   const fin = live => {
-    if (done) return; done = true; clearTimeout(t); try { c.close(); } catch {}
+    if (done) return; done = true; clearTimeout(t); clearInterval(iv); try { c.close(); } catch {}
     if (pr !== peer) { probing = false; return; }
     if (!live) return probe(j + 1);
     probing = false;
-    for (const x of conns.values()) try { x.send({ t: "move", s: j }); } catch {}
-    setTimeout(() => { if (pr !== peer) return; reset(); hops = 0; join(j); }, 400);
+    moveAll(j);
   };
-  const t = setTimeout(() => fin(false), 5000);
+  const t = setTimeout(() => fin(answered(c)), 8000);
+  const iv = setInterval(() => { if (answered(c)) fin(true); }, 500);
   c.on("data", () => fin(true));
   c.on("error", () => fin(false));
 }
@@ -1041,6 +1107,7 @@ function netErr(e) {
 }
 function reset() {
   clearTimeout(joinT); clearTimeout(wd); probing = false;
+  try { claim && claim.destroy(); } catch {} claim = null;
   try { peer && peer.destroy(); } catch {}
   peer = null; hostConn = null; isHost = false; S = null; conns.clear(); H = fresh();
   render();
@@ -1623,7 +1690,10 @@ let board = boardMerge({}, lsGet("xs-board")), savedA = "", savedB = "";
 function persist() {
   const me = meP();
   if (me) {
-    const a = JSON.stringify({ chips: me.chips, rebuy: me.rebuy, peak: me.peak, st: me.st, admT: me.admT || 0 });
+    // bets still waiting on the table count as balance: if the host drops out before the round runs,
+    // they come back on the next join instead of vanishing (cards already dealt are not refunded)
+    const onTable = sum(me.bac || {}) + sum(me.rl || {}) + (S.bj.phase === "bet" && me.bj ? me.bj.bet || 0 : 0);
+    const a = JSON.stringify({ chips: me.chips + onTable, rebuy: me.rebuy, peak: me.peak, st: me.st, admT: me.admT || 0 });
     if (a !== savedA) { savedA = a; lsSet("xs-acct:" + me.name, a); }
   }
   if (S && S.board) {
@@ -2772,7 +2842,7 @@ grid.addEventListener("click", e => {
   let col = 0; for (let x = td.previousElementSibling; x && x.tagName === "TD"; x = x.previousElementSibling) col += x.colSpan;
   $("ref").textContent = colName(col) + td.parentElement.rowIndex;
 });
-window.addEventListener("beforeunload", () => { try { peer && peer.destroy(); } catch {} });
+window.addEventListener("beforeunload", () => { try { claim && claim.destroy(); } catch {} try { peer && peer.destroy(); } catch {} });
 
 try { nameDraft = localStorage.getItem("xs-name") || ""; } catch {}
 applyMode();
