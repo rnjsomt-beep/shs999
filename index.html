@@ -72,7 +72,7 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 .toast.fail{border-left-color:#868e96;background:#26292e}
 .toast.die{border-left-color:#e5484d;background:#1d1f23}
 .toast.join{border-left-color:#4c8bf5}
-.t-br{color:#b0703c} .t-si{color:#9aa4ae} .t-go{color:#d4a017} .t-pl{color:#2bb3a3} .t-em{color:#2f9e55}
+.t-br{color:#b0703c} .t-si{color:#6f7b87} .t-go{color:#d4a017} .t-pl{color:#2bb3a3} .t-em{color:#2f9e55}
 .t-di{color:#5b8def} .t-ma{color:#a45ee5} .t-gm{color:#e5484d} .t-ch{color:#f0b429;font-weight:700}
 @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.new{animation:none}.toast{animation:none}}
@@ -161,7 +161,8 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 .f-act button.fill{background:#8fc1ff}
 .f-ps{display:flex;gap:6px;flex-wrap:wrap}
 .f-ps div{background:rgba(0,0,0,.28);border-radius:6px;padding:3px 8px;font-variant-numeric:tabular-nums}
-.f-ps .rdy{color:#7ee2a8}.f-ps .me{outline:1px solid #ffd43b}
+.f-ps .rdy{color:#7ee2a8}
+#felt .t-br{color:#e0a26a}#felt .t-si{color:#d9dee3}#felt .t-pl{color:#5fe0d0}#felt .t-em{color:#6fe39a}#felt .t-di{color:#9dbcff}#felt .t-gm{color:#ff8c8f}#felt .t-ma{color:#d6a6ff}.f-ps .me{outline:1px solid #ffd43b}
 .sqwrap{position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;font:13px var(--ui)}
 .sqwrap .sqt{font-weight:700;font-size:15px}
 .sqwrap button{font:inherit;font-weight:700;border:0;border-radius:6px;padding:7px 16px;background:#f3f3f3;cursor:pointer}
@@ -235,7 +236,7 @@ const VIEWS = {
   c4: [34, ...Array(7).fill(42)],
   tw: [26, ...Array(21).fill(18)],
   rd: [26, ...Array(14).fill(48)],
-  rk: [34, 70, 84, 96, 64, 84],
+  rk: [34, 70, 84, 96, 116, 84],
   cfg: [84, 96, 110, 240],
 };
 /* settings (per viewer): normal = real game names instead of the spreadsheet disguise, table = felt baccarat */
@@ -959,7 +960,7 @@ function chatSync() {
   L.slice(-30).forEach(x => {
     const d = document.createElement("div"), t = document.createElement("span"), n = document.createElement("b");
     t.className = "m"; t.textContent = new Date(x.t).toTimeString().slice(0, 5) + " ";
-    n.textContent = x.n + " "; d.append(t, n, x.m); if (x.e) d.className = "big"; cl.append(d);
+    n.textContent = x.n + " "; n.className = tierCls(x.n).trim(); d.append(t, n, x.m); if (x.e) d.className = "big"; cl.append(d);
   });
   cl.scrollTop = cl.scrollHeight;
   if (z && z.e && cSeq >= 0 && z.k > cSeq) pop(z.m);
@@ -1453,9 +1454,12 @@ function layoutRd(put) {
 }
 
 /* ---------- grid helpers ---------- */
+let NAMET = new Map();
+const tierCls = name => { const t = NAMET.get(name); return t ? " t-" + t : ""; };
 function mk(content, cls, span) {
   const td = document.createElement("td");
   if (cls) td.className = cls;
+  if (typeof content === "string" && NAMET.size) { const m = /^(?:[✓▶] )?(.+)$/.exec(content); if (m && NAMET.has(m[1])) td.className += tierCls(m[1]) + " b"; }
   if (span > 1) td.colSpan = span;
   if (content instanceof Node) td.append(content); else td.textContent = NM(content) ?? "";
   return td;
@@ -1972,10 +1976,11 @@ function layoutRk(put) {
   ["순위", "담당", "등급", "계좌", "상태", "최종"].forEach((h, i) => put(2, i, h, "h c"));
   rows.slice(0, 25).forEach((r, i) => {
     const y = 3 + i, t = tierOf(r.v), mine = myN && r.n === myN ? " me" : "", d = new Date(r.t);
-    put(y, 0, String(i + 1), "c" + mine + (i < 3 ? " b" : "")); put(y, 1, r.n, mine.trim());
+    put(y, 0, String(i + 1), "c" + mine + (i < 3 ? " b" : "")); put(y, 1, r.n, "b t-" + t[2] + mine);
     put(y, 2, t[1], "c t-" + t[2] + mine); put(y, 3, fmt(r.v), "n" + (r.v < 0 ? " out" : "") + mine);
     const at = live.get(r.n);
-    put(y, 4, live.has(r.n) ? "접속" + (MODE.normal && at !== "decoy" && NTAB[at] ? " · " + NTAB[at] : "") : "오프라인", "c " + (live.has(r.n) ? "in" : "m") + mine);
+    const tab = at === "decoy" ? "" : MODE.normal ? NTAB[at] : (document.querySelector('#tabs [data-v="' + at + '"]') || {}).dataset?.l;
+    put(y, 4, live.has(r.n) ? (tab ? tab + " 보는 중" : "접속") : "오프라인", "c " + (live.has(r.n) ? "in" : "m") + mine);
     put(y, 5, (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"), "c m" + mine);
   });
   const ry = 4 + Math.min(rows.length, 25);
@@ -2154,7 +2159,7 @@ function drawFelt() {
   const top = el("div", "f-top");
   top.append(el("span", "f-tag", "No " + (r ? code5(r.n) : "-")), el("span", "", sq ? "카드 오픈 중" : "다음 " + code5(S.bac.n + 1)));
   if (me) {
-    top.append(el("span", "f-me", me.name + " · " + fmt(me.chips)));
+    const mn = el("span", "f-me"); mn.append(el("span", tierCls(me.name).trim(), me.name), " · " + fmt(me.chips)); top.append(mn);
     if (me.lastNet) top.append(el("span", me.lastNet > 0 ? "pos" : "neg", sgn(me.lastNet)));
   }
   W.append(top);
@@ -2207,7 +2212,8 @@ function drawFelt() {
   const ps = el("div", "f-ps");
   S.players.forEach(p => {
     const bt = ["p", "b", "t"].filter(k => p.bac[k]).map(k => k.toUpperCase() + " " + man(p.bac[k])).join(" ");
-    ps.append(el("div", (p.ready.bac ? "rdy" : "") + (p.id === myId ? " me" : ""), (p.ready.bac ? "✓ " : "") + p.name + " " + short(p.chips) + (bt ? " · " + bt : "")));
+    const d = el("div", (p.ready.bac ? "rdy" : "") + (p.id === myId ? " me" : ""), p.ready.bac ? "✓ " : "");
+    d.append(el("b", tierCls(p.name).trim(), p.name), " " + short(p.chips) + (bt ? " · " + bt : "")); ps.append(d);
   });
   W.append(ps);
   if (sq && sq.live) {
@@ -2276,6 +2282,7 @@ function render() {
   chatSync();
 }
 function draw_() {
+  NAMET = new Map(S ? S.players.map(p => [p.name, tierOf(acct(p))[2]]) : []);
   const solo = view === "decoy" || view === "rd" || view === "rk" || view === "cfg";
   tabsSync();
   const felt = !!(S && view === "bac" && MODE.table);
