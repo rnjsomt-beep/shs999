@@ -1,0 +1,15 @@
+[Unit]
+Description=shs999 game server
+After=network-online.target
+
+[Service]
+User=opc
+WorkingDirectory=/home/opc/shs999
+Environment=PORT=8099 DATA=/home/opc/shs999/data
+ExecStart=/usr/local/lib/nodejs/bin/node --max-old-space-size=96 server.js
+Restart=always
+RestartSec=2
+MemoryMax=160M
+
+[Install]
+WantedBy=multi-user.target

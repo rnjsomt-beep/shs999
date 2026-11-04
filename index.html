@@ -257,7 +257,6 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (() => {
 const PREFIX = "xlsheet-sb-";
@@ -452,78 +451,12 @@ function equity(mine, board, opp, iters = 500) {
 const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
 const empty = () => ({ p: 0, b: 0, t: 0 });
 
-/* ---------- network ---------- */
-let peer = null, isHost = false, hostConn = null, myId = null, roomCode = "";
-let conns = new Map();
-let H = fresh();
-function fresh() { return { board: {}, adm: {}, players: new Map(), bac: { rounds: [], n: 0 }, rl: { hist: [], n: 0 }, bj: { phase: "bet", dealer: [], n: 0, ds: { n: 0, bust: 0, sum: 0, dist: {} } }, hd: hdFresh(), chat: [], cs: 0, mg: { ch: mgNew("ch"), om: mgNew("om"), c4: mgNew("c4"), tw: mgNew("tw") } }; }
 let S = null;
 let view = "bac", lastGame = "bac", amt = AMTS[0], allIn = false, nameDraft = "", seen = {};
 
 const myName = () => (nameDraft.trim() || "담당").slice(0, 8);
 
-function newPlayer(name) {
-  return { name, chips: START, lastNet: 0, bac: empty(), rl: {}, bj: { bet: 0, cards: [], done: false, res: "" }, ready: { bac: false, rl: false, bj: false, hd: false }, hdSeat: false, rebuy: 0, rdReady: false, vw: "bac",
-    peak: START, st: { bac: { n: 0, w: 0, l: 0, net: 0 }, rl: { n: 0, w: 0, l: 0, net: 0 }, bj: { n: 0, w: 0, l: 0, net: 0, push: 0, bj: 0, bust: 0 }, hd: { n: 0, w: 0, l: 0, net: 0, sd: 0 } } };
-}
-function rec(q, g, s, ret, res) {
-  const t = q.st[g];
-  t.n++; t.net += ret - s;
-  if (ret > s) t.w++; else if (ret < s) t.l++; else if (g === "bj") t.push++;
-  if (res === "BJ 승") t.bj++;
-  if (res === "버스트") t.bust++;
-  q.peak = Math.max(q.peak, q.chips);
-}
-function snapshot(forId) {
-  const hide = H.bj.phase === "play";
-  return { t: "state", code: roomCode, chat: H.chat, mg: H.mg, rdGo: H.rdGo || 0,
-    bac: H.bac, rl: H.rl,
-    bj: { phase: H.bj.phase, n: H.bj.n, ds: H.bj.ds, dealer: hide ? [H.bj.dealer[0], -1] : H.bj.dealer },
-    hd: hdView(forId),
-    board: H.board, adm: H.adm, players: [...H.players].map(([id, p]) => ({ id, ...p })) };
-}
-/* random defense: everyone ready → bump rdGo, each client starts its own run on seeing it */
-function rdReadyCheck() {
-  const ps = [...H.players.values()];
-  if (!ps.length || !ps.every(q => q.rdReady)) return;
-  for (const q of ps) { q.rdReady = false; q.rd = null; }
-  H.rdGo = (H.rdGo || 0) + 1;
-}
-function broadcast() {
-  const n = Date.now();
-  for (const p of H.players.values()) H.board[p.name] = [acct(p), n];
-  for (const [id, c] of conns) if (c.open) c.send(snapshot(id));
-  S = snapshot(myId); render();
-}
-function reply(id, m) { if (id === myId) say(m, true); else { const c = conns.get(id); if (c && c.open) c.send({ t: "err", m }); } }
-function send(msg) { if (isHost) hostHandle(myId, msg); else if (hostConn && hostConn.open) hostConn.send(msg); }
-
-function take(id, p, a) { if (p.chips < a) { reply(id, "잔액 부족: 가용 " + fmt(p.chips)); return false; } p.chips -= a; return true; }
-const validBet = m => m.all === true || AMTS.includes(m.amt);
-/* returns the amount actually put on the table (0 = refused); all:true = whole balance */
-function stake(id, p, msg) {
-  if (msg.all === true) { const a = p.chips; if (a <= 0) { reply(id, "잔액 부족: 가용 0"); return 0; } p.chips = 0; return a; }
-  return take(id, p, msg.amt) ? msg.amt : 0;
-}
-
 /* ---------- event alerts ---------- */
-function emit(ev, delay) {
-  const m = { t: "event", ...ev, delay: delay || 0 };
-  for (const c of conns.values()) if (c.open) c.send(m);
-  showEvent(m);
-}
-/* called once per settled stake; only wins that are all-in / huge / special get announced */
-function announce(q, g, stake, ret, allin, special, delay) {
-  const net = ret - stake;
-  if (net <= 0) return;
-  const tags = [];
-  if (allin && stake >= EV_ALLIN_MIN) tags.push("올인 성공");
-  if (net >= EV_JACKPOT) tags.push("잭팟"); else if (net >= EV_BIG) tags.push("대박");
-  if (special) tags.push(special);
-  if (!tags.length) return;
-  const kind = net >= EV_JACKPOT ? "jackpot" : net >= EV_BIG ? "big" : tags[0] === "올인 성공" ? "allin" : "special";
-  emit({ name: q.name, g: GNAME[g], tags, net, kind }, delay);
-}
 /* random defense alerts: gamble win/lose, R4+ unit, death, clear (fields validated by the host) */
 function rdToast(el, nm, m) {
   const b = t => { const x = document.createElement("b"); x.textContent = t; return x; };
@@ -567,551 +500,63 @@ function showEvent(m) {
   }, Math.min(Number(m.delay) || 0, 10000) + (bac ? 150 : 0));
 }
 
-function hostHandle(id, msg) {
-  const p = H.players.get(id);
-  if (p && msg.t === "chat") {
-    const m = String(msg.m || "").trim().slice(0, 60), n = Date.now();
-    if (!m || n - (p.ct || 0) < 400) return;
-    p.ct = n; H.chat.push({ n: p.name, m, e: msg.e === true && EMO.includes(m), t: n, k: ++H.cs });
-    if (H.chat.length > 40) H.chat.shift();
-    broadcast(); return;
-  }
-  if (p && msg.t === "rd") {
-    const d = msg.d || {}, ni = (v, hi) => Math.max(0, Math.min(hi, Math.floor(Number(v)) || 0));
-    if (Array.isArray(d.sl) && d.sl.length === 60 && Array.isArray(d.en) && Array.isArray(d.up)) {
-      p.rd = { sl: d.sl.map(v => Number.isInteger(v) && v >= -1 && v < 24 ? v : -1), up: [0, 1, 2, 3, 4, 5].map(i => ni(d.up[i], 12)), gold: ni(d.gold, 1e9), stage: ni(d.stage, 50), t: Math.max(0, Number(d.t) || 0), clock: Math.max(0, Number(d.clock) || 0), run: !!d.run, over: d.over === "lose" || d.over === "clear" ? d.over : "", msg: String(d.msg || "").slice(0, 40), en: d.en.slice(0, 100).map(a => [Math.max(0, Number(a && a[0]) || 0), ni(a && a[1], 2), Math.max(0, Math.min(10, Number(a && a[2]) || 0))]), bi: Number.isInteger(d.bi) && d.bi >= 0 && d.bi < 5 ? d.bi : -1, bh: Math.max(0, Math.min(1, Number(d.bh) || 0)), bt: Math.max(0, Math.min(999, Number(d.bt) || 0)) };
-      if (!H.rdT) H.rdT = setTimeout(() => { H.rdT = 0; broadcast(); }, 900);
-    }
-    return;
-  }
-  if (p && msg.t === "rd-ev") {
-    const e = msg.e || {}, n = Date.now(), ni = (v, hi) => Math.max(0, Math.min(hi, Math.floor(Number(v)) || 0)), ev = { rd: 1, name: p.name, k: e.k };
-    if (e.k === "gb" && Number.isInteger(e.g) && RD_GB[e.g]) { if (n - (p.rt || 0) < 250) return; p.rt = n; Object.assign(ev, { g: e.g, a: ni(e.a, 1e9), win: e.win === true }); }
-    else if (e.k === "un" && (e.t === 4 || e.t === 5) && Number.isInteger(e.u) && e.u >= 0 && e.u < 4) Object.assign(ev, { t: e.t, u: e.u, via: e.via ? 1 : 0 });
-    else if (e.k === "die") Object.assign(ev, { s: ni(e.s, 50), b: Number.isInteger(e.b) && e.b >= 0 && e.b < 5 ? e.b : -1 });
-    else if (e.k !== "clear") return;
-    emit(ev); return;
-  }
-  if (p && msg.t === "rd-ready") { p.rdReady = !p.rdReady; rdReadyCheck(); broadcast(); return; }
-  if (p && String(msg.t).startsWith("g-")) { mgHandle(id, msg); return; }
-  if (msg.t === "hello") {
-    if (!p) {
-      if (H.players.size >= MAX) { const c = conns.get(id); if (c) { c.send({ t: "full" }); setTimeout(() => c.close(), 300); } return; }
-      const np = newPlayer(String(msg.name || "담당").slice(0, 8));
-      restore(np, msg.acct);
-      if (VIEWS[msg.v]) np.vw = msg.v;
-      H.players.set(id, np);
-      boardMerge(H.board, msg.board);
-      admMerge(msg.adm);
-      emit({ sys: 1, k: "join", name: np.name });
-      for (const q of H.players.values()) q.ready = { bac: false, rl: false, bj: false, hd: false };
-    }
-  } else if (!p) return;
-  else if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; if (p.vw === "bac") p.ready.bac = false; p.vw = msg.v; }
-  else if (msg.t === "ready" && GAMES.includes(msg.g)) {
-    if (msg.g === "bj" && H.bj.phase !== "bet") return;
-    if (msg.g === "hd" && (H.hd.running || H.hd.phase !== "idle")) return;
-    p.ready[msg.g] = !p.ready[msg.g];
-  }
-  else if (msg.t === "bac-add" && ["p", "b", "t"].includes(msg.k) && validBet(msg)) {
-    const a = stake(id, p, msg); if (!a) return;
-    p.bac[msg.k] += a; p.ready.bac = false;
-  } else if (msg.t === "bac-clear") {
-    p.chips += sum(p.bac); p.bac = empty(); p.ready.bac = false;
-  } else if (msg.t === "rl-add" && RL_KEYS.has(msg.k) && validBet(msg)) {
-    const a = stake(id, p, msg); if (!a) return;
-    p.rl[msg.k] = (p.rl[msg.k] || 0) + a; p.ready.rl = false;
-  } else if (msg.t === "rl-clear") {
-    p.chips += sum(p.rl); p.rl = {}; p.ready.rl = false;
-  } else if (msg.t === "bj-add" && validBet(msg)) {
-    if (H.bj.phase !== "bet") return;
-    const a = stake(id, p, msg); if (!a) return;
-    p.bj.bet += a; p.ready.bj = false;
-  } else if (msg.t === "bj-clear") {
-    if (H.bj.phase !== "bet") return;
-    p.chips += p.bj.bet; p.bj.bet = 0; p.ready.bj = false;
-  } else if (msg.t === "bj-hit" || msg.t === "bj-stand" || msg.t === "bj-double") {
-    const h = p.bj;
-    if (H.bj.phase !== "play" || !h.cards.length || h.done) return;
-    if (msg.t === "bj-hit") { h.cards.push(draw()); }
-    else if (msg.t === "bj-stand") { h.done = true; h.res = "스탠드"; }
-    else {
-      if (h.cards.length !== 2) return;
-      if (!take(id, p, h.bet)) return;
-      h.bet *= 2; h.cards.push(draw()); h.done = true; h.res = "더블";
-    }
-    const v = hv(h.cards);
-    if (v > 21) { h.done = true; h.res = "버스트"; }
-    else if (v === 21) { h.done = true; if (h.res !== "더블") h.res = "21"; }
-    bjMaybeFinish();
-  } else if (msg.t === "hd" && ["fold", "call", "raise", "allin"].includes(msg.a)) {
-    if (!hdAct(id, msg.a, AMTS.includes(msg.amt) ? msg.amt : 0)) return;
-  } else if (msg.t === "hd-seat") {
-    if (!H.hd.running) return;
-    p.hdSeat = !p.hdSeat;
-  } else if (msg.t === "evt-go") {
-    const n = Date.now();
-    if (p.name !== EVT_NAME || (p.evt && n < p.evt.end)) return;
-    p.evt = { end: n + EVT_MS + 1500, got: 0 };
-    return;
-  } else if (msg.t === "evt-grab") {
-    const e = p.evt, n = Date.now();
-    if (p.name !== EVT_NAME || !e || n > e.end) return;
-    const a = Math.min(Math.floor(Number(msg.amt)) || 0, EVT_BILLS[EVT_BILLS.length - 1], EVT_MAX - e.got);
-    if (a <= 0) return;
-    e.got += a; p.chips += a; p.peak = Math.max(p.peak, p.chips);
-  } else if (msg.t === "adm-set") {
-    const n = String(msg.name || "").slice(0, 8), v = Math.floor(Number(msg.chips));
-    if (p.name !== EVT_NAME || !n || n === "__proto__" || !Number.isFinite(v) || v < 0 || v > 1e13) return;
-    const q = [...H.players.values()].find(x => x.name === n), was = H.adm[n];
-    admMerge({ [n]: [v, Math.max(Date.now(), (was ? was[1] : 0) + 1, (q && q.admT || 0) + 1)] }); // never older than what it replaces
-  } else if (msg.t === "refill") {
-    const h = H.hd.phase === "play" && H.hd.hands[id];
-    if (!broke(p, h)) return;
-    p.chips += START; p.lastNet = 0; p.rebuy++;
-  } else return;
-  checkReady();
-  broadcast();
-}
-
 /* refill only when broke: can't cover the smallest bet, nothing on any table, not alive in a hold'em hand */
 const broke = (p, hdHand) => p.chips < AMTS[0] && !sum(p.bac) && !sum(p.rl) && !p.bj.bet && !(hdHand && !hdHand.folded);
 const canRefill = me => broke(me, S.hd.phase === "play" && S.hd.hands.find(h => h.id === myId));
-function checkReady() {
-  if (!H.players.size) return;
-  for (const g of GAMES) {
-    /* baccarat: only players on the baccarat sheet need to be ready */
-    const ps = [...H.players.values()].filter(q => g !== "bac" || q.vw === "bac");
-    if (!ps.length || !ps.every(q => q.ready[g])) continue;
-    for (const q of ps) q.ready[g] = false;
-    if (g === "bac") runBac(); else if (g === "rl") runRl(); else if (g === "bj") runBj(); else hdStart();
-  }
-  hdTick();
-}
-function runBac() {
-  const r = { n: ++H.bac.n, ...bacPlay() };
-  for (const q of H.players.values()) {
-    const s = sum(q.bac); if (!s || q.vw !== "bac") continue;
-    const allin = q.chips === 0 && !sum(q.rl) && !q.bj.bet;
-    const ret = bacPay(q.bac, r.w); q.chips += ret; q.lastNet = ret - s; rec(q, "bac", s, ret);
-    announce(q, "bac", s, ret, allin, r.w === "T" && q.bac.t >= EV_SPECIAL_MIN ? "타이 적중" : "");
-    q.bac = empty();
-  }
-  H.bac.rounds = [r, ...H.bac.rounds].slice(0, 100);
-}
-function runRl() {
-  const n = rnd() % 37;
-  H.rl.n++;
-  for (const q of H.players.values()) {
-    const s = sum(q.rl); if (!s) continue;
-    const allin = q.chips === 0 && !sum(q.bac) && !q.bj.bet;
-    let ret = 0, hit = 0;
-    for (const [k, a] of Object.entries(q.rl)) { const m = rlMult(k, n); ret += a * m; if (k[0] === "n" && m) hit = Math.max(hit, a); }
-    q.chips += ret; q.lastNet = ret - s; rec(q, "rl", s, ret);
-    announce(q, "rl", s, ret, allin, hit >= EV_SPECIAL_MIN ? "스트레이트 적중" : "", SPIN_MS + 300);
-    q.rl = {};
-  }
-  H.rl.hist = [n, ...H.rl.hist].slice(0, 300);
-}
-function runBj() {
-  const seats = [...H.players.values()].filter(q => q.bj.bet > 0);
-  for (const q of H.players.values()) { q.bj.cards = []; q.bj.done = false; q.bj.res = ""; }
-  if (!seats.length) { H.bj.dealer = []; return; }
-  H.bj.n++;
-  H.bj.dealer = [draw(), draw()];
-  for (const q of seats) {
-    q.bj.cards = [draw(), draw()];
-    if (isBJ(q.bj.cards)) { q.bj.done = true; q.bj.res = "BJ"; }
-  }
-  H.bj.phase = "play";
-  if (isBJ(H.bj.dealer)) { for (const q of seats) q.bj.done = true; }
-  bjMaybeFinish();
-}
-function bjMaybeFinish() {
-  if (H.bj.phase !== "play") return;
-  const seats = [...H.players.values()].filter(q => q.bj.cards.length);
-  if (seats.some(q => !q.bj.done)) return;
-  const d = H.bj.dealer;
-  const live = seats.some(q => hv(q.bj.cards) <= 21 && !isBJ(q.bj.cards));
-  if (live && !isBJ(d)) while (hv(d) < 17) d.push(draw());
-  const dv = hv(d), dbj = isBJ(d);
-  const ds = H.bj.ds, key = dbj ? "BJ" : dv > 21 ? "버스트" : dv >= 17 ? String(dv) : "기타";
-  ds.n++; ds.dist[key] = (ds.dist[key] || 0) + 1;
-  if (dv > 21) ds.bust++; else ds.sum += dv;
-  for (const q of seats) {
-    const h = q.bj, pv = hv(h.cards), pbj = isBJ(h.cards);
-    let ret, res;
-    if (pv > 21) { ret = 0; res = "버스트"; }
-    else if (pbj && dbj) { ret = h.bet; res = "무"; }
-    else if (pbj) { ret = Math.floor(h.bet * 2.5); res = "BJ 승"; }
-    else if (dbj) { ret = 0; res = "패"; }
-    else if (dv > 21 || pv > dv) { ret = h.bet * 2; res = "승"; }
-    else if (pv === dv) { ret = h.bet; res = "무"; }
-    else { ret = 0; res = "패"; }
-    const allin = q.chips === 0 && !sum(q.bac) && !sum(q.rl);
-    q.chips += ret; q.lastNet = ret - h.bet; rec(q, "bj", h.bet, ret, res);
-    announce(q, "bj", h.bet, ret, allin, res === "BJ 승" && h.bet >= EV_SPECIAL_MIN ? "블랙잭" : "");
-    h.res = res; h.bet = 0;
-  }
-  H.bj.phase = "bet";
-}
-
-/* ---------- hold'em engine (host only) ---------- */
-function hdFresh() {
-  return { phase: "idle", running: false, wait: false, nextAt: 0, n: 0, btnIdx: -1, btn: null, sb: null, bb: null, board: [], deck: [], order: [], hands: {},
-    curBet: 0, minRaise: BB, toAct: null, deadline: 0, street: 0, last: null, log: [] };
-}
-function shuffled() {
-  const d = [...Array(52).keys()];
-  for (let i = 51; i > 0; i--) { const j = rnd() % (i + 1); [d[i], d[j]] = [d[j], d[i]]; }
-  return d;
-}
-/* table session: everyone ready once → hands keep dealing until fewer than 2 are seated */
-function hdStart() {
-  H.hd.running = true; H.hd.nextAt = 0;
-  for (const q of H.players.values()) q.hdSeat = true;
-  runHd();
-}
-function hdStop() {
-  const D = H.hd;
-  D.running = false; D.wait = false; D.nextAt = 0;
-  for (const q of H.players.values()) { q.hdSeat = false; q.ready.hd = false; }
-  for (const id of H.players.keys()) reply(id, "검토: 착석 인원 2명 미만 → 테이블 종료");
-}
-function hdTick() {
-  const D = H.hd;
-  if (!D.running || D.phase !== "idle") return;
-  if ([...H.players.values()].filter(q => q.hdSeat).length < 2) return hdStop();
-  if (D.wait || (D.nextAt && Date.now() >= D.nextAt)) runHd();
-}
-function runHd() {
-  const D = H.hd;
-  if (D.phase !== "idle") return;
-  const ids = [...H.players].filter(([, p]) => p.hdSeat && p.chips > 0).map(([id]) => id);
-  if (ids.length < 2) { D.wait = true; D.nextAt = 0; return; }
-  D.wait = false; D.nextAt = 0;
-  D.n++; D.phase = "play"; D.deck = shuffled(); D.board = []; D.street = 0; D.order = ids; D.hands = {}; D.last = null;
-  for (const id of ids) D.hands[id] = { cards: [D.deck.pop(), D.deck.pop()], bet: 0, total: 0, folded: false, allin: false, acted: false };
-  D.btnIdx = (D.btnIdx + 1) % ids.length; D.btn = ids[D.btnIdx];
-  const at = i => ids[(D.btnIdx + i) % ids.length];
-  D.sb = ids.length === 2 ? at(0) : at(1);
-  D.bb = ids.length === 2 ? at(1) : at(2);
-  hdPut(D.sb, SB); hdPut(D.bb, BB);
-  D.curBet = BB; D.minRaise = BB;
-  hdNext(D.bb);
-}
-function hdPut(id, amt) {
-  const p = H.players.get(id), h = H.hd.hands[id];
-  const a = Math.max(0, Math.min(amt, p ? p.chips : 0));
-  if (p) p.chips -= a;
-  h.bet += a; h.total += a;
-  if (!p || p.chips === 0) h.allin = true;
-}
-function hdNext(from) {
-  const D = H.hd;
-  const live = D.order.filter(id => !D.hands[id].folded);
-  if (live.length === 1) return hdEnd({ [live[0]]: D.order.reduce((s, id) => s + D.hands[id].total, 0) }, null, null);
-  const k = D.order.length, start = D.order.indexOf(from);
-  for (let i = 1; i <= k; i++) {
-    const id = D.order[(start + i) % k], h = D.hands[id];
-    if (h.folded || h.allin) continue;
-    if (!h.acted || h.bet < D.curBet) { D.toAct = id; D.deadline = Date.now() + TURN_MS; return; }
-  }
-  hdStreet();
-}
-function hdStreet() {
-  const D = H.hd;
-  for (const id of D.order) { D.hands[id].bet = 0; D.hands[id].acted = false; }
-  D.curBet = 0; D.minRaise = BB; D.street++;
-  if (D.street === 1) D.board.push(D.deck.pop(), D.deck.pop(), D.deck.pop());
-  else if (D.street <= 3) D.board.push(D.deck.pop());
-  if (D.street >= 4) return hdShowdown();
-  const canAct = D.order.filter(id => !D.hands[id].folded && !D.hands[id].allin);
-  if (canAct.length <= 1) return hdStreet();
-  hdNext(D.btn);
-}
-function hdAct(id, a, amt) {
-  const D = H.hd;
-  if (D.phase !== "play" || D.toAct !== id) return false;
-  const h = D.hands[id], p = H.players.get(id), toCall = D.curBet - h.bet;
-  if (a === "fold") h.folded = true;
-  else if (a === "call") hdPut(id, toCall);
-  else {
-    const before = D.curBet;
-    hdPut(id, a === "allin" ? p.chips : toCall + Math.max(amt, D.minRaise));
-    if (h.bet > before) {
-      const by = h.bet - before;
-      if (by >= D.minRaise) D.minRaise = by;
-      D.curBet = h.bet;
-      for (const o of D.order) if (o !== id) D.hands[o].acted = false;
-    }
-  }
-  h.acted = true;
-  hdNext(id);
-  return true;
-}
-function hdShowdown() {
-  const D = H.hd;
-  while (D.board.length < 5) D.board.push(D.deck.pop());
-  const live = D.order.filter(id => !D.hands[id].folded);
-  const score = {};
-  for (const id of live) score[id] = bestHand(D.hands[id].cards.concat(D.board));
-  // side pots: split contributions into levels; each level goes to the best live hand that paid into it
-  const won = {};
-  const levels = [...new Set(D.order.map(id => D.hands[id].total).filter(x => x > 0))].sort((a, b) => a - b);
-  let prev = 0;
-  for (const lv of levels) {
-    let pot = 0;
-    for (const id of D.order) pot += Math.min(D.hands[id].total, lv) - Math.min(D.hands[id].total, prev);
-    prev = lv;
-    if (!pot) continue;
-    let elig = live.filter(id => D.hands[id].total >= lv);
-    if (!elig.length) elig = live;
-    const top = elig.reduce((m, id) => cmp(score[id], score[m]) > 0 ? id : m, elig[0]);
-    const ws = elig.filter(id => cmp(score[id], score[top]) === 0);
-    const share = Math.floor(pot / ws.length);
-    let rem = pot - share * ws.length;
-    for (const w of ws) { won[w] = (won[w] || 0) + share + (rem > 0 ? 1 : 0); if (rem > 0) rem--; }
-  }
-  hdEnd(won, live, score);
-}
-function hdEnd(won, shown, score) {
-  const D = H.hd;
-  const names = Object.fromEntries(D.order.map(id => [id, (H.players.get(id) || {}).name || "(퇴장)"]));
-  for (const id of D.order) {
-    const p = H.players.get(id), w = won[id] || 0, t = D.hands[id].total;
-    if (!p) continue;
-    p.chips += w; p.lastNet = w - t;
-    const st = p.st.hd; st.n++; st.net += w - t;
-    if (w > t) st.w++; else if (w < t) st.l++;
-    if (shown && w > 0) st.sd++;
-    p.peak = Math.max(p.peak, p.chips);
-    const sc = score && score[id];
-    announce(p, "hd", t, w, D.hands[id].allin, sc && sc[0] >= 7 ? HNAME[sc[0]] + " 완성" : "");
-  }
-  const pot = D.order.reduce((s, id) => s + D.hands[id].total, 0);
-  const winners = Object.keys(won).filter(id => won[id] > 0);
-  const hand = shown ? Object.fromEntries(shown.map(id => [id, HNAME[score[id][0]]])) : {};
-  D.last = { shown: shown || [], won, hand, pot };
-  D.log = [{ n: D.n, win: winners.map(id => names[id]).join(", "), hand: shown ? hand[winners[0]] : "폴드승", pot }, ...D.log].slice(0, 10);
-  D.phase = "idle"; D.toAct = null;
-  if (D.running) D.nextAt = Date.now() + NEXT_MS;
-}
-function hdLeave(id) {
-  const D = H.hd;
-  if (D.phase !== "play" || !D.hands[id]) return;
-  D.hands[id].folded = true;
-  const live = D.order.filter(x => !D.hands[x].folded);
-  if (D.toAct === id || live.length === 1) hdNext(id);
-}
-function hdView(forId) {
-  const D = H.hd;
-  const reveal = new Set(D.phase === "idle" && D.last ? D.last.shown : []);
-  return { phase: D.phase, running: D.running, wait: D.wait, next: D.nextAt ? Math.max(0, D.nextAt - Date.now()) : 0, n: D.n, btn: D.btn, sb: D.sb, bb: D.bb, board: D.board, street: D.street,
-    curBet: D.curBet, minRaise: D.minRaise, toAct: D.toAct, left: Math.max(0, D.deadline - Date.now()),
-    pot: D.order.reduce((s, id) => s + (D.hands[id] ? D.hands[id].total : 0), 0), last: D.last, log: D.log,
-    hands: D.order.filter(id => D.hands[id]).map(id => {
-      const h = D.hands[id];
-      return { id, cards: id === forId || reveal.has(id) ? h.cards : h.cards.map(() => -1),
-        bet: h.bet, total: h.total, folded: h.folded, allin: h.allin };
-    }) };
-}
-setInterval(() => {
-  const D = H.hd;
-  if (isHost && D.running && D.phase === "idle" && D.nextAt && Date.now() >= D.nextAt) { hdTick(); broadcast(); return; }
-  if (!isHost || D.phase !== "play" || !D.toAct || Date.now() < D.deadline) return;
-  const h = D.hands[D.toAct];
-  hdAct(D.toAct, h.bet >= D.curBet ? "call" : "fold", 0);
-  broadcast();
-}, 1000);
-
-/* one fixed room: first visitor becomes host, everyone else joins; #name in the URL picks another room */
+/* ---------- network: everyone connects to the game server (Oracle VM), which runs every table ----------
+   one fixed room: #name in the URL picks another room · ?server=ws://… points at a test server */
 const ROOM = (location.hash.slice(1).replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "MAIN").slice(0, 12);
-let tries = 0, joinT = 0, lastHost = 0;
-// WebRTC often misses a closed tab, so the host pings and clients treat silence as the host leaving
-// (generous limits: a busy or slow host must not make everyone reconnect)
-const HOST_SILENT = 12000, CLIENT_SILENT = 15000;
-setInterval(() => {
-  if (isHost) [...conns.values()].forEach(c => { try { c.send({ t: "ping" }); } catch {} if (Date.now() - (c.seen || 0) > CLIENT_SILENT) drop(c); });
-  else if (hostConn && hostConn.open) try { hostConn.send({ t: "ping" }); } catch {}
-  if (!isHost && S && hostConn && Date.now() - lastHost > HOST_SILENT) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); }
-  // the host must stay registered on the signalling server, otherwise the next visitor takes the room id
-  // and opens a second, separate room (people then vanish from each other's ranking)
-  if (isHost && peer && !peer.destroyed && peer.disconnected && Date.now() - rcAt > 4000) { rcAt = Date.now(); try { peer.reconnect(); } catch {} }
-  if (isHost && claim && !claim.destroyed && claim.disconnected && Date.now() - rcAt > 4000) { rcAt = Date.now(); try { claim.reconnect(); } catch {} }
-}, 2000);
-let rcAt = 0, claim = null, carry = null;
-/* true once the other side's browser answered the connection request, i.e. someone is really there
-   (the WebRTC link itself may still need several seconds on slow / firewalled networks) */
-const answered = c => { try { return !!(c && c.peerConnection && c.peerConnection.remoteDescription); } catch { return false; } };
-/* host lost: remember the room's history so whoever becomes the next host carries it on */
-function keep() {
-  if (!S) return;
-  carry = JSON.parse(JSON.stringify({ bac: S.bac, rl: S.rl, chat: S.chat, bjn: S.bj.n, ds: S.bj.ds, hdn: S.hd.n, log: S.hd.log, rdGo: S.rdGo }));
+const SERVER = new URLSearchParams(location.search).get("server") || "wss://161-33-208-220.sslip.io/";
+const isHost = false;
+let ws = null, myId = null, roomCode = "", want = false, lastMsg = 0, backoff = 0, rcT = 0;
+function send(msg) { if (ws && ws.readyState === 1 && S) ws.send(JSON.stringify(msg)); }
+function enter() {
+  if (want) return;
+  want = true; backoff = 0;
+  try { localStorage.setItem("xs-name", nameDraft); } catch {}
+  connect();
 }
-function takeCarry() {
-  const c = carry; carry = null;
-  if (!c) return;
-  try {
-    if (c.bac && Array.isArray(c.bac.rounds)) H.bac = { rounds: c.bac.rounds.slice(0, 100), n: Number(c.bac.n) || 0 };
-    if (c.rl && Array.isArray(c.rl.hist)) H.rl = { hist: c.rl.hist.slice(0, 300), n: Number(c.rl.n) || 0 };
-    if (Array.isArray(c.chat)) { H.chat = c.chat.slice(-40); H.cs = H.chat.reduce((m, x) => Math.max(m, Number(x.k) || 0), 0); }
-    H.bj.n = Number(c.bjn) || 0; if (c.ds && typeof c.ds === "object") H.bj.ds = c.ds;
-    H.hd.n = Number(c.hdn) || 0; if (Array.isArray(c.log)) H.hd.log = c.log.slice(0, 10);
-    H.rdGo = Number(c.rdGo) || 0;
-  } catch {}
-}
-/* the room lives on slot 0; a closed/sleeping host tab can keep its id registered for a while,
-   so when nobody answers there we move on to the next slot, and a host on a higher slot merges
-   everyone back down as soon as a lower slot answers again */
-const SLOTS = 4, slotId = k => PREFIX + ROOM + (k ? "-" + k : "");
-let slot = 0, hops = 0, wd = 0, probing = false;
-function enter() { if (peer) return; tries = 0; hops = 0; try { localStorage.setItem("xs-name", nameDraft); } catch {} host(0); }
-function retry(msg) {
-  keep();
-  reset();
-  if (++tries > 5) return say(msg, true);
-  hops = 0; say("입장 중… (" + tries + ")");
-  setTimeout(() => { if (!peer) host(0); }, 400 + rnd() % 1600);
-}
-// the signalling server sometimes never answers: start over instead of hanging on "입장 중…"
-function watchdog() { clearTimeout(wd); wd = setTimeout(() => { if (!S) retry("서버 응답 없음: 잠시 후 다시 시도하세요"); }, 10000); }
-function hop(f, k) { if (++hops > 12) { reset(); return say("입장 실패: 잠시 후 다시 시도하세요", true); } f(k); }
-function host(k) {
-  if (peer) return;
-  slot = k; say("입장 중…" + (k ? " (예비 " + k + ")" : ""));
-  const pr = peer = new Peer(slotId(k), { debug: 0 });
-  let opened = false;
-  watchdog();
-  pr.on("open", id => {
-    clearTimeout(wd);
-    if (opened) { $("saved").textContent = "저장됨"; return; } // signalling reconnect: same room, nothing to redo
-    opened = true;
-    myId = id; isHost = true; roomCode = ROOM; takeCarry(); boardMerge(H.board, board); boardMerge(H.adm, adm);
-    hostHandle(myId, { t: "hello", name: myName(), acct: loadAcct(), board, adm, v: view });
-    say("입장 완료"); $("saved").textContent = "저장됨";
-  });
-  pr.on("connection", accept);
-  pr.on("error", e => {
-    if (pr !== peer) return;
-    if (e.type === "unavailable-id") {
-      // our room id was taken while we were disconnected from the signalling server: someone opened a
-      // second room under it. Bring everyone over there instead of leaving two rooms side by side.
-      if (opened) return moveAll(k);
-      clearTimeout(wd); pr.destroy(); peer = null; hop(join, k); return;
-    }
-    if (e.type === "peer-unavailable") return; // a merge probe found an empty slot
-    netErr(e);
-  });
-  pr.on("disconnected", () => setTimeout(() => {
-    if (pr === peer && !pr.destroyed && pr.disconnected) { rcAt = Date.now(); try { pr.reconnect(); } catch {} }
-  }, 1500));
-}
-function accept(c) {
-  c.on("open", () => { c.seen = Date.now(); conns.set(c.peer, c); });
-  c.on("data", m => { c.seen = Date.now(); hostHandle(c.peer, m); });
-  c.on("close", () => drop(c));
-}
-/* send everyone (and ourselves) to the room on slot j */
-function moveAll(j) {
-  const pr = peer;
-  for (const x of conns.values()) try { x.send({ t: "move", s: j }); } catch {}
-  setTimeout(() => { if (pr !== peer) return; reset(); hops = 0; join(j); }, 400);
-}
-function join(k) {
-  if (peer) return;
-  slot = k;
-  const pr = peer = new Peer({ debug: 0 });
-  watchdog();
-  pr.on("open", id => {
-    clearTimeout(wd);
-    myId = id; roomCode = ROOM;
-    const hc = hostConn = pr.connect(slotId(k), { reliable: true });
-    // id is taken but nobody answers: try the next slot. If the host did answer and only the link is
-    // slow, keep waiting — giving up here used to open a lonely second room on the next slot.
-    const t0 = Date.now();
-    const check = () => {
-      if (S || pr !== peer) return;
-      if (answered(hc) && Date.now() - t0 < 25000) { say("입장 중… (연결 느림)"); joinT = setTimeout(check, 2000); return; }
-      keep(); reset();
-      if (k + 1 < SLOTS) hop(host, k + 1); else retry("입장 실패: 잠시 후 다시 시도하세요");
-    };
-    joinT = setTimeout(check, 7000);
-    hc.on("open", () => hc.send({ t: "hello", name: myName(), acct: loadAcct(), board, adm, v: view }));
-    hc.on("data", m => {
-      if (hc !== hostConn) return;
-      lastHost = Date.now();
-      if (m.t === "state") { clearTimeout(joinT); tries = 0; carry = null; S = m; render(); }
-      else if (m.t === "err") say(m.m, true);
-      else if (m.t === "event") showEvent(m);
-      else if (m.t === "move") { const s = Math.max(0, Math.min(SLOTS - 1, m.s | 0)); reset(); hops = 0; setTimeout(() => join(s), rnd() % 400); }
-      else if (m.t === "full") { clearTimeout(joinT); say("인원 초과: 최대 5명", true); reset(); }
-    });
-    // host left: whoever reconnects first becomes the new host
-    hc.on("close", () => { if (hc === hostConn && S) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); } });
-  });
-  pr.on("error", e => {
-    if (pr !== peer) return;
-    // nobody holds this slot any more: take it
-    if (e.type === "peer-unavailable") { if (S) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); } else { reset(); hop(host, k); } return; }
-    netErr(e);
-  });
-}
-/* host on a spare slot: every 10s try to also register the main slot 0 for this same room. Once that
-   works, newcomers land here directly and nobody has to move (moving used to reconnect everyone and
-   wipe the tables). If slot 0 is held by a live host after all, send everyone there. */
-setInterval(() => { if (isHost && slot > 0 && !claim && !probing && peer && peer.open) tryClaim(); }, 10000);
-function tryClaim() {
-  const pr = peer;
-  probing = true;
-  const cp = claim = new Peer(slotId(0), { debug: 0 });
-  setTimeout(() => { if (claim === cp && !cp.open) { claim = null; probing = false; try { cp.destroy(); } catch {} } }, 12000);
-  cp.on("open", () => { if (pr !== peer) { cp.destroy(); return; } probing = false; });
-  cp.on("connection", accept);
-  cp.on("disconnected", () => setTimeout(() => { if (claim === cp && !cp.destroyed && cp.disconnected) { rcAt = Date.now(); try { cp.reconnect(); } catch {} } }, 1500));
-  cp.on("error", e => {
-    if (claim !== cp) return;
-    if (e.type === "peer-unavailable") return;
-    if (e.type === "unavailable-id" && !cp.open && pr === peer) { claim = null; try { cp.destroy(); } catch {} probe(0); return; }
-    if (!cp.open) { claim = null; probing = false; try { cp.destroy(); } catch {} }
-  });
-}
-function probe(j) {
-  const pr = peer;
-  if (!isHost || pr !== peer || j >= slot) { probing = false; return; }
-  const c = pr.connect(slotId(j), { reliable: true });
-  let done = false;
-  const fin = live => {
-    if (done) return; done = true; clearTimeout(t); clearInterval(iv); try { c.close(); } catch {}
-    if (pr !== peer) { probing = false; return; }
-    if (!live) return probe(j + 1);
-    probing = false;
-    moveAll(j);
+function connect() {
+  clearTimeout(rcT);
+  if (!S) say("입장 중…");
+  let w;
+  try { w = ws = new WebSocket(SERVER); } catch { ws = null; return later(); }
+  const to = setTimeout(() => { if (ws === w && w.readyState !== 1) try { w.close(); } catch {} }, 8000);
+  w.onopen = () => {
+    clearTimeout(to); lastMsg = Date.now();
+    // acct/board: only used the very first time, to bring over what this browser saved before the server existed
+    w.send(JSON.stringify({ t: "hello", name: myName(), room: ROOM, acct: loadAcct(), board, v: view }));
   };
-  const t = setTimeout(() => fin(answered(c)), 8000);
-  const iv = setInterval(() => { if (answered(c)) fin(true); }, 500);
-  c.on("data", () => fin(true));
-  c.on("error", () => fin(false));
+  w.onmessage = e => {
+    if (ws !== w) return;
+    lastMsg = Date.now();
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    if (m.t === "state") { backoff = 0; S = m; render(); }
+    else if (m.t === "you") { myId = m.id; roomCode = m.room; say("입장 완료"); $("saved").textContent = "저장됨"; }
+    else if (m.t === "err") say(m.m, true);
+    else if (m.t === "event") showEvent(m);
+    else if (m.t === "full" || m.t === "kick") { want = false; S = null; render(); say(m.m || "입장 실패", true); }
+  };
+  w.onclose = () => {
+    clearTimeout(to);
+    if (ws !== w) return;
+    ws = null;
+    if (want) later(); else if (S) { S = null; render(); }
+  };
 }
-function drop(c) {
-  if (conns.get(c.peer) !== c) return;
-  conns.delete(c.peer);
-  try { c.close(); } catch {}
-  const q = H.players.get(c.peer);
-  if (H.players.delete(c.peer)) { mgLeave(c.peer); hdLeave(c.peer); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast(); emit({ sys: 1, k: "leave", name: q.name }); }
+/* connection lost: keep showing the table and keep retrying (the server holds the seat for 20s) */
+function later() {
+  $("saved").textContent = "연결 끊김";
+  const d = Math.min(10000, 1000 * Math.pow(2, backoff++));
+  say("서버 연결 끊김 · " + Math.round(d / 1000) + "초 뒤 다시 연결", true);
+  rcT = setTimeout(() => { if (want && !ws) connect(); }, d);
 }
-function netErr(e) {
-  const m = e.type === "network" || e.type === "server-error" || e.type === "socket-error"
-    ? "서버 연결 실패: 네트워크(방화벽)를 확인하세요" : "연결 오류: " + e.type;
-  say(m, true); $("saved").textContent = "연결 끊김";
-}
-function reset() {
-  clearTimeout(joinT); clearTimeout(wd); probing = false;
-  try { claim && claim.destroy(); } catch {} claim = null;
-  try { peer && peer.destroy(); } catch {}
-  peer = null; hostConn = null; isHost = false; S = null; conns.clear(); H = fresh();
-  render();
-}
+setInterval(() => {
+  if (!ws || ws.readyState !== 1) return;
+  try { ws.send('{"t":"ping"}'); } catch {}
+  if (Date.now() - lastMsg > 20000) try { ws.close(); } catch {}   // silent server: drop it and reconnect
+}, 5000);
+window.addEventListener("online", () => { if (want && !ws) { backoff = 0; connect(); } });
 
 
 /* ---------- chat / emoticons ---------- */
@@ -1153,7 +598,6 @@ function mgNew(g, seats) {
   return { seats: seats || [null, null], turn: 0, res: "", win: -1, last: -1,
     b: g === "ch" ? [..."rnbqkbnrpppppppp", ...Array(32).fill(""), ..."PPPPPPPPRNBQKBNR"] : g === "tw" ? [{ x: 6, w: 9 }] : Array(g === "om" ? 225 : 42).fill(0) };
 }
-function mgLeave(id) { for (const G of Object.values(H.mg)) G.seats = G.seats.map(x => x === id ? null : x); }
 /* chess: legal moves incl. check rules; auto-queen; no castling / en passant */
 const chMoves = (b, i) => {
   const p = b[i], w = p < "a", t = p.toLowerCase(), r = i >> 3, c = i & 7, o = [];
@@ -1185,45 +629,6 @@ const inRow = (b, i, s, n, W, Hh) => [[1, 0], [0, 1], [1, 1], [1, -1]].some(([a,
   }
   return k >= n;
 });
-function mgHandle(id, msg) {
-  const g = msg.g, G = H.mg[g]; if (!G) return;
-  if (msg.t === "g-sit") { const s = msg.s === 1 ? 1 : 0; if (G.seats[s] === id) G.seats[s] = null; else if (!G.seats[s] && !G.seats.includes(id)) G.seats[s] = id; }
-  else if (msg.t === "g-new") { if (G.seats.includes(id)) H.mg[g] = mgNew(g, G.seats); }
-  else if (msg.t === "g-mv" && !G.res) {
-    const s = G.seats.indexOf(id); if (s < 0 || s !== G.turn || G.seats.includes(null)) return;
-    let ok = false;
-    if (g === "ch") {
-      const f = msg.f, t = msg.to, p = G.b[f];
-      if (Number.isInteger(f) && Number.isInteger(t) && f >= 0 && f < 64 && p && (p < "a") === (s === 0) && chLegal(G.b, f).includes(t)) {
-        G.b = chApply(G.b, f, t); ok = true; G.last = t;
-        if (!chAny(G.b, s === 1)) { G.res = chInCheck(G.b, s === 1) ? "w" : "d"; G.win = s; }
-      }
-    } else if (g === "om") {
-      const i = msg.i;
-      if (Number.isInteger(i) && i >= 0 && i < 225 && !G.b[i]) {
-        G.b[i] = s + 1; ok = true; G.last = i;
-        if (inRow(G.b, i, s + 1, 5, 15, 15)) { G.res = "w"; G.win = s; } else if (!G.b.includes(0)) G.res = "d";
-      }
-    } else if (g === "tw") {
-      const top = G.b[G.b.length - 1], x = Math.max(0, Math.min(21 - top.w, Math.round(Number(msg.x) || 0)));
-      const ol = Math.max(top.x, x), w = Math.min(top.x + top.w, x + top.w) - ol;
-      ok = true;
-      if (w <= 0) G.res = "e"; else G.b.push({ x: w === top.w ? top.x : ol, w });
-    } else {
-      const c = msg.c;
-      if (Number.isInteger(c) && c >= 0 && c < 7) {
-        for (let y = 5; y >= 0; y--) if (!G.b[y * 7 + c]) {
-          G.b[y * 7 + c] = s + 1; ok = true; G.last = y * 7 + c;
-          if (inRow(G.b, G.last, s + 1, 4, 7, 6)) { G.res = "w"; G.win = s; } else if (!G.b.includes(0)) G.res = "d";
-          break;
-        }
-      }
-    }
-    if (!ok) return;
-    G.turn = 1 - s;
-  } else return;
-  broadcast();
-}
 const CHG = { K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙", k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
 const chGlyph = q => q ? CHG[q] + "\uFE0E" : "";
 let twKey = "", twT0 = 0, twCur = null, twRun = false;
@@ -1710,26 +1115,6 @@ function persist() {
 /* admin balance overrides: name -> [chips, time], gossiped like the board so a player who is offline
    now gets the new balance the next time they join (each account remembers the last override it took) */
 let adm = boardMerge({}, lsGet("xs-adm")), savedM = "";
-function admMerge(src) {
-  boardMerge(H.adm, src);
-  for (const q of H.players.values()) {
-    const o = H.adm[q.name];
-    if (o && o[1] > (q.admT || 0)) { q.chips = o[0]; q.admT = o[1]; q.peak = Math.max(q.peak, q.chips); q.lastNet = 0; }
-  }
-}
-/* host side: restore a returning player's saved account (friends-only game, so values are only range-checked) */
-function restore(p, a) {
-  if (!a || typeof a !== "object") return;
-  const c = Number(a.chips), r = Number(a.rebuy), pk = Number(a.peak);
-  if (Number.isFinite(c) && c >= 0 && c <= 1e13) p.chips = Math.floor(c);
-  if (Number.isInteger(r) && r >= 0 && r <= 1e6) p.rebuy = r;
-  if (Number.isFinite(Number(a.admT))) p.admT = Number(a.admT);
-  p.peak = Math.max(p.chips, Number.isFinite(pk) && pk <= 1e13 ? pk : 0);
-  if (a.st && typeof a.st === "object") for (const g of Object.keys(p.st)) for (const k of Object.keys(p.st[g])) {
-    const v = Number(a.st[g] && a.st[g][k]);
-    if (Number.isFinite(v) && Math.abs(v) <= 1e13) p.st[g][k] = v;
-  }
-}
 const roomOf = g => g === "bac" ? S.players.filter(p => p.vw === "bac") : S.players;
 const readyCount = g => { const ps = roomOf(g); return ps.filter(p => p.ready[g]).length + "/" + ps.length; };
 function readyBtn(g, put, r, c, span) {
@@ -2163,7 +1548,7 @@ function layoutDecoy(put) {
 function layoutRk(put) {
   put(0, 0, "2026 4Q 담당자 실적평가", "b", 3); put(0, 3, "전표코드", "m"); put(0, 4, S ? S.code : "-", "b", 2);
   // offline players stay listed: local copy of the board merged with the room's
-  const live = new Map(S ? S.players.map(p => [p.name, p.vw]) : []), me = meP(), myN = me ? me.name : nameDraft.trim();
+  const live = new Map(S ? S.players.map(p => [p.name, p.off ? "off" : p.vw]) : []), me = meP(), myN = me ? me.name : nameDraft.trim();
   const all = S ? boardMerge(boardMerge({}, board), S.board) : board;
   const rows = Object.entries(all).map(([n, e]) => ({ n, v: e[0], t: e[1] })).sort((a, b) => b.v - a.v);
   if (!rows.length) put(3, 0, S ? "기록 없음" : "기록 없음 · 입장하면 다른 사람 기록도 받아옵니다", "m", 6);
@@ -2174,7 +1559,7 @@ function layoutRk(put) {
     put(y, 2, t[1], "c t-" + t[2] + mine); put(y, 3, fmt(r.v), "n" + (r.v < 0 ? " out" : "") + mine);
     const at = live.get(r.n);
     const tab = at === "decoy" ? "" : MODE.normal ? NTAB[at] : (document.querySelector('#tabs [data-v="' + at + '"]') || {}).dataset?.l;
-    put(y, 4, live.has(r.n) ? (tab ? tab + " 보는 중" : "접속") : "오프라인", "c " + (live.has(r.n) ? "in" : "m") + mine);
+    put(y, 4, at === "off" ? "연결 끊김 (대기)" : live.has(r.n) ? (tab ? tab + " 보는 중" : "접속") : "오프라인", "c " + (live.has(r.n) ? "in" : "m") + mine);
     put(y, 5, (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"), "c m" + mine);
   });
   const ry = 4 + Math.min(rows.length, 25);
@@ -2842,7 +2227,7 @@ grid.addEventListener("click", e => {
   let col = 0; for (let x = td.previousElementSibling; x && x.tagName === "TD"; x = x.previousElementSibling) col += x.colSpan;
   $("ref").textContent = colName(col) + td.parentElement.rowIndex;
 });
-window.addEventListener("beforeunload", () => { try { claim && claim.destroy(); } catch {} try { peer && peer.destroy(); } catch {} });
+window.addEventListener("pagehide", () => { if (ws && ws.readyState === 1) try { ws.send('{"t":"bye"}'); } catch {} });
 
 try { nameDraft = localStorage.getItem("xs-name") || ""; } catch {}
 applyMode();

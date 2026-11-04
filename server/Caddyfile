@@ -1,0 +1,4 @@
+# https://161-33-208-220.sslip.io → game server (certificate is fetched and renewed automatically)
+161-33-208-220.sslip.io {
+	reverse_proxy 127.0.0.1:8099
+}

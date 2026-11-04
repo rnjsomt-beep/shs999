@@ -1,0 +1,15 @@
+[Unit]
+Description=Caddy https front for shs999
+After=network-online.target
+
+[Service]
+User=opc
+Environment=HOME=/home/opc
+ExecStart=/usr/local/bin/caddy run --config /home/opc/shs999/Caddyfile --adapter caddyfile
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+Restart=always
+RestartSec=5
+MemoryMax=120M
+
+[Install]
+WantedBy=multi-user.target
