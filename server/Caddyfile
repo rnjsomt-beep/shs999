@@ -1,4 +1,22 @@
-# https://161-33-208-220.sslip.io → game server (certificate is fetched and renewed automatically)
+# https://161-33-208-220.sslip.io → game page + game server (certificate is fetched and renewed automatically)
 161-33-208-220.sslip.io {
-	reverse_proxy 127.0.0.1:8099
+	# websocket = HTTP/1.1 Upgrade, or HTTP/2 extended CONNECT (what browsers may use)
+	@ws {
+		header_regexp Upgrade (?i)websocket
+	}
+	@ws2 method CONNECT
+	handle @ws2 {
+		reverse_proxy 127.0.0.1:8099
+	}
+	handle @ws {
+		reverse_proxy 127.0.0.1:8099
+	}
+	handle /status {
+		reverse_proxy 127.0.0.1:8099
+	}
+	# the same index.html as GitHub Pages, so the game also opens here directly
+	handle {
+		root * /home/opc/shs999/web
+		file_server
+	}
 }
