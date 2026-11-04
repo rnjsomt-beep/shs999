@@ -456,7 +456,7 @@ const empty = () => ({ p: 0, b: 0, t: 0 });
 let peer = null, isHost = false, hostConn = null, myId = null, roomCode = "";
 let conns = new Map();
 let H = fresh();
-function fresh() { return { board: {}, players: new Map(), bac: { rounds: [], n: 0 }, rl: { hist: [], n: 0 }, bj: { phase: "bet", dealer: [], n: 0, ds: { n: 0, bust: 0, sum: 0, dist: {} } }, hd: hdFresh(), chat: [], cs: 0, mg: { ch: mgNew("ch"), om: mgNew("om"), c4: mgNew("c4"), tw: mgNew("tw") } }; }
+function fresh() { return { board: {}, adm: {}, players: new Map(), bac: { rounds: [], n: 0 }, rl: { hist: [], n: 0 }, bj: { phase: "bet", dealer: [], n: 0, ds: { n: 0, bust: 0, sum: 0, dist: {} } }, hd: hdFresh(), chat: [], cs: 0, mg: { ch: mgNew("ch"), om: mgNew("om"), c4: mgNew("c4"), tw: mgNew("tw") } }; }
 let S = null;
 let view = "bac", lastGame = "bac", amt = AMTS[0], allIn = false, nameDraft = "", seen = {};
 
@@ -480,7 +480,7 @@ function snapshot(forId) {
     bac: H.bac, rl: H.rl,
     bj: { phase: H.bj.phase, n: H.bj.n, ds: H.bj.ds, dealer: hide ? [H.bj.dealer[0], -1] : H.bj.dealer },
     hd: hdView(forId),
-    board: H.board, players: [...H.players].map(([id, p]) => ({ id, ...p })) };
+    board: H.board, adm: H.adm, players: [...H.players].map(([id, p]) => ({ id, ...p })) };
 }
 /* random defense: everyone ready → bump rdGo, each client starts its own run on seeing it */
 function rdReadyCheck() {
@@ -602,6 +602,7 @@ function hostHandle(id, msg) {
       if (VIEWS[msg.v]) np.vw = msg.v;
       H.players.set(id, np);
       boardMerge(H.board, msg.board);
+      admMerge(msg.adm);
       emit({ sys: 1, k: "join", name: np.name });
       for (const q of H.players.values()) q.ready = { bac: false, rl: false, bj: false, hd: false };
     }
@@ -660,9 +661,10 @@ function hostHandle(id, msg) {
     if (a <= 0) return;
     e.got += a; p.chips += a; p.peak = Math.max(p.peak, p.chips);
   } else if (msg.t === "adm-set") {
-    const q = H.players.get(msg.id), v = Math.floor(Number(msg.chips));
-    if (p.name !== EVT_NAME || !q || !Number.isFinite(v) || v < 0 || v > 1e13) return;
-    q.chips = v; q.peak = Math.max(q.peak, v); q.lastNet = 0;
+    const n = String(msg.name || "").slice(0, 8), v = Math.floor(Number(msg.chips));
+    if (p.name !== EVT_NAME || !n || n === "__proto__" || !Number.isFinite(v) || v < 0 || v > 1e13) return;
+    const q = [...H.players.values()].find(x => x.name === n), was = H.adm[n];
+    admMerge({ [n]: [v, Math.max(Date.now(), (was ? was[1] : 0) + 1, (q && q.admT || 0) + 1)] }); // never older than what it replaces
   } else if (msg.t === "refill") {
     const h = H.hd.phase === "play" && H.hd.hands[id];
     if (!broke(p, h)) return;
@@ -954,8 +956,8 @@ function host(k) {
   watchdog();
   pr.on("open", id => {
     clearTimeout(wd);
-    myId = id; isHost = true; roomCode = ROOM; boardMerge(H.board, board);
-    hostHandle(myId, { t: "hello", name: myName(), acct: loadAcct(), board, v: view });
+    myId = id; isHost = true; roomCode = ROOM; boardMerge(H.board, board); boardMerge(H.adm, adm);
+    hostHandle(myId, { t: "hello", name: myName(), acct: loadAcct(), board, adm, v: view });
     say("입장 완료");
   });
   pr.on("connection", c => {
@@ -986,7 +988,7 @@ function join(k) {
       reset();
       if (k + 1 < SLOTS) hop(host, k + 1); else retry("입장 실패: 잠시 후 다시 시도하세요");
     }, 6000);
-    hc.on("open", () => hc.send({ t: "hello", name: myName(), acct: loadAcct(), board, v: view }));
+    hc.on("open", () => hc.send({ t: "hello", name: myName(), acct: loadAcct(), board, adm, v: view }));
     hc.on("data", m => {
       if (hc !== hostConn) return;
       lastHost = Date.now();
@@ -1621,13 +1623,28 @@ let board = boardMerge({}, lsGet("xs-board")), savedA = "", savedB = "";
 function persist() {
   const me = meP();
   if (me) {
-    const a = JSON.stringify({ chips: me.chips, rebuy: me.rebuy, peak: me.peak, st: me.st });
+    const a = JSON.stringify({ chips: me.chips, rebuy: me.rebuy, peak: me.peak, st: me.st, admT: me.admT || 0 });
     if (a !== savedA) { savedA = a; lsSet("xs-acct:" + me.name, a); }
   }
   if (S && S.board) {
     boardMerge(board, S.board);
     const b = JSON.stringify(board);
     if (b !== savedB) { savedB = b; lsSet("xs-board", b); }
+  }
+  if (S && S.adm) {
+    boardMerge(adm, S.adm);
+    const m = JSON.stringify(adm);
+    if (m !== savedM) { savedM = m; lsSet("xs-adm", m); }
+  }
+}
+/* admin balance overrides: name -> [chips, time], gossiped like the board so a player who is offline
+   now gets the new balance the next time they join (each account remembers the last override it took) */
+let adm = boardMerge({}, lsGet("xs-adm")), savedM = "";
+function admMerge(src) {
+  boardMerge(H.adm, src);
+  for (const q of H.players.values()) {
+    const o = H.adm[q.name];
+    if (o && o[1] > (q.admT || 0)) { q.chips = o[0]; q.admT = o[1]; q.peak = Math.max(q.peak, q.chips); q.lastNet = 0; }
   }
 }
 /* host side: restore a returning player's saved account (friends-only game, so values are only range-checked) */
@@ -1636,6 +1653,7 @@ function restore(p, a) {
   const c = Number(a.chips), r = Number(a.rebuy), pk = Number(a.peak);
   if (Number.isFinite(c) && c >= 0 && c <= 1e13) p.chips = Math.floor(c);
   if (Number.isInteger(r) && r >= 0 && r <= 1e6) p.rebuy = r;
+  if (Number.isFinite(Number(a.admT))) p.admT = Number(a.admT);
   p.peak = Math.max(p.chips, Number.isFinite(pk) && pk <= 1e13 ? pk : 0);
   if (a.st && typeof a.st === "object") for (const g of Object.keys(p.st)) for (const k of Object.keys(p.st[g])) {
     const v = Number(a.st[g] && a.st[g][k]);
@@ -2120,15 +2138,23 @@ function layoutCfg(put) {
     put(12, 0, "관리자 모드", "h b");
     put(12, 1, "잔액 입력 후 Enter 또는 설정 (예: 5000000 · 500만 · 1.5억)", "m", 3);
     ["담당", "현재 잔액", "새 잔액", ""].forEach((h, i) => put(13, i, h, "h c"));
-    S.players.forEach((p, i) => {
-      const r = 14 + i, key = "adm-" + p.id;
-      const apply = v => { if (v === null || v < 0 || v > 1e13) return say("금액 확인: 0 ~ 10조", true); delete admDraft[key]; send({ t: "adm-set", id: p.id, chips: v }); say(p.name + " 잔액 → " + fmt(v)); };
-      put(r, 0, p.name, p.id === myId ? "me" : "");
-      put(r, 1, fmt(p.chips), "n");
+    const all = boardMerge(boardMerge({}, board), S.board), on = new Set(S.players.map(p => p.name));
+    const rows = S.players.map(p => ({ n: p.name, p })).concat(Object.keys(all).filter(n => !on.has(n)).sort((x, y) => all[y][1] - all[x][1]).map(n => ({ n })));
+    rows.slice(0, 28).forEach(({ n, p }, i) => {
+      const r = 14 + i, key = "adm-" + n;
+      const apply = v => {
+        if (v === null || v < 0 || v > 1e13) return say("금액 확인: 0 ~ 10조", true);
+        delete admDraft[key]; send({ t: "adm-set", name: n, chips: v });
+        say(n + " 잔액 → " + fmt(v) + (p ? "" : " (다음 접속 때 적용)"));
+      };
+      const o = (S.adm || {})[n], pend = !p && o && o[1] > all[n][1];
+      put(r, 0, n, p && p.id === myId ? "me" : p ? "" : "m");
+      put(r, 1, p ? fmt(p.chips) : pend ? "예약 " + short(o[0]) : "오프라인 · " + short(all[n][0]), p ? "n" : "n m");
       put(r, 2, field(key, "금액", () => admDraft[key] || "", v => admDraft[key] = v, () => apply(parseAmt(admDraft[key]))), "adm");
       const bx = document.createElement("span"); bx.className = "bx";
-      bx.append(button("설정", () => apply(parseAmt(admDraft[key]))), button("+1000만", () => apply(p.chips + 1e7)),
-        button("-1000만", () => apply(Math.max(0, p.chips - 1e7))), button("0원", () => apply(0)));
+      bx.append(button("설정", () => apply(parseAmt(admDraft[key]))));
+      if (p) bx.append(button("+1000만", () => apply(p.chips + 1e7)), button("-1000만", () => apply(Math.max(0, p.chips - 1e7))));
+      bx.append(button("0원", () => apply(0)));
       put(r, 3, bx, "btn");
     });
   }
