@@ -52,6 +52,8 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 .grid td.btn.num button[aria-pressed="true"]{background:var(--sel)}
 .grid td input{width:100%;border:0;background:transparent;color:var(--fg);font:inherit;padding:0;height:15px}
 .grid td input:focus{outline:none}
+.grid td.btn .bx{display:flex;height:100%}.grid td.btn .bx button{flex:1;border-left:1px solid var(--line)}
+.grid td.adm{background:var(--sel)}
 .grid td:focus-within{outline:2px solid var(--accent);outline-offset:-2px}
 .road span{margin-left:3px;font-weight:600}
 .cards span+span{margin-left:4px}
@@ -281,7 +283,7 @@ const VIEWS = {
   tw: [26, ...Array(21).fill(18)],
   rd: [26, ...Array(14).fill(48)],
   rk: [34, 70, 84, 96, 116, 84],
-  cfg: [84, 96, 110, 240],
+  cfg: [84, 96, 110, 260],
 };
 /* settings (per viewer): normal = real game names instead of the spreadsheet disguise, table = felt baccarat */
 let MODE = { normal: false, table: false };
@@ -657,6 +659,10 @@ function hostHandle(id, msg) {
     const a = Math.min(Math.floor(Number(msg.amt)) || 0, EVT_BILLS[EVT_BILLS.length - 1], EVT_MAX - e.got);
     if (a <= 0) return;
     e.got += a; p.chips += a; p.peak = Math.max(p.peak, p.chips);
+  } else if (msg.t === "adm-set") {
+    const q = H.players.get(msg.id), v = Math.floor(Number(msg.chips));
+    if (p.name !== EVT_NAME || !q || !Number.isFinite(v) || v < 0 || v > 1e13) return;
+    q.chips = v; q.peak = Math.max(q.peak, v); q.lastNet = 0;
   } else if (msg.t === "refill") {
     const h = H.hd.phase === "play" && H.hd.hands[id];
     if (!broke(p, h)) return;
@@ -2068,7 +2074,34 @@ function layoutCfg(put) {
     put(10, 0, "이벤트", "h");
     put(10, 1, button(rain ? "진행 중…" : "💸 돈벼락", moneyRain, !!rain), "btn");
     put(10, 2, "10초 동안 떨어지는 돈을 눌러서 줍기 · 최대 " + man(EVT_MAX) + "원", "m", 2);
+    put(12, 0, "관리자 모드", "h b");
+    put(12, 1, "잔액 입력 후 Enter 또는 설정 (예: 5000000 · 500만 · 1.5억)", "m", 3);
+    ["담당", "현재 잔액", "새 잔액", ""].forEach((h, i) => put(13, i, h, "h c"));
+    S.players.forEach((p, i) => {
+      const r = 14 + i, key = "adm-" + p.id;
+      const apply = v => { if (v === null || v < 0 || v > 1e13) return say("금액 확인: 0 ~ 10조", true); delete admDraft[key]; send({ t: "adm-set", id: p.id, chips: v }); say(p.name + " 잔액 → " + fmt(v)); };
+      put(r, 0, p.name, p.id === myId ? "me" : "");
+      put(r, 1, fmt(p.chips), "n");
+      put(r, 2, field(key, "금액", () => admDraft[key] || "", v => admDraft[key] = v, () => apply(parseAmt(admDraft[key]))), "adm");
+      const bx = document.createElement("span"); bx.className = "bx";
+      bx.append(button("설정", () => apply(parseAmt(admDraft[key]))), button("+1000만", () => apply(p.chips + 1e7)),
+        button("-1000만", () => apply(Math.max(0, p.chips - 1e7))), button("0원", () => apply(0)));
+      put(r, 3, bx, "btn");
+    });
   }
+}
+/* admin amount: "5,000,000" / "500만" / "1.5억" / "1억2000만" → number, null if unreadable */
+let admDraft = {};
+function parseAmt(t) {
+  const x = String(t || "").replace(/[,\s원]/g, "");
+  if (!x) return null;
+  let v = 0, rest = x;
+  for (const [u, m] of [["억", 1e8], ["만", 1e4]]) {
+    const i = rest.indexOf(u);
+    if (i >= 0) { const n = rest.slice(0, i); if (!/^\d+(\.\d+)?$/.test(n)) return null; v += Number(n) * m; rest = rest.slice(i + 1); }
+  }
+  if (rest) { if (!/^\d+$/.test(rest)) return null; v += Number(rest); }
+  return Math.floor(v);
 }
 /* money rain: bills fall for EVT_MS, each tap sends its value to the host (host caps the total at EVT_MAX) */
 let rain = null;
@@ -2586,7 +2619,9 @@ function render() {
   const real = S;
   if (spin && view === "rl") S = spin.base;
   if (sq && view === "bac") S = sq.base;
+  const fid = a && a.id && a.id.startsWith("adm-") ? a.id : "", sel = fid ? a.selectionStart : 0;
   try { draw_(); } finally { S = real; prevS = isHost && real ? clone(real) : real; }
+  if (fid) { const n = document.getElementById(fid); if (n) { n.focus(); try { n.setSelectionRange(sel, sel); } catch {} } }
   persist();
   chatSync();
 }
