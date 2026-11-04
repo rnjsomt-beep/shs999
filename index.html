@@ -163,6 +163,40 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 .f-ps div{background:rgba(0,0,0,.28);border-radius:6px;padding:3px 8px;font-variant-numeric:tabular-nums}
 .f-ps .rdy{color:#7ee2a8}
 #felt .t-br{color:#e0a26a}#felt .t-si{color:#d9dee3}#felt .t-pl{color:#5fe0d0}#felt .t-em{color:#6fe39a}#felt .t-di{color:#9dbcff}#felt .t-gm{color:#ff8c8f}#felt .t-ma{color:#d6a6ff}.f-ps .me{outline:1px solid #ffd43b}
+/* table mode: roulette / blackjack / hold'em */
+.f-tbl{background:rgba(0,0,0,.18);border:2px solid rgba(255,255,255,.25);border-radius:60px/30px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:5px}
+.f-tbl .f-sh{font-size:13px}
+.f-tbl .sub,.f-seat .sub{font-size:11px;opacity:.85}
+.f-seats{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:6px}
+.f-seat{background:rgba(0,0,0,.28);border:2px solid transparent;border-radius:10px;padding:5px 6px;display:flex;flex-direction:column;gap:3px;align-items:center;min-height:92px;font-variant-numeric:tabular-nums}
+.f-seat.me{border-color:#ffd43b}.f-seat.turn{box-shadow:0 0 0 3px #ff922b,0 0 14px rgba(255,146,43,.6)}.f-seat.fold{opacity:.5}
+.f-seat .nm{font-weight:700;display:flex;gap:4px;align-items:center;max-width:100%;overflow:hidden;white-space:nowrap}
+.f-seat .pos,.f-my .pos{color:#7ee2a8}.f-seat .neg,.f-my .neg{color:#ff9b94}
+.f-hand{display:flex;align-items:center;min-height:50px}
+.f-hand.ov .pc+.pc{margin-left:-12px}
+.f-hand .f-slot{width:34px;height:48px}
+.f-gap{display:flex;gap:5px}
+.f-st{font-weight:700;font-size:11px;padding:0 7px;border-radius:8px;background:rgba(255,255,255,.15)}
+.f-st.in{background:#2f9e55}.f-st.out{background:#c8102e}.f-st.hl{background:#e3a008;color:#111}
+.f-db{background:#fff;color:#111;border-radius:50%;width:16px;height:16px;font:700 10px/16px var(--ui);text-align:center;flex:none}
+.f-my{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
+.f-my .f-info{display:flex;flex-direction:column;gap:2px;font-variant-numeric:tabular-nums}
+.f-spot{align-self:center;width:118px;min-height:84px;border-radius:50%}
+.rw{position:relative;width:min(230px,62vw);aspect-ratio:1;margin:0 auto;border-radius:50%;background:radial-gradient(circle,#0c4a30 33%,#d4af37 33.5%,#5a3a1a 35%,#3a240f 50%,#2a1a0a 64%,#d4af37 65%,#5a3a1a 67%);box-shadow:0 4px 12px rgba(0,0,0,.5);flex:none}
+.rw i{position:absolute;width:9.5%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;font:700 9px/1 var(--num);display:flex;align-items:center;justify-content:center;font-style:normal;color:#fff;background:#111}
+.rw i.r{background:#c8102e}.rw i.g{background:#2f9e55}
+.rw i.on{box-shadow:0 0 0 2px #ffd43b,0 0 10px #ffd43b;transform:translate(-50%,-50%) scale(1.4);z-index:1}
+.rw .ctr{position:absolute;inset:36%;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 26px var(--num);background:#fff;color:#111}
+.rw .ctr.r{color:#c8102e}.rw .ctr.g{color:#2f9e55}
+.f-hist{display:flex;gap:3px;flex-wrap:wrap;justify-content:center}
+.f-hist span{width:20px;height:20px;border-radius:50%;font:700 10px/20px var(--num);text-align:center;background:#111}
+.f-hist .r{background:#c8102e}.f-hist .g{background:#2f9e55}.f-hist span:first-child{box-shadow:0 0 0 2px #ffd43b}
+.rb{display:grid;grid-template-columns:minmax(0,1.1fr) repeat(12,minmax(0,1fr)) minmax(0,1.1fr);grid-template-rows:repeat(3,34px) 28px 28px;gap:2px}
+.rb button{font:700 11px var(--num);color:#fff;background:#1a1a1a;border:1px solid rgba(255,255,255,.45);border-radius:3px;padding:0;position:relative;cursor:pointer;min-width:0}
+.rb button:disabled{cursor:default}
+.rb .r{background:#b01025}.rb .g{background:#2f9e55}.rb .o{background:rgba(255,255,255,.08)}
+.rb .hit{box-shadow:inset 0 0 0 3px #ffd43b}.rb .sp{outline:3px solid #ffd43b;z-index:1}
+.rb .mn{white-space:nowrap;position:absolute;right:-3px;top:-6px;background:#ffd43b;color:#111;border-radius:8px;font-size:9px;line-height:13px;padding:0 3px;z-index:2;pointer-events:none}
 .sqwrap{position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;font:13px var(--ui)}
 .sqwrap .sqt{font-weight:700;font-size:15px}
 .sqwrap button{font:inherit;font-weight:700;border:0;border-radius:6px;padding:7px 16px;background:#f3f3f3;cursor:pointer}
@@ -183,6 +217,15 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 .pc .fc b{font-size:2.6em;line-height:1}.pc .fc i{font-style:normal;font-size:1.5em}
 .pc.bk{background:repeating-linear-gradient(45deg,#8b1a1a 0 3px,#b03030 3px 6px);box-shadow:inset 0 0 0 calc(var(--cw)*.06) #fff,0 1px 3px rgba(0,0,0,.5)}
 @media (prefers-reduced-motion:reduce){.f-row .lv,.f-res.new{animation:none}}
+/* 성호 전용 돈벼락 이벤트 */
+.rain{position:fixed;inset:0;z-index:25;overflow:hidden;background:rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none}
+.rain .rh{position:absolute;left:0;right:0;top:10px;text-align:center;color:#fff;font:700 18px var(--ui);text-shadow:0 2px 4px #000;pointer-events:none;z-index:2}
+.rain .rh small{display:block;font-size:13px;font-weight:400}
+.bill{position:absolute;left:0;top:0;width:86px;height:42px;margin:-21px 0 0 -43px;border-radius:5px;background:linear-gradient(135deg,#2e8b57,#6fcf97 50%,#2e8b57);border:2px solid #1d5e3a;color:#0b2e1a;font:700 14px var(--ui);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 6px rgba(0,0,0,.4);cursor:pointer}
+.bill.big{background:linear-gradient(135deg,#b8860b,#ffd966 50%,#b8860b);border-color:#7a5a00;color:#3a2a00}
+.bill::before{content:"₩";position:absolute;left:5px;top:2px;font-size:10px;opacity:.6}
+.rain .gp{position:absolute;color:#ffd966;font:700 16px var(--ui);text-shadow:0 1px 3px #000;pointer-events:none;animation:gp .8s ease-out forwards}
+@keyframes gp{to{transform:translateY(-50px);opacity:0}}
 </style>
 </head>
 <body>
@@ -216,6 +259,7 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 <script>
 (() => {
 const PREFIX = "xlsheet-sb-";
+const EVT_NAME = "성호", EVT_MS = 10000, EVT_MAX = 50000000, EVT_BILLS = [10000, 50000, 100000, 300000, 500000, 1000000, 3000000];
 const START = 1000000, MAX = 5, AMTS = [10000, 50000, 100000, 500000, 1000000], NROWS = 44;
 /* event alerts: tune these to change what counts as "special" */
 const EV_ALLIN_MIN = 100000;   // all-in win only announced when the stake was at least this
@@ -602,6 +646,17 @@ function hostHandle(id, msg) {
   } else if (msg.t === "hd-seat") {
     if (!H.hd.running) return;
     p.hdSeat = !p.hdSeat;
+  } else if (msg.t === "evt-go") {
+    const n = Date.now();
+    if (p.name !== EVT_NAME || (p.evt && n < p.evt.end)) return;
+    p.evt = { end: n + EVT_MS + 1500, got: 0 };
+    return;
+  } else if (msg.t === "evt-grab") {
+    const e = p.evt, n = Date.now();
+    if (p.name !== EVT_NAME || !e || n > e.end) return;
+    const a = Math.min(Math.floor(Number(msg.amt)) || 0, EVT_BILLS[EVT_BILLS.length - 1], EVT_MAX - e.got);
+    if (a <= 0) return;
+    e.got += a; p.chips += a; p.peak = Math.max(p.peak, p.chips);
   } else if (msg.t === "refill") {
     const h = H.hd.phase === "play" && H.hd.hands[id];
     if (!broke(p, h)) return;
@@ -2002,12 +2057,68 @@ function layoutCfg(put) {
   put(2, 1, button("위장모드", () => set("normal", false), !MODE.normal), "btn");
   put(2, 2, button("일반모드", () => set("normal", true), MODE.normal), "btn");
   put(2, 3, MODE.normal ? "게임 이름·용어를 그대로 표시 (Esc 위장 시트는 유지)" : "업무 시트처럼 위장해서 표시", "m");
-  put(4, 0, "바카라 화면", "h");
+  put(4, 0, "게임 화면", "h");
   put(4, 1, button("시트형", () => set("table", false), !MODE.table), "btn");
   put(4, 2, button("테이블형 (테스트)", () => set("table", true), MODE.table), "btn");
-  put(4, 3, MODE.table ? "실제 테이블 · 출목표(본매/대로) · 카드 쬐기" : "기존 스프레드시트 화면", "m");
+  put(4, 3, MODE.table ? "바카라·룰렛·블랙잭·홀덤 실제 테이블 화면 (바카라 출목표·카드 쬐기)" : "기존 스프레드시트 화면", "m");
   put(6, 0, "쬐기", "h"); put(6, 1, "테이블형: 카드 가장자리를 잡고 안쪽으로 끌면 그 방향으로 젖혀집니다 · 탭 = 바로 오픈", "m", 3);
   put(8, 0, "※ 설정은 이 기기에만 저장됩니다", "m", 4);
+  const me = meP();
+  if (me && me.name === EVT_NAME) {
+    put(10, 0, "이벤트", "h");
+    put(10, 1, button(rain ? "진행 중…" : "💸 돈벼락", moneyRain, !!rain), "btn");
+    put(10, 2, "10초 동안 떨어지는 돈을 눌러서 줍기 · 최대 " + man(EVT_MAX) + "원", "m", 2);
+  }
+}
+/* money rain: bills fall for EVT_MS, each tap sends its value to the host (host caps the total at EVT_MAX) */
+let rain = null;
+function moneyRain() {
+  const me = meP();
+  if (rain || !me || me.name !== EVT_NAME) return;
+  send({ t: "evt-go" });
+  const box = document.createElement("div"); box.className = "rain";
+  const hd = document.createElement("div"); hd.className = "rh"; box.append(hd);
+  document.body.append(box);
+  const R = rain = { box, bills: [], got: 0, t0: performance.now(), last: 0, raf: 0 };
+  const head = left => { hd.textContent = "💸 돈벼락 " + Math.ceil(left / 1000) + "초"; const sm = document.createElement("small"); sm.textContent = "주운 돈 " + fmt(R.got) + " / " + fmt(EVT_MAX); hd.append(sm); };
+  const spawn = () => {
+    const v = EVT_BILLS[Math.floor(Math.pow(Math.random(), 1.8) * EVT_BILLS.length)];
+    const b = document.createElement("div"); b.className = "bill" + (v >= 1000000 ? " big" : ""); b.textContent = man(v);
+    const o = { b, v, x: 40 + Math.random() * Math.max(1, innerWidth - 80), y: -30, vy: 120 + Math.random() * 220, sw: Math.random() * 6.28, r: Math.random() * 40 - 20 };
+    b.addEventListener("pointerdown", ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      if (o.dead) return; o.dead = true; b.remove();
+      const a = Math.min(v, EVT_MAX - R.got); if (a <= 0) return;
+      R.got += a; send({ t: "evt-grab", amt: a });
+      const g = document.createElement("div"); g.className = "gp"; g.textContent = "+" + man(a);
+      g.style.left = (o.x - 20) + "px"; g.style.top = o.y + "px"; box.append(g); setTimeout(() => g.remove(), 800);
+    });
+    box.append(b); R.bills.push(o);
+  };
+  const tick = now => {
+    if (rain !== R) return;
+    const el2 = now - R.t0, dt = Math.min(0.05, (now - (R.prev || now)) / 1000); R.prev = now;
+    if (el2 < EVT_MS && R.got < EVT_MAX && now - R.last > 110) { R.last = now; spawn(); if (Math.random() < .4) spawn(); }
+    const H2 = innerHeight + 40;
+    R.bills = R.bills.filter(o => {
+      if (o.dead) return false;
+      o.y += o.vy * dt; o.sw += dt * 3;
+      if (o.y > H2) { o.b.remove(); return false; }
+      o.b.style.transform = "translate(" + (o.x + Math.sin(o.sw) * 18) + "px," + o.y + "px) rotate(" + (o.r + Math.sin(o.sw) * 15) + "deg)";
+      return true;
+    });
+    head(Math.max(0, EVT_MS - el2));
+    if (el2 >= EVT_MS || R.got >= EVT_MAX) { endRain(true); return; }
+    R.raf = requestAnimationFrame(tick);
+  };
+  head(EVT_MS); render();
+  R.raf = requestAnimationFrame(tick);
+}
+function endRain(show) {
+  const R = rain; if (!R) return;
+  rain = null; cancelAnimationFrame(R.raf); R.box.remove();
+  if (show) say("💸 돈벼락 종료: +" + fmt(R.got) + (R.got >= EVT_MAX ? " (최대치 달성!)" : ""));
+  render();
 }
 function applyMode() {
   const t = MODE.normal ? "카지노" : "4Q_자재수불부_v3";
@@ -2153,7 +2264,7 @@ function bigEl(rs) {
   }
   return g;
 }
-function drawFelt() {
+function drawFeltBac() {
   const F = $("felt"), me = meP(), r = sq ? sq.r : S.bac.rounds[0];
   const fresh = !sq && r && seen.bac !== undefined && r.n > seen.bac;
   F.textContent = "";
@@ -2230,6 +2341,202 @@ function drawFelt() {
     feltPaint();
   }
 }
+/* ---------- table mode: shared pieces ---------- */
+const fbtn = (cls, txt, fn, dis) => { const b = el("button", cls, txt); b.type = "button"; if (fn) b.onclick = fn; if (dis) b.disabled = true; return b; };
+const cardOf = (c, w) => c === undefined ? el("div", "f-slot") : c < 0 ? cardBack(w) : cardFace(c, w);
+function feltStart(tag, sub) {
+  const F = $("felt"), me = meP(); F.textContent = "";
+  const W = el("div", "f-in"); F.append(W);
+  const top = el("div", "f-top"); top.append(el("span", "f-tag", tag), el("span", "", sub));
+  if (me) {
+    const mn = el("span", "f-me"); mn.append(el("span", tierCls(me.name).trim(), me.name), " · " + fmt(me.chips)); top.append(mn);
+    if (me.lastNet) top.append(el("span", me.lastNet > 0 ? "pos" : "neg", sgn(me.lastNet)));
+  }
+  W.append(top);
+  return W;
+}
+function feltRack(W, withAll) {
+  const rack = el("div", "f-rack");
+  AMTS.forEach((a, i) => rack.append(fbtn("chip c" + i + (amt === a && !(withAll && allIn) ? " on" : ""), man(a), () => { amt = a; allIn = false; render(); })));
+  if (withAll) rack.append(fbtn("chip call" + (allIn ? " on" : ""), "올인", () => { allIn = !allIn; render(); }));
+  W.append(rack);
+}
+// cancel / ready / refill row shared by the betting games
+function feltAct(W, g, clearT, goLabel) {
+  const me = meP(), act = el("div", "f-act");
+  if (clearT) act.append(fbtn("", "베팅 취소", () => send({ t: clearT })));
+  const go = fbtn("go", (me.ready[g] ? "준비완료 ✓ " : goLabel + " ") + readyCount(g), () => send({ t: "ready", g })); go.setAttribute("aria-pressed", me.ready[g]); act.append(go);
+  if (canRefill(me)) act.append(fbtn("fill", "충전 +" + man(START), () => send({ t: "refill" })));
+  W.append(act);
+}
+function feltPs(W, g, line) {
+  const ps = el("div", "f-ps");
+  S.players.forEach(p => {
+    const d = el("div", (p.ready[g] ? "rdy" : "") + (p.id === myId ? " me" : ""), p.ready[g] ? "✓ " : ""), x = line(p);
+    d.append(el("b", tierCls(p.name).trim(), p.name), " " + short(p.chips) + (x ? " · " + x : "")); ps.append(d);
+  });
+  W.append(ps);
+}
+const nCls = n => n === 0 ? "g" : REDS.has(n) ? "r" : "";
+
+/* ---------- table-mode roulette ---------- */
+function drawFeltRl() {
+  const R = S.rl, me = meP(), mine = me ? me.rl : {}, last = R.hist[0];
+  const fresh = !spin && R.n && seen.rl !== undefined && R.n > seen.rl;
+  const W = feltStart("No " + (R.n || "-"), spin ? "휠 회전 중…" : "다음 " + (R.n + 1) + "회");
+  const cur = spin ? spin.cur : R.n ? last : undefined;
+  const wh = el("div", "rw");
+  WHEEL.forEach((n, i) => {
+    const a = i / 37 * 2 * Math.PI, p = el("i", nCls(n) + (n === cur ? " on" : ""), String(n));
+    p.style.left = 50 + 42.5 * Math.sin(a) + "%"; p.style.top = 50 - 42.5 * Math.cos(a) + "%"; wh.append(p);
+  });
+  wh.append(el("div", "ctr " + (cur === undefined ? "" : nCls(cur)), cur === undefined ? (spin ? "…" : "-") : String(cur)));
+  W.append(wh);
+  if (R.hist.length) { const h = el("div", "f-hist"); R.hist.slice(0, 18).forEach(n => h.append(el("span", nCls(n), String(n)))); W.append(h); }
+  if (!spin && R.n) {
+    const t = last === 0 ? "ZERO" : [REDS.has(last) ? "RED" : "BLACK", last % 2 ? "홀" : "짝", last <= 18 ? "1-18" : "19-36"].join(" · ");
+    W.append(el("div", "f-res " + (last === 0 ? "f-T" : REDS.has(last) ? "f-B" : "") + (fresh ? " new" : ""), last + "  " + t));
+  } else if (spin) W.append(el("div", "f-msg", "볼이 돌고 있습니다…"));
+  const bd = el("div", "rb"), lock = !me || !!spin;
+  const cell = (k, txt, cls, col, row) => {
+    const b = fbtn(cls || "", txt, () => send({ t: "rl-add", k, ...bet() }), lock);
+    b.style.gridColumn = col; b.style.gridRow = row;
+    const n = k[0] === "n" ? +k.slice(1) : -1;
+    if (spin && n === spin.cur) b.classList.add("sp");
+    if (!spin && R.n && n === last) b.classList.add("hit");
+    if (mine[k]) b.append(el("span", "mn", man(mine[k])));
+    bd.append(b);
+  };
+  cell("n0", "0", "g", "1", "1 / 4");
+  for (let n = 1; n <= 36; n++) cell("n" + n, String(n), nCls(n), String(Math.ceil(n / 3) + 1), String(3 - (n - 1) % 3));
+  cell("c3", "2:1", "o", "14", "1"); cell("c2", "2:1", "o", "14", "2"); cell("c1", "2:1", "o", "14", "3");
+  cell("d1", "1st 12", "o", "2 / 6", "4"); cell("d2", "2nd 12", "o", "6 / 10", "4"); cell("d3", "3rd 12", "o", "10 / 14", "4");
+  [["low", "1-18", "o"], ["even", "짝", "o"], ["red", "RED", "r"], ["black", "BLK", ""], ["odd", "홀", "o"], ["high", "19-36", "o"]]
+    .forEach(([k, t, c], i) => cell(k, t, c, (2 + i * 2) + " / " + (4 + i * 2), "5"));
+  W.append(bd);
+  const ks = Object.keys(mine);
+  if (ks.length) W.append(el("div", "f-msg", "내 베팅: " + ks.map(k => rlName(k) + " " + man(mine[k])).join(" · ") + "  (합계 " + man(sum(mine)) + ")"));
+  if (me && !spin) { feltRack(W, true); feltAct(W, "rl", "rl-clear", "스핀 준비"); }
+  feltPs(W, "rl", p => sum(p.rl) ? "베팅 " + man(sum(p.rl)) : "");
+}
+
+/* ---------- table-mode blackjack ---------- */
+function drawFeltBj() {
+  const B = S.bj, me = meP(), play = B.phase === "play", d = B.dealer;
+  const W = feltStart("No " + B.n, play ? "진행 중" : "베팅 중");
+  const dl = el("div", "f-tbl"), dh = el("div", "f-sh");
+  dh.append(el("span", "", "DEALER"), el("span", "f-sc", d.length ? (play ? hv([d[0]]) + "+?" : String(hv(d))) : "-"));
+  const dr = el("div", "f-row f-gap"); (d.length ? d : [undefined, undefined]).forEach(c => dr.append(cardOf(c, 48)));
+  dl.append(dh, dr, el("div", "sub", "딜러 17 이상 스탠드 · 블랙잭 3:2"));
+  W.append(dl);
+  const seats = el("div", "f-seats");
+  S.players.forEach(p => {
+    const h = p.bj, sv = el("div", "f-seat" + (p.id === myId ? " me" : "") + (play && h.cards.length && !h.done ? " turn" : ""));
+    const nm = el("div", "nm"); nm.append(el("span", tierCls(p.name).trim(), p.name)); sv.append(nm);
+    sv.append(el("div", "sub", short(p.chips) + (h.bet ? " · 베팅 " + man(h.bet) : "")));
+    const hd = el("div", "f-hand ov"); h.cards.forEach(c => hd.append(cardOf(c, 36))); if (!h.cards.length) hd.append(el("div", "f-slot")); sv.append(hd);
+    let st;
+    if (play) st = h.cards.length ? (h.done ? h.res : "진행") : "-";
+    else st = p.ready.bj ? "✓ 준비" : (h.res || "대기");
+    const stc = /승|BJ/.test(st) || st === "✓ 준비" ? "in" : /패|버스트/.test(st) ? "out" : st === "진행" ? "hl" : "";
+    sv.append(el("div", "f-st " + stc, (h.cards.length ? hv(h.cards) + " · " : "") + st));
+    if (!play && p.lastNet) sv.append(el("div", "sub " + (p.lastNet > 0 ? "pos" : "neg"), sgn(p.lastNet)));
+    seats.append(sv);
+  });
+  W.append(seats);
+  if (me) {
+    const my = me.bj;
+    if (play && my.cards.length && !my.done) {
+      W.append(el("div", "f-msg", "내 패 " + hv(my.cards) + " · 권장: " + bjHint(my.cards, d[0])));
+      const act = el("div", "f-act");
+      act.append(fbtn("go", "히트", () => send({ t: "bj-hit" })), fbtn("", "스탠드", () => send({ t: "bj-stand" })));
+      if (my.cards.length === 2) act.append(fbtn("fill", "더블", () => send({ t: "bj-double" })));
+      W.append(act);
+    } else if (play) W.append(el("div", "f-msg", "다른 플레이어 진행 대기 중…"));
+    else {
+      const spot = fbtn("f-bet k-b f-spot", "", () => send({ t: "bj-add", ...bet() }));
+      spot.append(el("b", "", "BET"), el("small", "", "눌러서 칩 올리기"));
+      if (my.bet) spot.append(el("span", "mine", man(my.bet)));
+      W.append(spot);
+      feltRack(W, true); feltAct(W, "bj", "bj-clear", "딜 준비");
+    }
+  }
+  feltPs(W, "bj", p => p.bj.bet ? "베팅 " + man(p.bj.bet) : "");
+}
+
+/* ---------- table-mode hold'em ---------- */
+function drawFeltHd() {
+  const D = S.hd, me = meP(), play = D.phase === "play";
+  if (D !== hdSeen) { hdSeen = D; hdDeadline = Date.now() + D.left; hdNextAt = D.next ? Date.now() + D.next : 0; }
+  const nameOf = id => (S.players.find(p => p.id === id) || {}).name || "(퇴장)";
+  const W = feltStart("No " + D.n, play ? STREET[D.street] : D.running ? (D.wait ? "리바인 대기" : "다음 핸드") : D.n ? "종료" : "대기");
+  const tb = el("div", "f-tbl"), th = el("div", "f-sh"), tm = el("span", "f-sc"); tm.id = "hd-timer"; tm.textContent = hdTimerText(D);
+  th.append(el("span", "", "POT " + fmt(D.pot)), tm);
+  const br = el("div", "f-row f-gap"); for (let i = 0; i < 5; i++) br.append(cardOf(D.board[i], 44));
+  tb.append(th, br, el("div", "sub", "SB 5천 / BB 1만 · 30초 초과 시 체크/폴드"));
+  W.append(tb);
+  const inHand = new Set(D.hands.map(h => h.id));
+  const rows = D.hands.concat(S.players.filter(p => !inHand.has(p.id)).map(p => ({ id: p.id, cards: [], watch: true })));
+  const seats = el("div", "f-seats");
+  rows.forEach(h => {
+    const p = S.players.find(x => x.id === h.id), mine = h.id === myId;
+    const sv = el("div", "f-seat" + (mine ? " me" : "") + (D.toAct === h.id ? " turn" : "") + (h.folded || h.watch ? " fold" : ""));
+    const nm = el("div", "nm"); if (h.id === D.btn) nm.append(el("span", "f-db", "D"));
+    nm.append(el("span", p ? tierCls(p.name).trim() : "", nameOf(h.id))); sv.append(nm);
+    sv.append(el("div", "sub", (p ? short(p.chips) : "-") + (play && h.bet ? " · 벳 " + man(h.bet) : "")));
+    const hc = el("div", "f-hand f-gap"); if (h.cards.length) h.cards.forEach(c => hc.append(cardOf(c, 34))); else hc.append(el("div", "f-slot")); sv.append(hc);
+    let st = "";
+    const seat = p && p.hdSeat ? (p.chips > 0 ? "착석" : "파산") : "관전";
+    if (play && !h.watch) st = h.folded ? "폴드" : h.allin ? "올인" : D.toAct === h.id ? "차례" : "";
+    else if (D.running) st = play && p && p.hdSeat ? "다음 핸드" : seat;
+    else st = p && p.ready.hd ? "✓ 준비" : "대기";
+    let hn = "";
+    if (D.last && !play && D.last.hand[h.id]) hn = D.last.hand[h.id];
+    else if (mine && h.cards.length && h.cards[0] >= 0) hn = handName(h.cards.concat(D.board));
+    if (st || hn) sv.append(el("div", "f-st " + (st === "✓ 준비" || st === "착석" || st === "다음 핸드" ? "in" : st === "올인" || st === "파산" ? "out" : st === "차례" ? "hl" : ""), [st, hn].filter(Boolean).join(" · ")));
+    if (!play && D.last && !h.watch) { const net = (D.last.won[h.id] || 0) - h.total; if (net) sv.append(el("div", "sub " + (net > 0 ? "pos" : "neg"), sgn(net))); }
+    seats.append(sv);
+  });
+  W.append(seats);
+  if (!play && D.last) {
+    const ws = Object.keys(D.last.won).filter(id => D.last.won[id] > 0);
+    W.append(el("div", "f-res", ws.map(id => nameOf(id) + " +" + man(D.last.won[id]) + (D.last.hand[id] ? " (" + D.last.hand[id] + ")" : "")).join("  ·  ") || "-"));
+  }
+  if (!me) return;
+  const my = D.hands.find(h => h.id === myId);
+  if (my && my.cards.length && my.cards[0] >= 0) {
+    const box = el("div", "f-my"), hc = el("div", "f-row f-gap"); my.cards.forEach(c => hc.append(cardOf(c, 58)));
+    const inf = el("div", "f-info"); inf.append(el("b", "", handName(my.cards.concat(D.board))));
+    if (play && !my.folded) {
+      const opp = D.hands.filter(h => h.id !== myId && !h.folded).length, eq = equity(my.cards, D.board, opp);
+      const toCall = Math.min(D.curBet - my.bet, me.chips), odds = toCall > 0 ? toCall / (D.pot + toCall) : 0;
+      const verdict = toCall === 0 ? (eq > 0.5 ? "벳 고려" : "체크") : eq > odds ? "콜 유리" : "폴드 고려";
+      inf.append(el("span", "", "승률추정 " + (eq * 100).toFixed(0) + "% · 팟오즈 " + (toCall ? (odds * 100).toFixed(0) + "%" : "-")), el("span", verdict === "폴드 고려" ? "neg" : "pos", verdict));
+    }
+    box.append(hc, inf); W.append(box);
+  }
+  if (play && D.toAct === myId && my) {
+    const toCall = D.curBet - my.bet, raise = Math.max(amt, D.minRaise);
+    feltRack(W, false);
+    const act = el("div", "f-act");
+    act.append(fbtn("", "폴드", () => send({ t: "hd", a: "fold" })),
+      fbtn("go", toCall > 0 ? "콜 " + man(Math.min(toCall, me.chips)) : "체크", () => send({ t: "hd", a: "call" })),
+      fbtn("fill", (D.curBet ? "레이즈 +" : "벳 ") + man(raise), () => send({ t: "hd", a: "raise", amt })),
+      fbtn("", "올인", () => send({ t: "hd", a: "allin" })));
+    W.append(act);
+  } else {
+    const info = play ? (D.toAct ? nameOf(D.toAct) + " 차례" : "") + (D.running && !me.hdSeat ? " · 참가 시 다음 핸드부터" : "")
+      : D.running ? (D.wait ? "잔액 있는 착석자 2명 이상 필요 · 리바인 대기" : me.hdSeat ? "다음 핸드 자동 시작" : "참가 누르면 다음 핸드부터")
+      : "전원 준비 시 테이블 시작 (이후 자동 진행)";
+    if (info) W.append(el("div", "f-msg", info));
+    const act = el("div", "f-act");
+    if (D.running) act.append(fbtn(me.hdSeat ? "" : "go", me.hdSeat ? "일어나기" : "참가", () => send({ t: "hd-seat" })));
+    else { const go = fbtn("go", (me.ready.hd ? "준비완료 ✓ " : "준비 ") + readyCount("hd"), () => send({ t: "ready", g: "hd" })); go.setAttribute("aria-pressed", me.ready.hd); act.append(go); }
+    if (canRefill(me)) act.append(fbtn("fill", "리바인 +" + man(START), () => send({ t: "refill" })));
+    W.append(act);
+  }
+}
+const FELT = { bac: drawFeltBac, rl: drawFeltRl, bj: drawFeltBj, hd: drawFeltHd };
 // peel the back off from the grabbed edge; the lifted part shows as a pale flap folded over the rest
 function feltPaint() {
   const b = document.querySelector("#felt .sqbig"); if (!b || !sq) return;
@@ -2287,9 +2594,13 @@ function draw_() {
   NAMET = new Map(S ? S.players.map(p => [p.name, tierOf(acct(p))[2]]) : []);
   const solo = view === "decoy" || view === "rd" || view === "rk" || view === "cfg";
   tabsSync();
-  const felt = !!(S && view === "bac" && MODE.table);
+  const felt = !!(S && MODE.table && FELT[view]);
   $("felt").hidden = !felt; document.querySelector(".wrap").hidden = felt;
-  if (felt) { drawFelt(); const me = meP(); $("st-cnt").textContent = "인원: " + S.players.length; $("st-sum").textContent = "칩: " + (me ? fmt(me.chips) : "-"); return; }
+  if (felt) {
+    grid.textContent = ""; FELT[view]();
+    if (view === "bac" && !sq && S.bac.rounds[0]) seen.bac = S.bac.rounds[0].n;
+    if (view === "rl" && !spin) seen.rl = S.rl.n;
+    const me = meP(); $("st-cnt").textContent = "인원: " + S.players.length; $("st-sum").textContent = "칩: " + (me ? fmt(me.chips) : "-"); return; }
   $("felt").textContent = "";
   const widths = VIEWS[solo || S ? view : "bac"];
   const nc = widths.length;
@@ -2345,7 +2656,7 @@ function setView(v) {
 }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => setView(b.dataset.v));
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") { e.preventDefault(); setView(view === "decoy" ? lastGame : "decoy"); }
+  if (e.key === "Escape") { e.preventDefault(); endRain(false); setView(view === "decoy" ? lastGame : "decoy"); }
   else if (e.key === " " && view === "tw" && !(document.activeElement && document.activeElement.tagName === "INPUT")) { e.preventDefault(); twDrop(); }
   else if (e.key === "F9") { e.preventDefault(); if (S && view !== "decoy") send({ t: "ready", g: view }); }
 });
