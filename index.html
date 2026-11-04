@@ -932,32 +932,98 @@ setInterval(() => {
   else if (hostConn && hostConn.open) try { hostConn.send({ t: "ping" }); } catch {}
   if (!isHost && S && hostConn && Date.now() - lastHost > 7000) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); }
 }, 2000);
-function enter() { if (peer) return; tries = 0; try { localStorage.setItem("xs-name", nameDraft); } catch {} host(); }
+/* the room lives on slot 0; a closed/sleeping host tab can keep its id registered for a while,
+   so when nobody answers there we move on to the next slot, and a host on a higher slot merges
+   everyone back down as soon as a lower slot answers again */
+const SLOTS = 4, slotId = k => PREFIX + ROOM + (k ? "-" + k : "");
+let slot = 0, hops = 0, wd = 0, probing = false;
+function enter() { if (peer) return; tries = 0; hops = 0; try { localStorage.setItem("xs-name", nameDraft); } catch {} host(0); }
 function retry(msg) {
   reset();
   if (++tries > 5) return say(msg, true);
-  say("입장 중… (" + tries + ")");
-  setTimeout(() => { if (!peer) host(); }, 400 + rnd() % 1600);
+  hops = 0; say("입장 중… (" + tries + ")");
+  setTimeout(() => { if (!peer) host(0); }, 400 + rnd() % 1600);
 }
-function host() {
+// the signalling server sometimes never answers: start over instead of hanging on "입장 중…"
+function watchdog() { clearTimeout(wd); wd = setTimeout(() => { if (!S) retry("서버 응답 없음: 잠시 후 다시 시도하세요"); }, 10000); }
+function hop(f, k) { if (++hops > 12) { reset(); return say("입장 실패: 잠시 후 다시 시도하세요", true); } f(k); }
+function host(k) {
   if (peer) return;
-  say("입장 중…");
-  peer = new Peer(PREFIX + ROOM, { debug: 0 });
-  peer.on("open", id => {
+  slot = k; say("입장 중…" + (k ? " (예비 " + k + ")" : ""));
+  const pr = peer = new Peer(slotId(k), { debug: 0 });
+  watchdog();
+  pr.on("open", id => {
+    clearTimeout(wd);
     myId = id; isHost = true; roomCode = ROOM; boardMerge(H.board, board);
     hostHandle(myId, { t: "hello", name: myName(), acct: loadAcct(), board, v: view });
     say("입장 완료");
   });
-  peer.on("connection", c => {
+  pr.on("connection", c => {
     c.on("open", () => { c.seen = Date.now(); conns.set(c.peer, c); });
     c.on("data", m => { c.seen = Date.now(); hostHandle(c.peer, m); });
     c.on("close", () => drop(c));
   });
-  peer.on("error", e => {
-    if (e.type === "unavailable-id") { peer.destroy(); peer = null; join(); return; }
+  pr.on("error", e => {
+    if (pr !== peer) return;
+    if (e.type === "unavailable-id") { clearTimeout(wd); pr.destroy(); peer = null; hop(join, k); return; }
+    if (e.type === "peer-unavailable") return; // a merge probe found an empty slot
     netErr(e);
   });
-  peer.on("disconnected", () => { if (peer && !peer.destroyed) peer.reconnect(); });
+  pr.on("disconnected", () => { if (pr === peer && !pr.destroyed) pr.reconnect(); });
+}
+function join(k) {
+  if (peer) return;
+  slot = k;
+  const pr = peer = new Peer({ debug: 0 });
+  watchdog();
+  pr.on("open", id => {
+    clearTimeout(wd);
+    myId = id; roomCode = ROOM;
+    const hc = hostConn = pr.connect(slotId(k), { reliable: true });
+    // id is taken but nobody answers: try the next slot
+    joinT = setTimeout(() => {
+      if (S || pr !== peer) return;
+      reset();
+      if (k + 1 < SLOTS) hop(host, k + 1); else retry("입장 실패: 잠시 후 다시 시도하세요");
+    }, 6000);
+    hc.on("open", () => hc.send({ t: "hello", name: myName(), acct: loadAcct(), board, v: view }));
+    hc.on("data", m => {
+      if (hc !== hostConn) return;
+      lastHost = Date.now();
+      if (m.t === "state") { clearTimeout(joinT); tries = 0; S = m; render(); }
+      else if (m.t === "err") say(m.m, true);
+      else if (m.t === "event") showEvent(m);
+      else if (m.t === "move") { const s = Math.max(0, Math.min(SLOTS - 1, m.s | 0)); reset(); hops = 0; setTimeout(() => join(s), rnd() % 400); }
+      else if (m.t === "full") { clearTimeout(joinT); say("인원 초과: 최대 5명", true); reset(); }
+    });
+    // host left: whoever reconnects first becomes the new host
+    hc.on("close", () => { if (hc === hostConn && S) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); } });
+  });
+  pr.on("error", e => {
+    if (pr !== peer) return;
+    // nobody holds this slot any more: take it
+    if (e.type === "peer-unavailable") { if (S) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); } else { reset(); hop(host, k); } return; }
+    netErr(e);
+  });
+}
+// host on a spare slot: every 10s check the slots below; if one answers, send everyone there
+setInterval(() => { if (isHost && slot > 0 && !probing && peer && peer.open) { probing = true; probe(0); } }, 10000);
+function probe(j) {
+  const pr = peer;
+  if (!isHost || pr !== peer || j >= slot) { probing = false; return; }
+  const c = pr.connect(slotId(j), { reliable: true });
+  let done = false;
+  const fin = live => {
+    if (done) return; done = true; clearTimeout(t); try { c.close(); } catch {}
+    if (pr !== peer) { probing = false; return; }
+    if (!live) return probe(j + 1);
+    probing = false;
+    for (const x of conns.values()) try { x.send({ t: "move", s: j }); } catch {}
+    setTimeout(() => { if (pr !== peer) return; reset(); hops = 0; join(j); }, 400);
+  };
+  const t = setTimeout(() => fin(false), 5000);
+  c.on("data", () => fin(true));
+  c.on("error", () => fin(false));
 }
 function drop(c) {
   if (conns.get(c.peer) !== c) return;
@@ -966,36 +1032,13 @@ function drop(c) {
   const q = H.players.get(c.peer);
   if (H.players.delete(c.peer)) { mgLeave(c.peer); hdLeave(c.peer); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast(); emit({ sys: 1, k: "leave", name: q.name }); }
 }
-function join() {
-  if (peer) return;
-  peer = new Peer({ debug: 0 });
-  peer.on("open", id => {
-    myId = id; roomCode = ROOM;
-    hostConn = peer.connect(PREFIX + ROOM, { reliable: true });
-    joinT = setTimeout(() => { if (!S) retry("입장 실패: 잠시 후 다시 시도하세요"); }, 8000);
-    hostConn.on("open", () => hostConn.send({ t: "hello", name: myName(), acct: loadAcct(), board, v: view }));
-    hostConn.on("data", m => {
-      lastHost = Date.now();
-      if (m.t === "state") { clearTimeout(joinT); tries = 0; S = m; render(); }
-      else if (m.t === "err") say(m.m, true);
-      else if (m.t === "event") showEvent(m);
-      else if (m.t === "full") { clearTimeout(joinT); say("인원 초과: 최대 5명", true); reset(); }
-    });
-    // host left: whoever reconnects first becomes the new host
-    hostConn.on("close", () => { if (S) { tries = 0; retry("방장이 나가서 연결이 끊겼습니다"); } });
-  });
-  peer.on("error", e => {
-    if (e.type === "peer-unavailable") { retry("입장 실패: 잠시 후 다시 시도하세요"); return; }
-    netErr(e);
-  });
-}
 function netErr(e) {
   const m = e.type === "network" || e.type === "server-error" || e.type === "socket-error"
     ? "서버 연결 실패: 네트워크(방화벽)를 확인하세요" : "연결 오류: " + e.type;
   say(m, true); $("saved").textContent = "연결 끊김";
 }
 function reset() {
-  clearTimeout(joinT);
+  clearTimeout(joinT); clearTimeout(wd); probing = false;
   try { peer && peer.destroy(); } catch {}
   peer = null; hostConn = null; isHost = false; S = null; conns.clear(); H = fresh();
   render();
