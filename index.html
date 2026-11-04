@@ -2321,8 +2321,8 @@ document.querySelectorAll("#tabs button").forEach(b => b.dataset.l = b.textConte
 // tab label + how many players are on that sheet right now, e.g. "집계 (2/5)"
 function tabsSync() {
   document.querySelectorAll("#tabs button").forEach(b => {
-    const v = b.dataset.v, n = S && v !== "decoy" && v !== "cfg" ? S.players.filter(p => p.vw === v).length : 0;
-    const t = (MODE.normal ? NTAB[v] : b.dataset.l) + (n ? " (" + n + "/" + MAX + ")" : "");
+    const v = b.dataset.v, on = !!S && v !== "decoy" && v !== "cfg", n = on ? S.players.filter(p => p.vw === v).length : 0;
+    const t = (MODE.normal ? NTAB[v] : b.dataset.l) + (on ? " (" + n + "/" + MAX + ")" : "");
     if (b.textContent !== t) b.textContent = t;
   });
 }
