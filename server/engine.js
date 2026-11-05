@@ -9,7 +9,7 @@ const EMO = ["🤡", "😜", "🫵", "🤣", "😭", "💸", "🥱", "👋"];
 
 module.exports = function makeRoom(code, ctx) {
 const EVT_NAME = "성호", EVT_MS = 10000, EVT_MAX = 50000000, EVT_BILLS = [10000, 50000, 100000, 300000, 500000, 1000000, 3000000];
-const START = 1000000, MAX = 5, AMTS = [10000, 50000, 100000, 500000, 1000000], NROWS = 44;
+const START = 1000000, MAX = 5, AMTS = [10000, 50000, 100000, 500000, 1000000, 10000000], NROWS = 44;
 /* event alerts: tune these to change what counts as "special" */
 const EV_ALLIN_MIN = 100000;   // all-in win only announced when the stake was at least this
 const EV_BIG = 2000000;        // net win >= this → "대박"
@@ -203,7 +203,8 @@ function rdReadyCheck() {
   H.rdGo = (H.rdGo || 0) + 1;
 }
 function take(id, p, a) { if (p.chips < a) { reply(id, "잔액 부족: 가용 " + fmt(p.chips)); return false; } p.chips -= a; return true; }
-const validBet = m => m.all === true || AMTS.includes(m.amt);
+/* chip amounts, or any amount from the %/slider picker (1,000 steps) */
+const validBet = m => m.all === true || (Number.isInteger(m.amt) && m.amt >= 1000 && m.amt <= 1e13 && m.amt % 1000 === 0);
 /* returns the amount actually put on the table (0 = refused); all:true = whole balance */
 function stake(id, p, msg) {
   if (msg.all === true) { const a = p.chips; if (a <= 0) { reply(id, "잔액 부족: 가용 0"); return 0; } p.chips = 0; return a; }
@@ -250,7 +251,7 @@ function hostHandle(id, msg) {
   if (p && msg.t === "rd-ready") { p.rdReady = !p.rdReady; rdReadyCheck(); broadcast(); return; }
   if (p && String(msg.t).startsWith("g-")) { mgHandle(id, msg); return; }
   if (!p) return;
-  if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; if (p.vw === "bac") p.ready.bac = false; p.vw = msg.v; }
+  if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; if (GAMES.includes(p.vw)) p.ready[p.vw] = false; p.vw = msg.v; }
   else if (msg.t === "ready" && GAMES.includes(msg.g)) {
     if (msg.g === "bj" && H.bj.phase !== "bet") return;
     if (msg.g === "hd" && (H.hd.running || H.hd.phase !== "idle")) return;
@@ -288,7 +289,7 @@ function hostHandle(id, msg) {
     else if (v === 21) { h.done = true; if (h.res !== "더블") h.res = "21"; }
     bjMaybeFinish();
   } else if (msg.t === "hd" && ["fold", "call", "raise", "allin"].includes(msg.a)) {
-    if (!hdAct(id, msg.a, AMTS.includes(msg.amt) ? msg.amt : 0)) return;
+    if (!hdAct(id, msg.a, Number.isInteger(msg.amt) && msg.amt > 0 && msg.amt <= 1e13 ? msg.amt : 0)) return;
   } else if (msg.t === "hd-seat") {
     if (!H.hd.running) return;
     p.hdSeat = !p.hdSeat;
@@ -307,6 +308,17 @@ function hostHandle(id, msg) {
     const n = String(msg.name || "").slice(0, 8), v = Math.floor(Number(msg.chips));
     if (p.name !== EVT_NAME || !n || n === "__proto__" || !Number.isFinite(v) || v < 0 || v > 1e13) return;
     ctx.admSet(n, v);
+  } else if (msg.t === "rebet" && ["bac", "rl", "bj"].includes(msg.g)) {
+    /* same stakes as this player's previous round of that game */
+    const L = p.lb && p.lb[msg.g];
+    if (!L) return;
+    if (msg.g === "bj" && H.bj.phase !== "bet") return;
+    const tot = msg.g === "bj" ? L : sum(L);
+    if (!(tot > 0) || !take(id, p, tot)) return;
+    if (msg.g === "bac") for (const k of ["p", "b", "t"]) p.bac[k] += L[k] || 0;
+    else if (msg.g === "rl") for (const [k, a] of Object.entries(L)) { if (RL_KEYS.has(k)) p.rl[k] = (p.rl[k] || 0) + a; }
+    else p.bj.bet += L;
+    p.ready[msg.g] = false;
   } else if (msg.t === "refill") {
     const h = H.hd.phase === "play" && H.hd.hands[id];
     if (!broke(p, h)) return;
@@ -322,7 +334,8 @@ function checkReady() {
   if (!H.players.size) return;
   for (const g of GAMES) {
     /* baccarat: only players on the baccarat sheet need to be ready */
-    const ps = [...H.players.values()].filter(q => g !== "bac" || q.vw === "bac");
+    /* each game is its own room: only the players looking at that game's sheet need to be ready */
+    const ps = [...H.players.values()].filter(q => q.vw === g);
     if (!ps.length || !ps.every(q => q.ready[g])) continue;
     for (const q of ps) q.ready[g] = false;
     if (g === "bac") runBac(); else if (g === "rl") runRl(); else if (g === "bj") runBj(); else hdStart();
@@ -336,6 +349,7 @@ function runBac() {
     const allin = q.chips === 0 && !sum(q.rl) && !q.bj.bet;
     const ret = bacPay(q.bac, r.w); q.chips += ret; q.lastNet = ret - s; rec(q, "bac", s, ret);
     announce(q, "bac", s, ret, allin, r.w === "T" && q.bac.t >= EV_SPECIAL_MIN ? "타이 적중" : "");
+    q.lb = { ...q.lb, bac: { ...q.bac } };
     q.bac = empty();
   }
   H.bac.rounds = [r, ...H.bac.rounds].slice(0, 100);
@@ -344,7 +358,8 @@ function runRl() {
   const n = rnd() % 37;
   H.rl.n++;
   for (const q of H.players.values()) {
-    const s = sum(q.rl); if (!s) continue;
+    const s = sum(q.rl); if (!s || q.vw !== "rl") continue;
+    q.lb = { ...q.lb, rl: { ...q.rl } };
     const allin = q.chips === 0 && !sum(q.bac) && !q.bj.bet;
     let ret = 0, hit = 0;
     for (const [k, a] of Object.entries(q.rl)) { const m = rlMult(k, n); ret += a * m; if (k[0] === "n" && m) hit = Math.max(hit, a); }
@@ -355,7 +370,8 @@ function runRl() {
   H.rl.hist = [n, ...H.rl.hist].slice(0, 300);
 }
 function runBj() {
-  const seats = [...H.players.values()].filter(q => q.bj.bet > 0);
+  const seats = [...H.players.values()].filter(q => q.bj.bet > 0 && q.vw === "bj");
+  for (const q of seats) q.lb = { ...q.lb, bj: q.bj.bet };
   for (const q of H.players.values()) { q.bj.cards = []; q.bj.done = false; q.bj.res = ""; }
   if (!seats.length) { H.bj.dealer = []; return; }
   H.bj.n++;
@@ -410,7 +426,7 @@ function shuffled() {
 /* table session: everyone ready once → hands keep dealing until fewer than 2 are seated */
 function hdStart() {
   H.hd.running = true; H.hd.nextAt = 0;
-  for (const q of H.players.values()) q.hdSeat = true;
+  for (const q of H.players.values()) q.hdSeat = q.vw === "hd";
   runHd();
 }
 function hdStop() {
@@ -715,7 +731,7 @@ return {
     restore(np, acc);
     if (VIEWS[msg.v]) np.vw = msg.v;
     H.players.set(name, np);
-    emit({ sys: 1, k: "join", name });
+    emit({ sys: 1, k: "join", name, v: acct(np) });
     for (const q of H.players.values()) q.ready = { bac: false, rl: false, bj: false, hd: false };
     checkReady(); broadcast();
     return "";
@@ -737,5 +753,12 @@ return {
   setChips(name, v) { const q = H.players.get(name); if (!q) return false; q.chips = v; q.peak = Math.max(q.peak, v); q.lastNet = 0; broadcast(); return true; },
   refund,
   refresh: broadcast,
+  /* server going down: hands still being played are void, everyone gets their stake back */
+  shutdown() {
+    const D = H.hd;
+    if (D.phase === "play") for (const id of D.order) { const q = H.players.get(id), h = D.hands[id]; if (q && h) q.chips += h.total; }
+    if (H.bj.phase === "play") for (const q of H.players.values()) if (q.bj.cards.length) { q.chips += q.bj.bet; q.bj.bet = 0; }
+    for (const q of H.players.values()) refund(q);
+  },
 };
 };

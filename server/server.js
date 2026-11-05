@@ -137,6 +137,6 @@ setInterval(() => {
 }, 8000);
 server.listen(PORT, HOST, () => console.log("shs999 server on", HOST + ":" + PORT, "data", DATA));
 for (const s of ["SIGINT", "SIGTERM"]) process.on(s, () => {
-  for (const r of rooms.values()) for (const p of r.players()) { r.refund(p); saw(p); }
+  for (const r of rooms.values()) { try { r.shutdown(); } catch (e) { console.error("shutdown", e); } for (const p of r.players()) saw(p); }
   dirty = true; save(); process.exit(0);
 });

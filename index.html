@@ -74,6 +74,24 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 .toast.fail{border-left-color:#868e96;background:#26292e}
 .toast.die{border-left-color:#e5484d;background:#1d1f23}
 .toast.join{border-left-color:#4c8bf5}
+/* bet tools: % of balance, drag slider, previous bet */
+.grid td.btn .btools{display:flex;align-items:center;gap:0;height:100%}.grid td.btn .btools button{flex:none;width:auto;min-width:40px;padding:0 8px;border-left:1px solid var(--line)}.grid td.btn .btools button:first-child{border-left:0}
+.btools input[type=range]{width:120px;height:12px;margin:0 6px;accent-color:var(--accent);cursor:pointer}.btools .pl{min-width:96px;font-size:11px;color:#555;white-space:nowrap}
+.btools button[disabled]{opacity:.45;cursor:default}
+#felt .btools{display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap}#felt .btools button{font:inherit;font-weight:700;border:0;border-radius:6px;padding:5px 10px;cursor:pointer;background:#f3f3f3;color:#111}
+#felt .btools button[aria-pressed="true"]{background:#ffd43b}#felt .btools .pl{color:#e9f5ec}
+.chip.c5{background:#7b2cbf}
+/* 다이아 5+ entrance */
+.toast.vip{--vc:#5b8def;position:relative;overflow:hidden;border-left:0;padding:10px 16px 10px 14px;font-size:14px;background:linear-gradient(135deg,#141b33,#22305c);box-shadow:0 0 0 1px var(--vc),0 0 22px color-mix(in srgb,var(--vc) 70%,transparent);animation:tin .3s,vipglow 1.4s ease-in-out .3s infinite alternate}
+.toast.vip.v-ma{--vc:#a45ee5;background:linear-gradient(135deg,#1f1433,#3a2160)}.toast.vip.v-gm{--vc:#ff5a5f;background:linear-gradient(135deg,#2e1214,#5c1f24)}.toast.vip.v-ch{--vc:#f0b429;background:linear-gradient(135deg,#2b220c,#5c4510)}
+.toast.vip .vb{display:block;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--vc);margin-bottom:2px}
+.toast.vip::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.28) 50%,transparent 65%);transform:translateX(-100%);animation:vipshine 2.4s ease-in-out .4s infinite;pointer-events:none}
+@keyframes vipglow{to{box-shadow:0 0 0 2px var(--vc),0 0 34px var(--vc)}}
+@keyframes vipshine{60%,100%{transform:translateX(100%)}}
+.vipban{position:fixed;left:50%;top:70px;z-index:30;transform:translate(-50%,-30px);opacity:0;pointer-events:none;padding:14px 34px;border-radius:10px;font:700 20px var(--ui);color:#fff;text-align:center;white-space:nowrap;background:linear-gradient(135deg,#2b220c,#6b5013);box-shadow:0 0 0 2px var(--vc,#f0b429),0 0 40px var(--vc,#f0b429);animation:vipban 4.2s ease forwards}
+.vipban small{display:block;font-size:12px;letter-spacing:2px;color:var(--vc,#f0b429)}
+@keyframes vipban{8%{opacity:1;transform:translate(-50%,0)}85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-20px)}}
+@media (prefers-reduced-motion:reduce){.toast.vip,.toast.vip::after,.vipban{animation:none;opacity:1}}
 .t-br{color:#b0703c} .t-si{color:#6f7b87} .t-go{color:#d4a017} .t-pl{color:#2bb3a3} .t-em{color:#2f9e55}
 .t-di{color:#5b8def} .t-ma{color:#a45ee5} .t-gm{color:#e5484d} .t-ch{color:#f0b429;font-weight:700}
 @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -261,7 +279,7 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 (() => {
 const PREFIX = "xlsheet-sb-";
 const EVT_NAME = "성호", EVT_MS = 10000, EVT_MAX = 50000000, EVT_BILLS = [10000, 50000, 100000, 300000, 500000, 1000000, 3000000];
-const START = 1000000, MAX = 5, AMTS = [10000, 50000, 100000, 500000, 1000000], NROWS = 44;
+const START = 1000000, MAX = 5, AMTS = [10000, 50000, 100000, 500000, 1000000, 10000000], NROWS = 44;
 /* event alerts: tune these to change what counts as "special" */
 const EV_ALLIN_MIN = 100000;   // all-in win only announced when the stake was at least this
 const EV_BIG = 2000000;        // net win >= this → "대박"
@@ -476,6 +494,19 @@ function rdToast(el, nm, m) {
   return true;
 }
 function rdEvent(e) { if (S) send({ t: "rd-ev", e }); else showEvent({ rd: 1, name: myName(), ...e }); }
+/* entrance of a 다이아몬드 5+ player: glowing toast; 마스터+ also gets a banner across the top */
+const VIP_MIN = 2e8, VIP_ICON = { di: "💎", ma: "🔮", gm: "🔥", ch: "👑" };
+function vipJoin(el, nameEl, t) {
+  el.className = "toast vip v-" + t[2];
+  const badge = document.createElement("span"); badge.className = "vb"; badge.textContent = (VIP_ICON[t[2]] || "💎") + " " + t[1] + " 입장";
+  el.append(badge, nameEl, " 님이 입장했어요 ✨");
+  if (t[0] < 1e9 || view === "decoy") return;
+  const ban = document.createElement("div"); ban.className = "vipban";
+  ban.style.setProperty("--vc", { ma: "#a45ee5", gm: "#ff5a5f", ch: "#f0b429" }[t[2]] || "#f0b429");
+  const sm = document.createElement("small"); sm.textContent = t[1].toUpperCase();
+  ban.append(sm, (VIP_ICON[t[2]] || "👑") + " " + nameEl.textContent + " 님 입장 " + (VIP_ICON[t[2]] || "👑"));
+  document.body.append(ban); setTimeout(() => ban.remove(), 4500);
+}
 function showEvent(m) {
   const bac = m.g === GNAME.bac && !m.held;
   setTimeout(() => {
@@ -483,7 +514,9 @@ function showEvent(m) {
     const box = $("toasts"); if (!box) return;
     const el = document.createElement("div");
     const a = document.createElement("b"); a.textContent = String(m.name || "").slice(0, 8);
-    if (m.sys) { el.className = "toast join"; el.append(m.k === "join" ? "👋 " : "🚪 ", a, m.k === "join" ? " 님이 입장했어요" : " 님이 나갔어요"); }
+    const vip = m.sys && m.k === "join" && Number(m.v) >= VIP_MIN ? tierOf(Number(m.v)) : null;
+    if (vip) vipJoin(el, a, vip);
+    else if (m.sys) { el.className = "toast join"; el.append(m.k === "join" ? "👋 " : "🚪 ", a, m.k === "join" ? " 님이 입장했어요" : " 님이 나갔어요"); }
     else if (m.rd) { if (!rdToast(el, a, m)) return; }
     else {
       el.className = "toast " + (["allin", "big", "jackpot", "special"].includes(m.kind) ? m.kind : "");
@@ -496,7 +529,7 @@ function showEvent(m) {
     el.onclick = () => el.remove();
     box.append(el);
     while (box.children.length > 4) box.firstChild.remove();
-    setTimeout(() => el.remove(), m.kind === "jackpot" ? 9000 : 6500);
+    setTimeout(() => el.remove(), vip ? 11000 : m.kind === "jackpot" ? 9000 : 6500);
   }, Math.min(Number(m.delay) || 0, 10000) + (bac ? 150 : 0));
 }
 
@@ -1115,18 +1148,46 @@ function persist() {
 /* admin balance overrides: name -> [chips, time], gossiped like the board so a player who is offline
    now gets the new balance the next time they join (each account remembers the last override it took) */
 let adm = boardMerge({}, lsGet("xs-adm")), savedM = "";
-const roomOf = g => g === "bac" ? S.players.filter(p => p.vw === "bac") : S.players;
+/* each game tab is its own room: only people on that sheet take part / need to be ready */
+const roomOf = g => S.players.filter(p => p.vw === g);
 const readyCount = g => { const ps = roomOf(g); return ps.filter(p => p.ready[g]).length + "/" + ps.length; };
 function readyBtn(g, put, r, c, span) {
   const me = meP(); if (!me) return;
   put(r, c, button(me.ready[g] ? "준비완료 ✓ " + readyCount(g) : "준비 " + readyCount(g), () => send({ t: "ready", g }), me.ready[g]), "btn", span);
 }
 function amountRow(put, r, cols, span, withAll = true) {
-  AMTS.forEach((a, i) => put(r, cols[i], button(man(a), () => { amt = a; allIn = false; render(); }, amt === a && !(withAll && allIn)), "btn", span));
-  if (withAll) put(r, cols[AMTS.length], button("올인", () => { allIn = !allIn; render(); if (allIn) say("올인 모드: 누른 칸에 잔액 전부 베팅"); }, allIn), "btn out", span);
+  AMTS.forEach((a, i) => { if (cols[i] !== undefined) put(r, cols[i], button(man(a), () => { amt = a; allIn = false; betPct = 0; render(); }, amt === a && !betPct && !(withAll && allIn)), "btn", span); });
+  if (withAll && cols[AMTS.length] !== undefined) put(r, cols[AMTS.length], button("올인", () => { allIn = !allIn; betPct = 0; render(); if (allIn) say("올인 모드: 누른 칸에 잔액 전부 베팅"); }, allIn), "btn out", span);
 }
-/* payload for one bet click; all-in mode is one-shot so a stray click later can't shove everything in */
-function bet() { const m = allIn ? { all: true } : { amt }; if (allIn) { allIn = false; queueMicrotask(render); } return m; }
+/* payload for one bet click; all-in mode is one-shot so a stray click later can't shove everything in.
+   % mode (25/50/75 or the slider) stays on: each click puts that share of the balance at that moment */
+let betPct = 0, sliding = false;
+const pctAmt = f => { const me = meP(); return Math.floor((me ? me.chips : 0) * f / 1000) * 1000; };
+function bet() {
+  if (allIn) { allIn = false; queueMicrotask(render); return { all: true }; }
+  if (betPct) { const a = pctAmt(betPct); if (a < 1000) say("잔액 부족: " + Math.round(betPct * 100) + "% 금액이 1천원 미만", true); return { amt: a }; }
+  return { amt };
+}
+/* one cell: [25%][50%][75%] slider  [이전 배팅]  — g = game for the previous-bet button */
+function betTools(g) {
+  const me = meP(), box = document.createElement("span"); box.className = "btools";
+  [0.25, 0.5, 0.75].forEach(f => box.append(button(f * 100 + "%", () => { betPct = betPct === f ? 0 : f; allIn = false; render(); }, betPct === f)));
+  const sl = document.createElement("input"); sl.type = "range"; sl.min = 1; sl.max = 100; sl.step = 1; sl.value = betPct ? Math.round(betPct * 100) : 10;
+  sl.title = "드래그: 잔액의 몇 %씩 베팅할지";
+  const lab = document.createElement("span"); lab.className = "pl";
+  const show = () => { lab.textContent = betPct ? Math.round(betPct * 100) + "% = " + short(pctAmt(betPct)) : "← 끌어서 %"; };
+  sl.addEventListener("pointerdown", () => { sliding = true; });
+  sl.oninput = () => { betPct = sl.value / 100; allIn = false; show(); };
+  sl.onchange = () => { betPct = sl.value / 100; sliding = false; render(); };
+  show(); box.append(sl, lab);
+  const L = me && me.lb && me.lb[g], tot = !L ? 0 : g === "bj" ? L : sum(L);
+  const rb = button(tot ? "이전 배팅 " + short(tot) : "이전 배팅", () => send({ t: "rebet", g }));
+  if (!tot) rb.disabled = true;
+  box.append(rb);
+  return box;
+}
+// releasing the slider outside of it still ends the drag
+addEventListener("pointerup", () => { if (sliding) { sliding = false; render(); } });
 function refillBtn(put, r, c, span) {
   const me = meP(); if (me && canRefill(me)) put(r, c, button("충전 +" + man(START), () => send({ t: "refill" })), "btn in", span);
 }
@@ -1180,7 +1241,8 @@ function layoutBac(put) {
     put(8, 2, sq.live ? "▶ 카드를 문질러 쬐기 · 탭 = 바로 오픈" : "딜링 중…", "sqh", 6);
     put(9, 2, button("전체 오픈", () => sqEnd()), "btn", 4);
   } else if (me) {
-    amountRow(put, 8, [2, 3, 4, 5, 6, 7]);
+    amountRow(put, 8, [2, 3, 4, 5, 6, 7, 8]);
+    put(11, 2, betTools("bac"), "btn", 8);
     put(9, 2, button("P", () => send({ t: "bac-add", k: "p", ...bet() })), "btn in");
     put(9, 3, button("B", () => send({ t: "bac-add", k: "b", ...bet() })), "btn out");
     put(9, 4, button("T", () => send({ t: "bac-add", k: "t", ...bet() })), "btn hold");
@@ -1223,7 +1285,8 @@ function layoutRl(put) {
   bcell(6, 1, "low", "1-18", "", 2); bcell(6, 3, "even", "짝", "", 2); bcell(6, 5, "red", "RED", "red", 2);
   bcell(6, 7, "black", "BLK", "", 2); bcell(6, 9, "odd", "홀", "", 2); bcell(6, 11, "high", "19-36", "", 2);
   if (me) {
-    amountRow(put, 7, [1, 3, 5, 7, 9, 11], 2);
+    amountRow(put, 7, [1, 3, 5, 7, 9, 11, 13], 2);
+    put(11, 1, betTools("rl"), "btn", 13);
     put(8, 1, button("취소", () => send({ t: "rl-clear" })), "btn", 2);
     refillBtn(put, 8, 3, 4);
     readyBtn("rl", put, 8, 11, 3);
@@ -1238,7 +1301,7 @@ function layoutRl(put) {
   put(10, 1, Object.entries(mine).map(([k, a]) => rlName(k) + ":" + man(a)).join("  "), "m", 13);
 
   put(12, 0, "담당", "h", 3); put(12, 3, "잔액", "h", 3); put(12, 6, "베팅", "h", 3); put(12, 9, "준비", "h", 2); put(12, 11, "직전", "h", 3);
-  S.players.forEach((p, i) => {
+  roomOf("rl").forEach((p, i) => {
     const cls = p.id === myId ? "me" : "";
     put(13 + i, 0, p.name, cls, 3); put(13 + i, 3, fmt(p.chips), "n " + cls, 3);
     put(13 + i, 6, sum(p.rl) ? fmt(sum(p.rl)) : "", "n m", 3);
@@ -1257,7 +1320,7 @@ function layoutBj(put) {
   put(2, 8, play ? "진행중" : "베팅", "c " + (play ? "out" : "m"));
   put(2, 9, "No " + S.bj.n, "n m");
   ["담당", "베팅", "카드", "", "", "", "", "합", "상태", "직전"].forEach((h, i) => { if (i < 3 || i > 6) put(4, i, h, "h", i === 2 ? 5 : 1); });
-  S.players.forEach((p, i) => {
+  S.players.filter(p => p.vw === "bj" || p.bj.cards.length).forEach((p, i) => {
     const r = 5 + i, cls = p.id === myId ? "me" : "", h = p.bj;
     put(r, 0, p.name, cls); put(r, 1, h.bet ? fmt(h.bet) : "", "n " + cls);
     put(r, 2, cardsEl(h.cards), "", 5);
@@ -1280,7 +1343,8 @@ function layoutBj(put) {
   } else if (play) {
     put(11, 0, "다른 담당자 처리 대기 중", "m", 6);
   } else {
-    amountRow(put, 11, [0, 1, 2, 3, 4, 5]);
+    amountRow(put, 11, [0, 1, 2, 3, 4, 5, 6]);
+    put(14, 0, betTools("bj"), "btn", 10);
     put(12, 0, button("베팅", () => send({ t: "bj-add", ...bet() })), "btn in", 2);
     put(12, 2, button("취소", () => send({ t: "bj-clear" })), "btn", 2);
     readyBtn("bj", put, 12, 4, 3);
@@ -1868,10 +1932,7 @@ function drawFeltBac() {
   });
   W.append(bets);
   if (me && !sq) {
-    const rack = el("div", "f-rack");
-    AMTS.forEach((a, i) => { const c = el("button", "chip c" + i + (amt === a && !allIn ? " on" : ""), man(a)); c.type = "button"; c.onclick = () => { amt = a; allIn = false; render(); }; rack.append(c); });
-    const al = el("button", "chip call" + (allIn ? " on" : ""), "올인"); al.type = "button"; al.onclick = () => { allIn = !allIn; render(); }; rack.append(al);
-    W.append(rack);
+    feltRack(W, true, "bac");
     const act = el("div", "f-act");
     const cl = el("button", "", "베팅 취소"); cl.type = "button"; cl.onclick = () => send({ t: "bac-clear" });
     const go = el("button", "go", (me.ready.bac ? "준비완료 ✓ " : "딜 준비 ") + readyCount("bac")); go.type = "button"; go.setAttribute("aria-pressed", me.ready.bac); go.onclick = () => send({ t: "ready", g: "bac" });
@@ -1912,11 +1973,12 @@ function feltStart(tag, sub) {
   W.append(top);
   return W;
 }
-function feltRack(W, withAll) {
+function feltRack(W, withAll, g) {
   const rack = el("div", "f-rack");
-  AMTS.forEach((a, i) => rack.append(fbtn("chip c" + i + (amt === a && !(withAll && allIn) ? " on" : ""), man(a), () => { amt = a; allIn = false; render(); })));
-  if (withAll) rack.append(fbtn("chip call" + (allIn ? " on" : ""), "올인", () => { allIn = !allIn; render(); }));
+  AMTS.forEach((a, i) => rack.append(fbtn("chip c" + i + (amt === a && !betPct && !(withAll && allIn) ? " on" : ""), man(a), () => { amt = a; allIn = false; betPct = 0; render(); })));
+  if (withAll) rack.append(fbtn("chip call" + (allIn ? " on" : ""), "올인", () => { allIn = !allIn; betPct = 0; render(); }));
   W.append(rack);
+  if (g) W.append(betTools(g));
 }
 // cancel / ready / refill row shared by the betting games
 function feltAct(W, g, clearT, goLabel) {
@@ -1928,7 +1990,7 @@ function feltAct(W, g, clearT, goLabel) {
 }
 function feltPs(W, g, line) {
   const ps = el("div", "f-ps");
-  S.players.forEach(p => {
+  roomOf(g).forEach(p => {
     const d = el("div", (p.ready[g] ? "rdy" : "") + (p.id === myId ? " me" : ""), p.ready[g] ? "✓ " : ""), x = line(p);
     d.append(el("b", tierCls(p.name).trim(), p.name), " " + short(p.chips) + (x ? " · " + x : "")); ps.append(d);
   });
@@ -1973,7 +2035,7 @@ function drawFeltRl() {
   W.append(bd);
   const ks = Object.keys(mine);
   if (ks.length) W.append(el("div", "f-msg", "내 베팅: " + ks.map(k => rlName(k) + " " + man(mine[k])).join(" · ") + "  (합계 " + man(sum(mine)) + ")"));
-  if (me && !spin) { feltRack(W, true); feltAct(W, "rl", "rl-clear", "스핀 준비"); }
+  if (me && !spin) { feltRack(W, true, "rl"); feltAct(W, "rl", "rl-clear", "스핀 준비"); }
   feltPs(W, "rl", p => sum(p.rl) ? "베팅 " + man(sum(p.rl)) : "");
 }
 
@@ -2015,7 +2077,7 @@ function drawFeltBj() {
       spot.append(el("b", "", "BET"), el("small", "", "눌러서 칩 올리기"));
       if (my.bet) spot.append(el("span", "mine", man(my.bet)));
       W.append(spot);
-      feltRack(W, true); feltAct(W, "bj", "bj-clear", "딜 준비");
+      feltRack(W, true, "bj"); feltAct(W, "bj", "bj-clear", "딜 준비");
     }
   }
   feltPs(W, "bj", p => p.bj.bet ? "베팅 " + man(p.bj.bet) : "");
@@ -2135,6 +2197,7 @@ addEventListener("pointerup", sqUp); addEventListener("pointercancel", sqUp);
 // host snapshots share live objects with H, so keep a detached copy as the pre-result base
 const clone = o => { try { return structuredClone(o); } catch { return o; } };
 function render() {
+  if (sliding) return;
   const a = document.activeElement;
   if (!S && a && a.id === "in-name") return;
   watchSpin();
