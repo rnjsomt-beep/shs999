@@ -74,6 +74,61 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 .toast.fail{border-left-color:#868e96;background:#26292e}
 .toast.die{border-left-color:#e5484d;background:#1d1f23}
 .toast.join{border-left-color:#4c8bf5}
+
+/* stocks */
+canvas.sp{display:block;width:100%;height:15px}
+.grid td.fu{animation:fu .7s}.grid td.fd{animation:fd .7s}@keyframes fu{from{background:#ffe1e1}}@keyframes fd{from{background:#dde9ff}}
+#felt.dark{background:radial-gradient(ellipse at 50% 0,#1d2533,#0d1118 70%);color:#e8ecf1}
+.f-in.sk-in{max-width:980px}
+.sk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.sk-card{background:#151c27;border:1px solid #263042;border-radius:10px;padding:7px 9px;cursor:pointer;position:relative}
+.sk-card.on{border-color:#ffd43b;box-shadow:0 0 0 1px #ffd43b}
+.sk-card .tk{color:#7d8899;font:10px var(--num);margin-left:4px}.sk-card .px{font:700 19px var(--num);margin-top:2px}.sk-card .ch{font:12px var(--num)}
+.sk-card canvas{width:100%;height:40px;display:block;margin-top:4px}
+.sk-card .mine{position:absolute;right:7px;top:7px;font-size:10px;background:#ffd43b;color:#111;border-radius:8px;padding:0 6px;font-weight:700}
+.sk-card.u .px,.sk-card.u .ch,#felt .u{color:#ff6b6b}.sk-card.d .px,.sk-card.d .ch,#felt .d{color:#6aa8ff}
+.sk-card.pu{animation:pu .5s}.sk-card.pd{animation:pd .5s}@keyframes pu{from{background:#3a1d22}}@keyframes pd{from{background:#1b2a44}}
+.sk-two{display:grid;grid-template-columns:1.2fr 1fr;gap:10px}
+@media (max-width:760px){.sk-two{grid-template-columns:1fr}}
+.sk-panel{background:#151c27;border:1px solid #263042;border-radius:10px;padding:9px 11px}
+.sk-panel h4{margin:8px 0 4px;font-size:12px;color:#9aa6b8;font-weight:600}.sk-panel h4:first-child{margin-top:0}
+.sk-big{display:flex;gap:10px;align-items:baseline}.sk-big b{font-size:16px}.sk-big .px{font:700 24px var(--num)}
+.sk-chart{width:100%;height:130px;display:block;margin:4px 0}
+.sk-amts{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0}
+.sk-amts button{font:inherit;font-weight:700;border:0;border-radius:6px;padding:5px 8px;cursor:pointer;background:#273246;color:#dbe3ee}
+.sk-amts button[aria-pressed="true"]{background:#ffd43b;color:#111}
+.sk-m{color:#9aa6b8;font-size:11px}
+.sk-bs{display:flex;gap:8px;margin-top:6px}.sk-bs button{flex:1;font:700 15px var(--ui);border:0;border-radius:8px;padding:10px;cursor:pointer;color:#fff}
+.sk-bs .buy{background:linear-gradient(#e5484d,#c22f35)}.sk-bs .sell{background:linear-gradient(#3b82f6,#1d5fd0)}
+.sk-kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-family:var(--num)}.sk-kv span:nth-child(odd){color:#8e9aac;font-family:var(--ui)}.sk-kv span:nth-child(even){text-align:right}
+.sk-hold{width:100%;border-collapse:collapse;font:11px var(--num)}.sk-hold td,.sk-hold th{padding:3px 3px;border-bottom:1px solid #222b3b;text-align:right;white-space:nowrap}
+.sk-hold th{color:#7d8899;font-weight:400;font-family:var(--ui)}.sk-hold td:first-child,.sk-hold th:first-child{text-align:left;font-family:var(--ui)}
+.sk-hold .btns button{font:700 11px var(--ui);border:0;border-radius:4px;padding:3px 6px;margin-left:3px;cursor:pointer;color:#fff}
+.sk-hold .btns .b{background:#c22f35}.sk-hold .btns .s{background:#1d5fd0}
+.sk-oth,.sk-log div{font-size:11px;padding:2px 0;border-bottom:1px dashed #222b3b;color:#b9c3d1}.sk-log{max-height:150px;overflow:auto}
+/* mini games, table mode */
+.f-in.mg-in{max-width:620px;align-items:center}
+.mg-seats{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.mg-seats button{font:inherit;font-weight:700;border:2px solid transparent;border-radius:16px;padding:5px 13px;cursor:pointer;background:rgba(0,0,0,.3);color:#fff}
+.mg-seats .me{border-color:#ffd43b}.mg-seats .turn{background:#ffd43b;color:#111}.mg-seats .new{background:#f3f3f3;color:#111}
+.mg-board{margin:4px auto;user-select:none;-webkit-user-select:none}
+.mg-hint{text-align:center;color:#e9f5ec;font-size:12px}
+.mg-ch{display:grid;grid-template-columns:repeat(8,40px);border:4px solid #5a3a1a;border-radius:4px}
+.mg-ch .sq{width:40px;height:40px;border:0;padding:0;font:30px/40px "Segoe UI Symbol","Noto Sans Symbols",serif;cursor:pointer}
+.mg-ch .lt{background:#f0d9b5}.mg-ch .dk{background:#b58863}.mg-ch .w{color:#fff;text-shadow:0 0 2px #000,0 0 2px #000}.mg-ch .b{color:#111}
+.mg-ch .last{box-shadow:inset 0 0 0 3px rgba(255,212,59,.65)}.mg-ch .sel{box-shadow:inset 0 0 0 3px #ffd43b}
+.mg-ch .mv{background-image:radial-gradient(circle,rgba(0,0,0,.3) 18%,transparent 20%)}
+.mg-om{display:grid;grid-template-columns:repeat(15,24px);background:#dcb35c;padding:6px;border-radius:4px;box-shadow:0 3px 10px rgba(0,0,0,.4)}
+.mg-om .pt{width:24px;height:24px;border:0;padding:0;cursor:pointer;position:relative;background:linear-gradient(#6b4e24,#6b4e24) center/1px 100% no-repeat,linear-gradient(#6b4e24,#6b4e24) center/100% 1px no-repeat}
+.mg-om .s1::after,.mg-om .s2::after{content:"";position:absolute;inset:2px;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.5)}
+.mg-om .s1::after{background:radial-gradient(circle at 35% 35%,#666,#000)}.mg-om .s2::after{background:radial-gradient(circle at 35% 35%,#fff,#c4c4c4)}
+.mg-om .last::before{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:#e5484d;z-index:1}
+.mg-c4{display:grid;grid-template-columns:repeat(7,44px);gap:4px;background:#1d4fbf;padding:8px;border-radius:10px}
+.mg-c4 .hole{width:44px;height:44px;border-radius:50%;border:0;padding:0;background:#0c2a66;cursor:pointer;box-shadow:inset 0 3px 6px rgba(0,0,0,.5)}
+.mg-c4 .s1{background:radial-gradient(circle at 35% 35%,#ff6b6b,#c0191f)}.mg-c4 .s2{background:radial-gradient(circle at 35% 35%,#ffe066,#e0a800)}
+.mg-c4 .last{outline:3px solid #fff;outline-offset:-3px}
+.mg-tw{position:relative;width:336px;height:230px;background:rgba(0,0,0,.35);border-radius:6px;overflow:hidden;cursor:pointer}
+.mg-tw .blk{position:absolute;height:15px;border-radius:2px;background:linear-gradient(#ffd43b,#e0a800)}.mg-tw .blk.mv{background:linear-gradient(#ff8787,#e5484d)}
 /* bet tools: % of balance, drag slider, previous bet */
 .grid td.btn .btools{display:flex;align-items:center;gap:0;height:100%}.grid td.btn .btools button{flex:none;width:auto;min-width:40px;padding:0 8px;border-left:1px solid var(--line)}.grid td.btn .btools button:first-child{border-left:0}
 .btools input[type=range]{width:120px;height:12px;margin:0 6px;accent-color:var(--accent);cursor:pointer}.btools .pl{min-width:96px;font-size:11px;color:#555;white-space:nowrap}
@@ -262,6 +317,7 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
   <button type="button" role="tab" data-v="rl" aria-selected="false">분석</button>
   <button type="button" role="tab" data-v="bj" aria-selected="false">정산</button>
   <button type="button" role="tab" data-v="hd" aria-selected="false">검토</button>
+  <button type="button" role="tab" data-v="sk" aria-selected="false">시세</button>
   <button type="button" role="tab" data-v="ch" aria-selected="false">BOM대조</button>
   <button type="button" role="tab" data-v="om" aria-selected="false">검수내역</button>
   <button type="button" role="tab" data-v="c4" aria-selected="false">이월</button>
@@ -279,13 +335,13 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 (() => {
 const PREFIX = "xlsheet-sb-";
 const EVT_NAME = "성호", EVT_MS = 10000, EVT_MAX = 50000000, EVT_BILLS = [10000, 50000, 100000, 300000, 500000, 1000000, 3000000];
-const START = 1000000, MAX = 5, AMTS = [10000, 50000, 100000, 500000, 1000000, 10000000], NROWS = 44;
+const START = 1000000, MAX = 10, AMTS = [10000, 50000, 100000, 500000, 1000000, 10000000], NROWS = 60;
 /* event alerts: tune these to change what counts as "special" */
 const EV_ALLIN_MIN = 100000;   // all-in win only announced when the stake was at least this
 const EV_BIG = 2000000;        // net win >= this → "대박"
 const EV_JACKPOT = 10000000;   // net win >= this → "잭팟"
 const EV_SPECIAL_MIN = 100000; // stake needed for tie / straight-up / blackjack call-outs
-const GNAME = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤" };
+const GNAME = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", sk: "주식" };
 const SB = 5000, BB = 10000, TURN_MS = 30000, NEXT_MS = 5000;
 const GAMES = ["bac", "rl", "bj", "hd"];
 const VIEWS = {
@@ -299,13 +355,14 @@ const VIEWS = {
   c4: [34, ...Array(7).fill(42)],
   tw: [26, ...Array(21).fill(18)],
   rd: [26, ...Array(14).fill(48)],
+  sk: [62, 96, 80, 70, 62, 104, 54, 78, 86, 62, 52, 52],
   rk: [34, 70, 84, 96, 116, 84],
   cfg: [84, 96, 110, 260],
 };
 /* settings (per viewer): normal = real game names instead of the spreadsheet disguise, table = felt baccarat */
 let MODE = { normal: false, table: false };
 try { Object.assign(MODE, JSON.parse(localStorage.getItem("xs-mode")) || {}); } catch {}
-const NTAB = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", ch: "체스", om: "오목", c4: "사목", tw: "탑쌓기", rd: "랜덤디펜스", rk: "랭킹", cfg: "설정", decoy: "품목마스터" };
+const NTAB = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", sk: "주식", ch: "체스", om: "오목", c4: "사목", tw: "탑쌓기", rd: "랜덤디펜스", rk: "랭킹", cfg: "설정", decoy: "품목마스터" };
 const NRULE = [
   [/^2026 4Q 자재 집계$/, () => NTAB[view] || "카지노"], [/^2026 4Q 담당자 실적평가$/, "랭킹"],
   [/^BOM 대조표 \(L1\)$/, "체스"], [/^검수내역 대조$/, "오목"], [/^이월 정리$/, "사목 (4목)"], [/^적재 누계 \(L2\)$/, "탑 쌓기"],
@@ -534,7 +591,7 @@ function showEvent(m) {
 }
 
 /* refill only when broke: can't cover the smallest bet, nothing on any table, not alive in a hold'em hand */
-const broke = (p, hdHand) => p.chips < AMTS[0] && !sum(p.bac) && !sum(p.rl) && !p.bj.bet && !(hdHand && !hdHand.folded);
+const broke = (p, hdHand) => p.chips < AMTS[0] && !sum(p.bac) && !sum(p.rl) && !p.bj.bet && !(hdHand && !hdHand.folded) && !Object.keys(p.stk || {}).length;
 const canRefill = me => broke(me, S.hd.phase === "play" && S.hd.hands.find(h => h.id === myId));
 /* ---------- network: everyone connects to the game server (Oracle VM), which runs every table ----------
    one fixed room: #name in the URL picks another room · ?server=ws://… points at a test server */
@@ -566,6 +623,7 @@ function connect() {
     let m; try { m = JSON.parse(e.data); } catch { return; }
     if (m.t === "state") { backoff = 0; S = m; render(); }
     else if (m.t === "you") { myId = m.id; roomCode = m.room; say("입장 완료"); $("saved").textContent = "저장됨"; }
+    else if (m.t === "mk") mkUpdate(m);
     else if (m.t === "err") say(m.m, true);
     else if (m.t === "event") showEvent(m);
     else if (m.t === "full" || m.t === "kick") { want = false; S = null; render(); say(m.m || "입장 실패", true); }
@@ -1009,7 +1067,7 @@ function layoutRd(put) {
   if (own) {
     const me = meP(), ended = !rd.stage || rd.over;
     if (S && me && ended) {
-      put(9, 1, button(me.rdReady ? "준비완료 ✓ " + S.players.filter(q => q.rdReady).length + "/" + S.players.length : "준비 " + S.players.filter(q => q.rdReady).length + "/" + S.players.length, () => send({ t: "rd-ready" }), !!me.rdReady), "btn", 3);
+      put(9, 1, button((me.rdReady ? "준비완료 ✓ " : "준비 ") + roomOf("rd").filter(q => q.rdReady).length + "/" + roomOf("rd").length, () => send({ t: "rd-ready" }), !!me.rdReady), "btn", 3);
     } else put(9, 1, button(rd.over ? "종료" : rd.mp ? "진행 중" : rd.run ? "일시정지" : rd.stage ? "계속" : "시작", () => {
       if (rd.over || rd.mp) return; rd.run = !rd.run; if (rd.run && !rd.stage) rdStart(); rdLast = performance.now(); render();
     }), "btn", 3);
@@ -1108,7 +1166,7 @@ const MAJORS = [[1e10, "챌린저", "ch"], [3e9, "그랜드마스터", "gm"], [1
 const TIERS = MAJORS.flatMap(([lo, n, c, d]) => d ? d.map((f, k) => [f, n + " " + (5 - k), c]).reverse() : [[lo, n, c]]);
 const tierOf = v => TIERS.find(t => v >= t[0]);
 const short = v => (v < 0 ? "-" : "") + (a => a >= 1e8 ? +(a / 1e8).toFixed(1) + "억" : a >= 1e4 ? +(a / 1e4).toFixed(1) + "만" : fmt(a))(Math.abs(v));
-const acct = p => p.chips - START * (p.rebuy || 0);
+const acct = p => p.chips + skVal(p) - START * (p.rebuy || 0);
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 const loadAcct = () => lsGet("xs-acct:" + myName());
@@ -1251,15 +1309,17 @@ function layoutBac(put) {
   }
   put(2, 6, "담당", "h"); put(2, 7, "잔액", "h"); put(2, 8, "베팅", "h"); put(2, 9, "직전", "h");
   const others = roomOf("bac").filter(p => p.id !== myId);
-  for (let i = 0; i < MAX - 1; i++) {
-    const o = others[i];
-    if (!o) { put(3 + i, 6, "-", "m"); continue; }
+  const orow = (o, y) => {
     const bt = ["p", "b", "t"].filter(k => o.bac[k]).map(k => k.toUpperCase() + man(o.bac[k])).join(" ");
-    put(3 + i, 6, (o.ready.bac ? "✓ " : "") + o.name, o.ready.bac ? "in" : "");
-    put(3 + i, 7, fmt(o.chips), "n"); put(3 + i, 8, bt, "m");
-    put(3 + i, 9, o.lastNet ? sgn(o.lastNet) : "", netCls(o.lastNet));
-  }
-  anaBac(put, 12);
+    put(y, 6, (o.ready.bac ? "✓ " : "") + o.name, o.ready.bac ? "in" : "");
+    put(y, 7, fmt(o.chips), "n"); put(y, 8, bt, "m");
+    put(y, 9, o.lastNet ? sgn(o.lastNet) : "", netCls(o.lastNet));
+  };
+  for (let i = 0; i < 5; i++) { if (others[i]) orow(others[i], 3 + i); else put(3 + i, 6, "-", "m"); }
+  // more than 5 others (up to 9): continue the list under the buttons
+  const extra = others.slice(5);
+  extra.forEach((o, j) => orow(o, 12 + j));
+  anaBac(put, 12 + (extra.length ? extra.length + 1 : 0));
 }
 
 function layoutRl(put) {
@@ -1308,7 +1368,7 @@ function layoutRl(put) {
     put(13 + i, 9, p.ready.rl ? "✓" : "대기", "c " + (p.ready.rl ? "in" : "m"), 2);
     put(13 + i, 11, p.lastNet ? sgn(p.lastNet) : "", netCls(p.lastNet), 3);
   });
-  anaRl(put, 19);
+  anaRl(put, Math.max(19, 14 + roomOf("rl").length));
 }
 
 function layoutBj(put) {
@@ -1320,7 +1380,8 @@ function layoutBj(put) {
   put(2, 8, play ? "진행중" : "베팅", "c " + (play ? "out" : "m"));
   put(2, 9, "No " + S.bj.n, "n m");
   ["담당", "베팅", "카드", "", "", "", "", "합", "상태", "직전"].forEach((h, i) => { if (i < 3 || i > 6) put(4, i, h, "h", i === 2 ? 5 : 1); });
-  S.players.filter(p => p.vw === "bj" || p.bj.cards.length).forEach((p, i) => {
+  const bjPs = S.players.filter(p => p.vw === "bj" || p.bj.cards.length), o = Math.max(0, bjPs.length - 6);
+  bjPs.forEach((p, i) => {
     const r = 5 + i, cls = p.id === myId ? "me" : "", h = p.bj;
     put(r, 0, p.name, cls); put(r, 1, h.bet ? fmt(h.bet) : "", "n " + cls);
     put(r, 2, cardsEl(h.cards), "", 5);
@@ -1332,25 +1393,25 @@ function layoutBj(put) {
     put(r, 8, st, "c " + stc);
     put(r, 9, p.lastNet ? sgn(p.lastNet) : "", netCls(p.lastNet));
   });
-  anaBj(put, 15);
+  anaBj(put, 15 + o);
   if (!me) return;
   const myHand = me.bj;
   if (play && myHand.cards.length && !myHand.done) {
-    put(11, 0, button("히트", () => send({ t: "bj-hit" })), "btn in", 2);
-    put(11, 2, button("스탠드", () => send({ t: "bj-stand" })), "btn", 3);
-    if (myHand.cards.length === 2) put(11, 5, button("더블", () => send({ t: "bj-double" })), "btn out", 2);
-    put(11, 7, "권장: " + bjHint(myHand.cards, d[0]), "b hold", 3);
+    put(11 + o, 0, button("히트", () => send({ t: "bj-hit" })), "btn in", 2);
+    put(11 + o, 2, button("스탠드", () => send({ t: "bj-stand" })), "btn", 3);
+    if (myHand.cards.length === 2) put(11 + o, 5, button("더블", () => send({ t: "bj-double" })), "btn out", 2);
+    put(11 + o, 7, "권장: " + bjHint(myHand.cards, d[0]), "b hold", 3);
   } else if (play) {
-    put(11, 0, "다른 담당자 처리 대기 중", "m", 6);
+    put(11 + o, 0, "다른 담당자 처리 대기 중", "m", 6);
   } else {
-    amountRow(put, 11, [0, 1, 2, 3, 4, 5, 6]);
-    put(14, 0, betTools("bj"), "btn", 10);
-    put(12, 0, button("베팅", () => send({ t: "bj-add", ...bet() })), "btn in", 2);
-    put(12, 2, button("취소", () => send({ t: "bj-clear" })), "btn", 2);
-    readyBtn("bj", put, 12, 4, 3);
+    amountRow(put, 11 + o, [0, 1, 2, 3, 4, 5, 6]);
+    put(14 + o, 0, betTools("bj"), "btn", 10);
+    put(12 + o, 0, button("베팅", () => send({ t: "bj-add", ...bet() })), "btn in", 2);
+    put(12 + o, 2, button("취소", () => send({ t: "bj-clear" })), "btn", 2);
+    readyBtn("bj", put, 12 + o, 4, 3);
   }
-  put(13, 0, "잔액", "h"); put(13, 1, fmt(me.chips), "n me");
-  refillBtn(put, 13, 2, 3);
+  put(13 + o, 0, "잔액", "h"); put(13 + o, 1, fmt(me.chips), "n me");
+  refillBtn(put, 13 + o, 2, 3);
 }
 
 /* ---------- analysis (below each game) ---------- */
@@ -1511,7 +1572,7 @@ function layoutHd(put) {
 
   ["담당", "잔액", "카드", "", "족보", "", "리바인", "베팅", "상태", "결과"].forEach((h, i) => { if (h) put(4, i, h, "h c", i === 2 || i === 4 ? 2 : 1); });
   const inHand = new Set(D.hands.map(h => h.id));
-  const rows = D.hands.concat(S.players.filter(p => !inHand.has(p.id)).map(p => ({ id: p.id, cards: [], watch: true })));
+  const rows = D.hands.concat(S.players.filter(p => !inHand.has(p.id)).map(p => ({ id: p.id, cards: [], watch: true }))), o = Math.max(0, rows.length - 6);
   rows.forEach((h, i) => {
     const r = 5 + i, p = S.players.find(x => x.id === h.id), mine = h.id === myId, cls = mine ? "me" : "";
     const tag = (h.id === D.btn ? "Ⓓ" : "") + (D.toAct === h.id ? "▶" : "");
@@ -1537,38 +1598,38 @@ function layoutHd(put) {
     const my = D.hands.find(h => h.id === myId);
     if (play && D.toAct === myId && my) {
       const toCall = D.curBet - my.bet, raise = Math.max(amt, D.minRaise);
-      put(11, 0, button("폴드", () => send({ t: "hd", a: "fold" })), "btn out");
-      put(11, 1, button(toCall > 0 ? "콜 " + man(Math.min(toCall, me.chips)) : "체크", () => send({ t: "hd", a: "call" })), "btn in");
-      amountRow(put, 11, [2, 3, 4, 5, 6], 1, false);
-      put(11, 7, button((D.curBet ? "레이즈 +" : "벳 ") + man(raise), () => send({ t: "hd", a: "raise", amt })), "btn", 2);
-      put(11, 9, button("올인", () => send({ t: "hd", a: "allin" })), "btn out");
+      put(11 + o, 0, button("폴드", () => send({ t: "hd", a: "fold" })), "btn out");
+      put(11 + o, 1, button(toCall > 0 ? "콜 " + man(Math.min(toCall, me.chips)) : "체크", () => send({ t: "hd", a: "call" })), "btn in");
+      amountRow(put, 11 + o, [2, 3, 4, 5, 6], 1, false);
+      put(11 + o, 7, button((D.curBet ? "레이즈 +" : "벳 ") + man(raise), () => send({ t: "hd", a: "raise", amt })), "btn", 2);
+      put(11 + o, 9, button("올인", () => send({ t: "hd", a: "allin" })), "btn out");
     } else {
-      if (D.running) put(11, 0, button(me.hdSeat ? "일어나기" : "참가", () => send({ t: "hd-seat" })), "btn " + (me.hdSeat ? "out" : "in"), 2);
-      else readyBtn("hd", put, 11, 0, 2);
+      if (D.running) put(11 + o, 0, button(me.hdSeat ? "일어나기" : "참가", () => send({ t: "hd-seat" })), "btn " + (me.hdSeat ? "out" : "in"), 2);
+      else readyBtn("hd", put, 11 + o, 0, 2);
       const info = play ? (D.toAct ? nameOf(D.toAct) + " 차례 (30초 초과 시 체크/폴드)" : "") + (D.running && !me.hdSeat ? " · 참가 시 다음 핸드부터" : "")
         : D.running ? (D.wait ? "잔액 있는 착석자 2명 이상 필요 · 리바인 대기" : me.hdSeat ? "다음 핸드 자동 시작" : "참가 누르면 다음 핸드부터")
         : "전원 준비 시 테이블 시작 (이후 자동 진행) · SB 5천 / BB 1만";
-      put(11, 2, info, "m", 8);
+      put(11 + o, 2, info, "m", 8);
     }
-    put(12, 0, "잔액", "h"); put(12, 1, fmt(me.chips), "n me");
-    if (canRefill(me)) put(12, 2, button("리바인 +" + man(START), () => send({ t: "refill" })), "btn in", 2);
+    put(12 + o, 0, "잔액", "h"); put(12 + o, 1, fmt(me.chips), "n me");
+    if (canRefill(me)) put(12 + o, 2, button("리바인 +" + man(START), () => send({ t: "refill" })), "btn in", 2);
     if (play && my && !my.folded && my.cards[0] >= 0) {
       const opp = D.hands.filter(h => h.id !== myId && !h.folded).length;
       const eq = equity(my.cards, D.board, opp);
       const toCall = Math.min(D.curBet - my.bet, me.chips);
       const odds = toCall > 0 ? toCall / (D.pot + toCall) : 0;
-      put(12, 2, "승률추정", "h", 2); put(12, 4, (eq * 100).toFixed(0) + "%", "n b");
-      put(12, 5, "팟오즈", "h", 2); put(12, 7, toCall ? (odds * 100).toFixed(0) + "%" : "-", "n");
+      put(12 + o, 2, "승률추정", "h", 2); put(12 + o, 4, (eq * 100).toFixed(0) + "%", "n b");
+      put(12 + o, 5, "팟오즈", "h", 2); put(12 + o, 7, toCall ? (odds * 100).toFixed(0) + "%" : "-", "n");
       const verdict = toCall === 0 ? (eq > 0.5 ? "벳 고려" : "체크") : eq > odds ? "콜 유리" : "폴드 고려";
-      put(12, 8, verdict, "c b " + (verdict === "폴드 고려" ? "out" : "in"), 2);
+      put(12 + o, 8, verdict, "c b " + (verdict === "폴드 고려" ? "out" : "in"), 2);
     }
   }
   if (!play && D.last) {
     const ws = Object.keys(D.last.won).filter(id => D.last.won[id] > 0);
-    put(13, 0, "결과", "h");
-    put(13, 1, ws.map(id => nameOf(id) + " +" + fmt(D.last.won[id]) + (D.last.hand[id] ? " (" + D.last.hand[id] + ")" : "")).join("  ·  ") || "-", "b in", 9);
+    put(13 + o, 0, "결과", "h");
+    put(13 + o, 1, ws.map(id => nameOf(id) + " +" + fmt(D.last.won[id]) + (D.last.hand[id] ? " (" + D.last.hand[id] + ")" : "")).join("  ·  ") || "-", "b in", 9);
   }
-  anaHd(put, 15);
+  anaHd(put, 15 + o);
 }
 function anaHd(put, r0) {
   const D = S.hd;
@@ -1747,7 +1808,7 @@ function applyMode() {
   $("ci").placeholder = NM("비고 입력 후 Enter");
   if (!formula.classList.contains("err")) formula.textContent = DEF_F();
 }
-const LAYOUT = { cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
+const LAYOUT = { sk: layoutSk, cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
 const colName = i => i < 26 ? String.fromCharCode(65 + i) : "A" + String.fromCharCode(39 + i);
 
 /* roulette spin: when a new result arrives, run a highlight around the board in wheel order,
@@ -1834,6 +1895,197 @@ function sqPaint() {
   const v = grid.querySelector(".sqv");
   if (v) v.style.width = (1 - sq.p) * 100 + "%";
   feltPaint();
+}
+
+
+/* ---------- stocks (view "sk"): fake prices from the server, every 2s ---------- */
+let MK = null, skSel = "NVDA", skMode = { amt: 1000000, pct: 0 };
+const SK_FEE = 0.001;
+function mkUpdate(m) {
+  if (m.full) MK = { list: m.list.map(x => ({ ...x, hist: (x.hist || []).slice(-150) })) };
+  else if (MK) MK.list.forEach((x, i) => { if (m.px[i] === undefined) return; x.prev = x.px; x.px = m.px[i]; x.open = m.open[i]; x.hist.push(x.px); if (x.hist.length > 150) x.hist.shift(); });
+  if (S && view === "sk") render();
+}
+const skOf = k => MK && MK.list.find(x => x.k === k);
+const skVal = p => { let v = 0; for (const [k, h] of Object.entries(p.stk || {})) { const x = skOf(k); if (x) v += x.px * h.q; } return v; };
+const skc = v => v > 0 ? "out" : v < 0 ? "in" : "";                // 한국식: 오르면 빨강, 내리면 파랑
+const pctS = v => { const r = Math.round(v * 10000) / 100; return (r > 0 ? "+" : "") + (r ? r.toFixed(2) : "0.00") + "%"; };
+const TT = (dis, nor) => MODE.normal ? nor : dis;
+const skBuyAmt = me => skMode.pct ? Math.floor(me.chips * skMode.pct / 1000) * 1000 : skMode.amt;
+const skBuyQty = (me, x) => Math.floor(Math.min(skBuyAmt(me), me.chips) / (x.px * (1 + SK_FEE)));
+function skBuy(k) { const me = meP(), x = skOf(k); if (!me || !x) return; const a = Math.min(skBuyAmt(me), me.chips); if (a < 1000) return say("잔액 부족", true); send({ t: "sk-buy", k, amt: Math.floor(a / 1000) * 1000 }); }
+/* sell only that one stock: % of what you hold, or about the chosen amount */
+function skSell(k, all) {
+  const me = meP(), x = skOf(k), h = me && me.stk && me.stk[k]; if (!x) return;
+  if (!h) return say(TT("출고할 재고 없음", "보유 수량 없음"), true);
+  const q = all ? h.q : skMode.pct ? Math.max(1, Math.floor(h.q * skMode.pct)) : Math.max(1, Math.min(h.q, Math.floor(skMode.amt / x.px)));
+  send({ t: "sk-sell", k, q });
+}
+const SK_AMTS = [100000, 500000, 1000000, 5000000, 10000000];
+const skPick = [...SK_AMTS.map(a => ({ amt: a, pct: 0, l: man(a) })), ...[0.25, 0.5, 0.75].map(f => ({ amt: 0, pct: f, l: f * 100 + "%" })), { amt: 0, pct: 1, l: "전량" }];
+const skOn = o => skMode.pct === o.pct && (o.pct || skMode.amt === o.amt);
+function skSpark(cv, h, up, big) {
+  const r = devicePixelRatio || 1, W = cv.clientWidth || 100, Hh = cv.clientHeight || 15;
+  if (h.length < 2) return;
+  cv.width = W * r; cv.height = Hh * r; const g = cv.getContext("2d"); g.scale(r, r);
+  const lo = Math.min(...h), hi = Math.max(...h), sx = W / (h.length - 1), sy = v => Hh - 2 - (v - lo) / (hi - lo || 1) * (Hh - 4);
+  const col = big ? (up ? "#ff6b6b" : "#6aa8ff") : (up ? "#b4302a" : "#1d5fa8");
+  if (big) { const gr = g.createLinearGradient(0, 0, 0, Hh); gr.addColorStop(0, up ? "rgba(255,90,90,.35)" : "rgba(90,150,255,.35)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.beginPath(); h.forEach((v, i) => g.lineTo(i * sx, sy(v))); g.lineTo(W, Hh); g.lineTo(0, Hh); g.fillStyle = gr; g.fill(); }
+  g.beginPath(); h.forEach((v, i) => i ? g.lineTo(i * sx, sy(v)) : g.moveTo(0, sy(v)));
+  g.strokeStyle = col; g.lineWidth = big ? 1.6 : 1; g.stroke();
+}
+const skCanvas = (h, up, cls, big) => { const cv = document.createElement("canvas"); cv.className = cls; requestAnimationFrame(() => skSpark(cv, h, up, big)); return cv; };
+/* my holdings with profit, profit rate */
+function skRows(p) {
+  return Object.entries(p.stk || {}).map(([k, h]) => { const x = skOf(k); if (!x) return null; const val = x.px * h.q, cost = h.avg * h.q, pl = Math.floor(val * (1 - SK_FEE)) - cost; return { k, x, h, val, cost, pl, r: cost ? pl / cost : 0 }; }).filter(Boolean);
+}
+const skTot = rs => { const val = rs.reduce((a, r) => a + r.val, 0), cost = rs.reduce((a, r) => a + r.cost, 0), pl = rs.reduce((a, r) => a + r.pl, 0); return { val, cost, pl, r: cost ? pl / cost : 0 }; };
+const hhmm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+const skLogText = e => { const x = skOf(e.k); return hhmm(e.t) + " " + e.n + " " + (x ? x.n : e.k) + " " + e.q + "주 " + (e.s === "b" ? TT("입고", "매수") : TT("출고", "매도")) + " @" + fmt(e.px) + (e.s === "s" ? " (" + sgn(e.pl) + ", " + pctS(e.r || 0) + ")" : ""); };
+
+function layoutSk(put) {
+  put(0, 0, TT("2026 4Q 원자재 단가표", "주식 시세"), "b", 3); put(0, 3, TT("기준", "갱신"), "h"); put(0, 4, "2초", "m");
+  put(0, 5, "수수료", "h"); put(0, 6, "0.1%", "m"); put(0, 7, TT("전표코드", "방"), "m"); put(0, 8, S.code, "b");
+  if (!MK) { put(2, 0, "시세 불러오는 중…", "m", 6); return; }
+  const me = meP();
+  ["코드", TT("품목", "종목"), TT("단가", "현재가"), "등락", "등락률", "추이", TT("재고", "보유"), "평단", TT("평가차", "평가손익"), "수익률", ""].forEach((h, i) => put(2, i, h, "h c", i === 10 ? 2 : 1));
+  MK.list.forEach((x, i) => {
+    const r = 3 + i, ch = x.px - x.open, h = me && me.stk && me.stk[x.k], on = skSel === x.k ? " me" : "";
+    const fl = x.prev !== undefined && x.prev !== x.px ? (x.px > x.prev ? " fu" : " fd") : "";
+    put(r, 0, x.k, "m" + on); put(r, 1, x.n, "b" + on);
+    put(r, 2, fmt(x.px), "n b " + skc(ch) + fl + on); put(r, 3, sgn(ch), "n " + skc(ch) + on); put(r, 4, pctS(ch / x.open), "n " + skc(ch) + on);
+    put(r, 5, skCanvas(x.hist.slice(-60), ch >= 0, "sp"), on);
+    if (h) { const val = x.px * h.q, cost = h.avg * h.q, pl = Math.floor(val * (1 - SK_FEE)) - cost;
+      put(r, 6, fmt(h.q), "n" + on); put(r, 7, fmt(h.avg), "n m" + on); put(r, 8, sgn(pl), "n " + skc(pl) + on); put(r, 9, pctS(cost ? pl / cost : 0), "n " + skc(pl) + on); }
+    else [6, 7, 8, 9].forEach(c => put(r, c, "", on.trim()));
+    put(r, 10, button("선택", () => { skSel = x.k; render(); }, skSel === x.k), "btn", 2);
+  });
+  if (!me) return;
+  const x = skOf(skSel) || MK.list[0], h = me.stk && me.stk[x.k], q = skBuyQty(me, x);
+  put(11, 0, TT("전표", "주문"), "h b"); put(11, 1, x.n, "b"); put(11, 2, fmt(x.px), "n b " + skc(x.px - x.open));
+  put(11, 3, TT("가용", "현금"), "h"); put(11, 4, fmt(me.chips), "n", 2); put(11, 6, TT("재고", "보유"), "h"); put(11, 7, (h ? fmt(h.q) : 0) + "주", "n");
+  put(12, 0, "금액", "h");
+  skPick.forEach((o, i) => put(12, 1 + i, button(o.l, () => { skMode = { amt: o.amt, pct: o.pct }; render(); }, skOn(o)), "btn"));
+  put(13, 0, "예상", "h"); put(13, 1, q + "주 ≈ " + short(q * x.px), "n", 2);
+  put(13, 3, button(TT("입고", "매수"), () => skBuy(x.k)), "btn out", 2);
+  put(13, 5, button(TT("출고", "매도"), () => skSell(x.k)), "btn in", 2);
+  put(13, 7, "매도는 이 종목만 · % = 보유 수량의 %", "m", 4);
+  const rs = skRows(me), T = skTot(rs);
+  put(15, 0, "■ " + TT("담당자 재고 현황", "내 계좌"), "b", 3);
+  put(16, 0, TT("가용", "현금"), "h"); put(16, 1, fmt(me.chips), "n"); put(16, 2, TT("재고평가", "주식 평가"), "h"); put(16, 3, fmt(T.val), "n", 2);
+  put(16, 5, TT("합계", "총자산"), "h"); put(16, 6, fmt(me.chips + T.val), "n b", 2); put(16, 8, TT("평가차", "평가손익"), "h"); put(16, 9, sgn(T.pl), "n b " + skc(T.pl)); put(16, 10, pctS(T.r), "n b " + skc(T.pl), 2);
+  put(18, 0, "■ " + TT("보유 재고", "보유 종목"), "b", 3);
+  [[TT("품목", "종목"), 0, 2], ["수량", 2], ["평단", 3], [TT("단가", "현재가"), 4], [TT("재고평가", "평가금액"), 5], [TT("평가차", "손익"), 6, 2], ["수익률", 8], ["", 9, 3]].forEach(([t, c, sp]) => put(19, c, t, "h c", sp));
+  if (!rs.length) put(20, 0, TT("재고 없음 · 위 표에서 품목 선택 후 입고", "보유 종목 없음 · 위 표에서 종목 선택 후 매수"), "m", 8);
+  rs.forEach((r, i) => {
+    const y = 20 + i;
+    put(y, 0, r.x.n, "b", 2); put(y, 2, fmt(r.h.q), "n"); put(y, 3, fmt(r.h.avg), "n m"); put(y, 4, fmt(r.x.px), "n " + skc(r.x.px - r.x.open));
+    put(y, 5, fmt(r.val), "n"); put(y, 6, sgn(r.pl), "n b " + skc(r.pl), 2); put(y, 8, pctS(r.r), "n b " + skc(r.pl));
+    put(y, 9, button(TT("입고", "매수"), () => skBuy(r.k)), "btn out"); put(y, 10, button(TT("출고", "매도"), () => skSell(r.k)), "btn in"); put(y, 11, button("전량", () => skSell(r.k, true)), "btn in");
+  });
+  let y = 21 + Math.max(1, rs.length);
+  put(y, 0, "■ " + TT("타 담당 재고", "다른 사람 보유"), "b", 4); y++;
+  const others = S.players.filter(p => p.id !== myId && Object.keys(p.stk || {}).length);
+  if (!others.length) put(y++, 0, "없음", "m", 3);
+  others.forEach(p => { const o = skRows(p), t = skTot(o); put(y, 0, p.name, "b"); put(y, 1, o.map(r => r.x.n + " " + r.h.q + "주").join(", "), "m", 5); put(y, 6, sgn(t.pl), "n " + skc(t.pl), 2); put(y, 8, pctS(t.r), "n " + skc(t.pl)); y++; });
+  y++; put(y++, 0, "■ " + TT("입출고 내역", "거래 내역"), "b", 4);
+  const L = S.skLog || [];
+  if (!L.length) put(y++, 0, "없음", "m", 3);
+  L.slice(0, 10).forEach(e => put(y++, 0, skLogText(e), "m" + (e.s === "s" ? " " + skc(e.pl) : ""), 10));
+}
+
+/* table mode: dark trading screen */
+function drawFeltSk() {
+  const W = feltStart(TT("시세", "주식"), "2초마다 갱신 · 수수료 0.1%"); W.classList.add("sk-in");
+  if (!MK) { W.append(el("div", "", "시세 불러오는 중…")); return; }
+  const me = meP(), grid = el("div", "sk-grid");
+  MK.list.forEach(x => {
+    const ch = x.px - x.open, h = me && me.stk && me.stk[x.k];
+    const c = el("div", "sk-card " + (ch >= 0 ? "u" : "d") + (skSel === x.k ? " on" : "") + (x.prev !== undefined && x.prev !== x.px ? (x.px > x.prev ? " pu" : " pd") : ""));
+    const t = el("div"); t.append(el("b", "", x.n), el("span", "tk", x.k)); c.append(t);
+    c.append(el("div", "px", fmt(x.px)), el("div", "ch", (ch >= 0 ? "▲ " : "▼ ") + fmt(Math.abs(ch)) + " (" + pctS(ch / x.open) + ")"));
+    if (h) c.append(el("span", "mine", "보유 " + fmt(h.q)));
+    c.append(skCanvas(x.hist.slice(-60), ch >= 0, "", true));
+    c.onclick = () => { skSel = x.k; render(); };
+    grid.append(c);
+  });
+  W.append(grid);
+  if (!me) return;
+  const x = skOf(skSel) || MK.list[0], ch = x.px - x.open, h = me.stk && me.stk[x.k], q = skBuyQty(me, x);
+  const two = el("div", "sk-two"), L = el("div", "sk-panel");
+  const big = el("div", "sk-big"); big.append(el("b", "", x.n), el("span", "px " + (ch >= 0 ? "u" : "d"), fmt(x.px)), el("span", ch >= 0 ? "u" : "d", pctS(ch / x.open)));
+  L.append(big, skCanvas(x.hist, ch >= 0, "sk-chart", true));
+  const am = el("div", "sk-amts"); skPick.forEach(o => { const b = fbtn("", o.l, () => { skMode = { amt: o.amt, pct: o.pct }; render(); }); b.setAttribute("aria-pressed", skOn(o)); am.append(b); });
+  L.append(am, el("div", "sk-m", "매수 예상 " + q + "주 ≈ " + short(q * x.px) + " · 매도는 이 종목만 (% = 보유 수량의 %)"));
+  const bs = el("div", "sk-bs"); bs.append(fbtn("buy", "매수", () => skBuy(x.k)), fbtn("sell", "매도" + (h ? " (보유 " + fmt(h.q) + ")" : ""), () => skSell(x.k)));
+  L.append(bs);
+  const R = el("div", "sk-panel"), rs = skRows(me), T = skTot(rs);
+  R.append(el("h4", "", "내 계좌"));
+  const kv = el("div", "sk-kv");
+  [["현금", fmt(me.chips)], ["주식 평가", fmt(T.val)], ["총자산", fmt(me.chips + T.val)]].forEach(([a, b]) => kv.append(el("span", "", a), el("span", "", b)));
+  kv.append(el("span", "", "평가손익"), el("span", T.pl >= 0 ? "u" : "d", sgn(T.pl) + " (" + pctS(T.r) + ")"));
+  R.append(kv, el("h4", "", "보유 종목"));
+  if (!rs.length) R.append(el("div", "sk-m", "보유 종목 없음 · 카드 선택 후 매수"));
+  else {
+    const tb = el("table", "sk-hold"), hr = el("tr"); ["종목", "수량", "평단", "손익", "수익률", ""].forEach(t => hr.append(el("th", "", t))); tb.append(hr);
+    rs.forEach(r => {
+      const tr = el("tr"); tr.append(el("td", "", r.x.n), el("td", "", fmt(r.h.q)), el("td", "", fmt(r.h.avg)), el("td", r.pl >= 0 ? "u" : "d", sgn(r.pl)), el("td", r.pl >= 0 ? "u" : "d", pctS(r.r)));
+      const td = el("td", "btns"); td.append(fbtn("b", "매수", () => skBuy(r.k)), fbtn("s", "매도", () => skSell(r.k)), fbtn("s", "전량", () => skSell(r.k, true))); tr.append(td);
+      tb.append(tr);
+    });
+    R.append(tb);
+  }
+  const others = S.players.filter(p => p.id !== myId && Object.keys(p.stk || {}).length);
+  if (others.length) { R.append(el("h4", "", "다른 사람 보유")); others.forEach(p => { const o = skRows(p), t = skTot(o); const d = el("div", "sk-oth"); d.append(el("b", tierCls(p.name).trim(), p.name), " " + o.map(r => r.x.n + " " + r.h.q).join(", ") + " ", el("span", t.pl >= 0 ? "u" : "d", sgn(t.pl) + " (" + pctS(t.r) + ")")); R.append(d); }); }
+  R.append(el("h4", "", "거래 내역"));
+  const lg = el("div", "sk-log"); (S.skLog || []).slice(0, 10).forEach(e => lg.append(el("div", e.s === "s" ? (e.pl >= 0 ? "u" : "d") : "", skLogText(e)))); if (!lg.children.length) lg.append(el("div", "", "없음"));
+  R.append(lg);
+  two.append(L, R); W.append(two);
+}
+
+
+/* ---------- table mode: chess / omok / four-in-a-row / tower (same rules & moves as the sheet) ---------- */
+function drawFeltMg() {
+  const g = view, G = S.mg && S.mg[g]; if (!G) return;
+  const mine = G.seats.indexOf(myId), live = !G.res && !G.seats.includes(null), myTurn = mine >= 0 && mine === G.turn && live;
+  const nm = i => { const p = G.seats[i] && S.players.find(q => q.id === G.seats[i]); return p ? p.name : ""; };
+  const status = G.res ? "종료 · " + (G.res === "w" ? nm(G.win) + " 승" : g === "tw" ? "누계 " + (G.b.length - 1) : "무승부")
+    : G.seats.includes(null) ? "두 자리가 차면 시작" : nm(G.turn) + " 차례" + (g === "ch" && chInCheck(G.b, G.turn === 0) ? " · 체크!" : g === "tw" ? " · 누계 " + (G.b.length - 1) : "");
+  const W = feltStart(MODE.normal ? NTAB[g] : MGT[g], status); W.classList.add("mg-in");
+  const MARK = { ch: ["♔ 백", "♚ 흑"], om: ["● 흑", "○ 백"], c4: ["🔴 빨강", "🟡 노랑"], tw: ["1P", "2P"] }[g];
+  const bar = el("div", "mg-seats");
+  [0, 1].forEach(i => bar.append(fbtn((G.seats[i] === myId ? "me" : "") + (live && G.turn === i ? " turn" : ""), MARK[i] + " · " + (nm(i) || "앉기"), () => send({ t: "g-sit", g, s: i }))));
+  if (mine >= 0) bar.append(fbtn("new", "새 판", () => send({ t: "g-new", g })));
+  W.append(bar);
+  const B = el("div", "mg-board mg-" + g);
+  if (g === "ch") {
+    const mv = chSel >= 0 ? chLegal(G.b, chSel) : [];
+    for (let rr = 0; rr < 8; rr++) for (let cc = 0; cc < 8; cc++) {
+      const r = mine === 1 ? 7 - rr : rr, c = mine === 1 ? 7 - cc : cc, i = r * 8 + c, q = G.b[i];   // 흑이면 판을 뒤집어 내 말이 아래
+      B.append(fbtn("sq " + ((r + c) % 2 ? "dk" : "lt") + (chSel === i ? " sel" : "") + (mv.includes(i) ? " mv" : "") + (G.last === i ? " last" : "") + (q ? (q < "a" ? " w" : " b") : ""), chGlyph(q), () => {
+        if (!myTurn) return;
+        if (chSel >= 0 && mv.includes(i)) { send({ t: "g-mv", g, f: chSel, to: i }); chSel = -1; }
+        else if (q && (q < "a") === (mine === 0)) { chSel = chSel === i ? -1 : i; render(); }
+        else { chSel = -1; render(); }
+      }));
+    }
+  } else if (g === "om") {
+    G.b.forEach((v, i) => B.append(fbtn("pt" + (v ? " s" + v : "") + (G.last === i ? " last" : ""), "", () => { if (myTurn && !v) send({ t: "g-mv", g, i }); })));
+  } else if (g === "c4") {
+    G.b.forEach((v, i) => B.append(fbtn("hole" + (v ? " s" + v : "") + (G.last === i ? " last" : ""), "", () => { if (myTurn) send({ t: "g-mv", g, c: i % 7 }); })));
+  } else {
+    const key = G.b.length + G.res; if (twKey !== key) { twKey = key; twT0 = performance.now(); }
+    twCur = G;
+    const top = G.b[G.b.length - 1], U = 16;
+    const blk = (x, w, y, cls) => { const d = el("div", "blk" + (cls || "")); d.style.left = x * U + "px"; d.style.width = w * U - 1 + "px"; d.style.top = y * 17 + 4 + "px"; B.append(d); };
+    if (!G.res) blk(live ? Math.round(twPos(G, performance.now() - twT0)) : top.x, top.w, 0, " mv");
+    G.b.slice(-12).reverse().forEach((L, j) => blk(L.x, L.w, j + 1));
+    B.onclick = twDrop;
+    if (live && !twRun) { twRun = true; setTimeout(twTick, 60); }
+  }
+  W.append(B);
+  const hint = { ch: "내 말을 누르고 갈 칸을 누르세요", om: "빈 점을 눌러 돌 놓기 · 5목", c4: "칸을 누르면 그 줄에 떨어져요 · 4목", tw: "판을 누르거나 Space 로 놓기" }[g];
+  W.append(el("div", "mg-hint", myTurn ? "▶ 내 차례 · " + hint : mine < 0 ? "자리에 앉으면 둘 수 있어요" : G.res ? "새 판을 누르면 다시 시작" : "상대 차례 기다리는 중"));
 }
 
 /* ---------- table-mode baccarat ---------- */
@@ -2155,7 +2407,7 @@ function drawFeltHd() {
     W.append(act);
   }
 }
-const FELT = { bac: drawFeltBac, rl: drawFeltRl, bj: drawFeltBj, hd: drawFeltHd };
+const FELT = { bac: drawFeltBac, rl: drawFeltRl, bj: drawFeltBj, hd: drawFeltHd, sk: drawFeltSk, ch: drawFeltMg, om: drawFeltMg, c4: drawFeltMg, tw: drawFeltMg };
 // peel the back off from the grabbed edge; the lifted part shows as a pale flap folded over the rest
 function feltPaint() {
   const b = document.querySelector("#felt .sqbig"); if (!b || !sq) return;
@@ -2219,7 +2471,7 @@ function draw_() {
   const felt = !!(S && MODE.table && FELT[view]);
   $("felt").hidden = !felt; document.querySelector(".wrap").hidden = felt;
   if (felt) {
-    grid.textContent = ""; FELT[view]();
+    grid.textContent = ""; const F = $("felt"), sy = F.dataset.v === view ? F.scrollTop : 0; F.dataset.v = view; F.classList.toggle("dark", view === "sk"); FELT[view](); F.scrollTop = sy;
     if (view === "bac" && !sq && S.bac.rounds[0]) seen.bac = S.bac.rounds[0].n;
     if (view === "rl" && !spin) seen.rl = S.rl.n;
     const me = meP(); $("st-cnt").textContent = "인원: " + S.players.length; $("st-sum").textContent = "칩: " + (me ? fmt(me.chips) : "-"); return; }

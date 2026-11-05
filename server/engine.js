@@ -9,13 +9,14 @@ const EMO = ["🤡", "😜", "🫵", "🤣", "😭", "💸", "🥱", "👋"];
 
 module.exports = function makeRoom(code, ctx) {
 const EVT_NAME = "성호", EVT_MS = 10000, EVT_MAX = 50000000, EVT_BILLS = [10000, 50000, 100000, 300000, 500000, 1000000, 3000000];
-const START = 1000000, MAX = 5, AMTS = [10000, 50000, 100000, 500000, 1000000, 10000000], NROWS = 44;
+const START = 1000000, MAX = 10, AMTS = [10000, 50000, 100000, 500000, 1000000, 10000000], NROWS = 44;
 /* event alerts: tune these to change what counts as "special" */
 const EV_ALLIN_MIN = 100000;   // all-in win only announced when the stake was at least this
 const EV_BIG = 2000000;        // net win >= this → "대박"
 const EV_JACKPOT = 10000000;   // net win >= this → "잭팟"
 const EV_SPECIAL_MIN = 100000; // stake needed for tie / straight-up / blackjack call-outs
-const GNAME = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤" };
+const GNAME = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", sk: "주식" };
+const SK_FEE = 0.001;   // 주식 매수·매도 수수료 0.1%
 const SB = 5000, BB = 10000, TURN_MS = 30000, NEXT_MS = 5000;
 const GAMES = ["bac", "rl", "bj", "hd"];
 const VIEWS = {
@@ -29,6 +30,7 @@ const VIEWS = {
   c4: [34, ...Array(7).fill(42)],
   tw: [26, ...Array(21).fill(18)],
   rd: [26, ...Array(14).fill(48)],
+  sk: [64],
   rk: [34, 70, 84, 96, 116, 84],
   cfg: [84, 96, 110, 260],
 };
@@ -177,7 +179,7 @@ const empty = () => ({ p: 0, b: 0, t: 0 });
 
 function newPlayer(name) {
   return { name, chips: START, lastNet: 0, bac: empty(), rl: {}, bj: { bet: 0, cards: [], done: false, res: "" }, ready: { bac: false, rl: false, bj: false, hd: false }, hdSeat: false, rebuy: 0, rdReady: false, vw: "bac",
-    peak: START, st: { bac: { n: 0, w: 0, l: 0, net: 0 }, rl: { n: 0, w: 0, l: 0, net: 0 }, bj: { n: 0, w: 0, l: 0, net: 0, push: 0, bj: 0, bust: 0 }, hd: { n: 0, w: 0, l: 0, net: 0, sd: 0 } } };
+    peak: START, st: { bac: { n: 0, w: 0, l: 0, net: 0 }, rl: { n: 0, w: 0, l: 0, net: 0 }, bj: { n: 0, w: 0, l: 0, net: 0, push: 0, bj: 0, bust: 0 }, hd: { n: 0, w: 0, l: 0, net: 0, sd: 0 }, sk: { n: 0, w: 0, l: 0, net: 0 } }, stk: {} };
 }
 function rec(q, g, s, ret, res) {
   const t = q.st[g];
@@ -189,7 +191,7 @@ function rec(q, g, s, ret, res) {
 }
 function snapshot(forId) {
   const hide = H.bj.phase === "play";
-  return { t: "state", code, chat: H.chat, mg: H.mg, rdGo: H.rdGo || 0,
+  return { t: "state", code, chat: H.chat, mg: H.mg, rdGo: H.rdGo || 0, skLog: H.skLog || [],
     bac: H.bac, rl: H.rl,
     bj: { phase: H.bj.phase, n: H.bj.n, ds: H.bj.ds, dealer: hide ? [H.bj.dealer[0], -1] : H.bj.dealer },
     hd: hdView(forId),
@@ -197,7 +199,7 @@ function snapshot(forId) {
 }
 /* random defense: everyone ready → bump rdGo, each client starts its own run on seeing it */
 function rdReadyCheck() {
-  const ps = [...H.players.values()];
+  const ps = [...H.players.values()].filter(q => q.vw === "rd");
   if (!ps.length || !ps.every(q => q.rdReady)) return;
   for (const q of ps) { q.rdReady = false; q.rd = null; }
   H.rdGo = (H.rdGo || 0) + 1;
@@ -319,6 +321,31 @@ function hostHandle(id, msg) {
     else if (msg.g === "rl") for (const [k, a] of Object.entries(L)) { if (RL_KEYS.has(k)) p.rl[k] = (p.rl[k] || 0) + a; }
     else p.bj.bet += L;
     p.ready[msg.g] = false;
+  } else if (msg.t === "sk-buy") {
+    /* buy as many shares as the amount covers (fee included) at the current price */
+    const st = ctx.stock(msg.k), a = Math.floor(Number(msg.amt));
+    if (!st || !(a >= 1000)) return;
+    if (a > p.chips) { reply(id, "잔액 부족: 가용 " + fmt(p.chips)); return; }
+    const q = Math.floor(a / (st.px * (1 + SK_FEE)));
+    if (q < 1) { reply(id, st.n + " 1주 = " + fmt(Math.ceil(st.px * (1 + SK_FEE))) + " 필요"); return; }
+    const cost = Math.ceil(st.px * q * (1 + SK_FEE));
+    p.chips -= cost;
+    const h = p.stk[st.k] || { q: 0, avg: 0 };
+    h.avg = (h.avg * h.q + cost) / (h.q + q); h.q += q; p.stk[st.k] = h;   // 평단 = 수수료 포함 매입가
+    skLog({ n: p.name, k: st.k, s: "b", q, px: st.px });
+  } else if (msg.t === "sk-sell") {
+    /* sell q shares of one stock only (never everything at once) */
+    const st = ctx.stock(msg.k), h = p.stk[msg.k];
+    if (!st || !h) return;
+    const q = Math.min(h.q, Math.floor(Number(msg.q)));
+    if (!(q >= 1)) return;
+    const got = Math.floor(st.px * q * (1 - SK_FEE)), cost = Math.round(h.avg * q), pl = got - cost;
+    p.chips += got; h.q -= q; if (!h.q) delete p.stk[st.k];
+    const t = p.st.sk || (p.st.sk = { n: 0, w: 0, l: 0, net: 0 });
+    t.n++; t.net += pl; if (pl > 0) t.w++; else if (pl < 0) t.l++;
+    p.peak = Math.max(p.peak, p.chips); p.lastNet = pl;
+    announce(p, "sk", cost, got, false, "");
+    skLog({ n: p.name, k: st.k, s: "s", q, px: st.px, pl, r: cost ? pl / cost : 0 });
   } else if (msg.t === "refill") {
     const h = H.hd.phase === "play" && H.hd.hands[id];
     if (!broke(p, h)) return;
@@ -329,7 +356,7 @@ function hostHandle(id, msg) {
 }
 
 /* refill only when broke: can't cover the smallest bet, nothing on any table, not alive in a hold'em hand */
-const broke = (p, hdHand) => p.chips < AMTS[0] && !sum(p.bac) && !sum(p.rl) && !p.bj.bet && !(hdHand && !hdHand.folded);
+const broke = (p, hdHand) => p.chips < AMTS[0] && !sum(p.bac) && !sum(p.rl) && !p.bj.bet && !(hdHand && !hdHand.folded) && !Object.keys(p.stk || {}).length;
 function checkReady() {
   if (!H.players.size) return;
   for (const g of GAMES) {
@@ -658,7 +685,7 @@ function mgHandle(id, msg) {
   } else return;
   broadcast();
 }
-const acct = p => p.chips - START * (p.rebuy || 0);
+const acct = p => p.chips + ctx.skValue(p.stk) - START * (p.rebuy || 0);
 function boardMerge(dst, src) {
   if (!src || typeof src !== "object") return dst;
   for (const [n, e] of Object.entries(src).slice(0, 200)) {
@@ -677,6 +704,10 @@ function restore(p, a) {
   if (Number.isInteger(r) && r >= 0 && r <= 1e6) p.rebuy = r;
   if (Number.isFinite(Number(a.admT))) p.admT = Number(a.admT);
   p.peak = Math.max(p.chips, Number.isFinite(pk) && pk <= 1e13 ? pk : 0);
+  if (a.stk && typeof a.stk === "object") for (const [k, h] of Object.entries(a.stk)) {
+    const q = Math.floor(Number(h && h.q)), av = Number(h && h.avg);
+    if (ctx.stock(k) && q > 0 && q <= 1e9 && av > 0 && av <= 1e9) p.stk[k] = { q, avg: av };
+  }
   if (a.st && typeof a.st === "object") for (const g of Object.keys(p.st)) for (const k of Object.keys(p.st[g])) {
     const v = Number(a.st[g] && a.st[g][k]);
     if (Number.isFinite(v) && Math.abs(v) <= 1e13) p.st[g][k] = v;
@@ -707,6 +738,7 @@ function refund(p) {
   p.chips += sum(p.bac) + sum(p.rl) + (H.bj.phase === "bet" ? p.bj.bet : 0);
   p.bac = empty(); p.rl = {}; if (H.bj.phase === "bet") p.bj.bet = 0;
 }
+function skLog(e) { e.t = Date.now(); (H.skLog = H.skLog || []).unshift(e); if (H.skLog.length > 30) H.skLog.length = 30; }
 function remove(id) {
   const q = H.players.get(id);
   if (!q) return;

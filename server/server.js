@@ -4,13 +4,15 @@
 const http = require("http"), fs = require("fs"), path = require("path");
 const { WebSocketServer } = require("ws");
 const makeRoom = require("./engine");
+const market = require("./market");
 
 const PORT = +process.env.PORT || 8099, HOST = process.env.HOST || "127.0.0.1";
 const DATA = process.env.DATA || path.join(__dirname, "data");
 const START = 1000000, GRACE = 20000, MAXNAME = 8;
 fs.mkdirSync(DATA, { recursive: true });
+market.init(path.join(DATA, "market.json"));
 
-/* ---------- accounts: name -> { chips, rebuy, peak, st, t } ---------- */
+/* ---------- accounts: name -> { chips, rebuy, peak, st, stk, t } ---------- */
 const file = n => path.join(DATA, n);
 const load = n => { try { return JSON.parse(fs.readFileSync(file(n), "utf8")); } catch { return null; } };
 const ACC = load("accounts.json") || {};
@@ -30,7 +32,7 @@ const badName = n => !n || n.length > MAXNAME || n in Object.prototype;
 function saw(p) {
   const pend = Object.values(p.bac || {}).reduce((a, b) => a + b, 0) + Object.values(p.rl || {}).reduce((a, b) => a + b, 0)
     + (p.bj && !p.bj.cards.length ? p.bj.bet : 0);
-  ACC[p.name] = { chips: p.chips + pend, rebuy: p.rebuy || 0, peak: p.peak, st: p.st, t: Date.now() };
+  ACC[p.name] = { chips: p.chips + pend, rebuy: p.rebuy || 0, peak: p.peak, st: p.st, stk: JSON.parse(JSON.stringify(p.stk || {})), t: Date.now() };
   dirty = true; boardAt = 0;
 }
 let boardC = {}, boardAt = 0;
@@ -38,7 +40,7 @@ function board() {
   if (Date.now() - boardAt < 1000) return boardC;
   const b = {};
   for (const [n, e] of Object.entries(LEGACY)) if (!ACC[n]) b[n] = e;
-  for (const [n, a] of Object.entries(ACC)) b[n] = [a.chips - START * (a.rebuy || 0), a.t];
+  for (const [n, a] of Object.entries(ACC)) b[n] = [a.chips + market.value(a.stk) - START * (a.rebuy || 0), a.t];   // 계좌 = 칩 + 주식 평가 − 충전
   const keep = Object.entries(b).sort((x, y) => y[1][1] - x[1][1]).slice(0, 60);
   boardC = Object.fromEntries(keep); boardAt = Date.now();
   return boardC;
@@ -62,7 +64,7 @@ function admSet(n, v) {
 
 /* ---------- rooms ---------- */
 const rooms = new Map();   // code -> { room, empty since }
-const ctx = { board, saw, admSet, GRACE };
+const ctx = { board, saw, admSet, GRACE, stock: k => market.get(k), skValue: market.value };
 function roomOf(code) {
   let r = rooms.get(code);
   if (!r) { r = makeRoom(code, ctx); r.code = code; r.emptyAt = 0; rooms.set(code, r); }
@@ -125,7 +127,15 @@ function hello(ws, m) {
   if (err) { send(ws, { t: "full", m: err }); return setTimeout(() => ws.close(), 300); }
   ws.name = name; ws.room = room; NAMES.set(name, ws);
   send(ws, { t: "you", id: name, room: code });
+  send(ws, market.full());
 }
+/* prices move every 2s for everyone; only the numbers go out (clients keep their own chart history) */
+setInterval(() => {
+  market.tick(); boardAt = 0;
+  const m = JSON.stringify(market.ticks());
+  for (const ws of wss.clients) if (ws.room && ws.readyState === 1) try { ws.send(m); } catch {}
+}, market.TICK_MS);
+setInterval(market.save, 30000);
 // dead sockets (closed laptop, lost wifi) never say goodbye: ping them and drop the silent ones
 setInterval(() => {
   for (const ws of wss.clients) {
@@ -138,5 +148,5 @@ setInterval(() => {
 server.listen(PORT, HOST, () => console.log("shs999 server on", HOST + ":" + PORT, "data", DATA));
 for (const s of ["SIGINT", "SIGTERM"]) process.on(s, () => {
   for (const r of rooms.values()) { try { r.shutdown(); } catch (e) { console.error("shutdown", e); } for (const p of r.players()) saw(p); }
-  dirty = true; save(); process.exit(0);
+  dirty = true; save(); market.save(); process.exit(0);
 });
