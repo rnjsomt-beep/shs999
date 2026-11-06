@@ -1,7 +1,7 @@
 "use strict";
 /* shs999 game server: one websocket endpoint, rooms by name (#MAIN …), accounts saved on disk.
    Run: PORT=8099 DATA=./data node server.js   (Caddy in front supplies https/wss) */
-const http = require("http"), fs = require("fs"), path = require("path");
+const http = require("http"), fs = require("fs"), path = require("path"), crypto = require("crypto");
 const { WebSocketServer } = require("ws");
 const makeRoom = require("./engine");
 const market = require("./market");
@@ -17,11 +17,25 @@ const file = n => path.join(DATA, n);
 const load = n => { try { return JSON.parse(fs.readFileSync(file(n), "utf8")); } catch { return null; } };
 const ACC = load("accounts.json") || {};
 const LEGACY = load("legacy_board.json") || {};   // old offline rankings brought in from players' browsers
+/* one name per IP: the first login from an IP fixes its name (after the player confirms). The browser also gets a
+   token for that name, so the same phone keeps its name when its IP changes (LTE ↔ wifi) or shares a wifi */
+const IPL = load("ips.json") || {};
+IPL.ip = IPL.ip || {}; IPL.tok = IPL.tok || {};
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+const owned = n => Object.values(IPL.ip).includes(n) || Object.values(IPL.tok).includes(n);
+function ipOf(req) {
+  const x = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket.remoteAddress || "";
+  return x.replace(/^::ffff:/, "");
+}
+function unbind(n) {
+  for (const o of [IPL.ip, IPL.tok]) for (const k of Object.keys(o)) if (o[k] === n) delete o[k];
+  dirty = true;
+}
 let dirty = false;
 function save() {
   if (!dirty) return;
   dirty = false;
-  for (const [n, o] of [["accounts.json", ACC], ["legacy_board.json", LEGACY]]) {
+  for (const [n, o] of [["accounts.json", ACC], ["legacy_board.json", LEGACY], ["ips.json", IPL]]) {
     try { fs.writeFileSync(file(n) + ".tmp", JSON.stringify(o)); fs.renameSync(file(n) + ".tmp", file(n)); }
     catch (e) { console.error("save failed", n, e.message); dirty = true; }
   }
@@ -74,7 +88,7 @@ function saveRooms() {
   catch (e) { console.error("save failed rooms.json", e.message); }
 }
 setInterval(saveRooms, 5000);
-const ctx = { board, saw, admSet, GRACE, stock: k => market.get(k), skValue: market.value };
+const ctx = { board, saw, admSet, unbind, GRACE, stock: k => market.get(k), skValue: market.value };
 function roomOf(code) {
   let r = rooms.get(code);
   if (!r) { r = makeRoom(code, ctx); r.code = code; r.emptyAt = 0; try { r.load(ROOMS[code]); } catch (e) { console.error("room load", code, e); } rooms.set(code, r); }
@@ -94,13 +108,18 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" });
     return res.end(JSON.stringify({ rooms: [...rooms.values()].map(r => ({ code: r.code, players: r.size })), accounts: Object.keys(ACC).length }));
   }
+  if (req.url === "/ip") {   // lobby: is this IP's name fixed already?
+    res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*", "cache-control": "no-store" });
+    const ip = ipOf(req);
+    return res.end(JSON.stringify({ name: own(IPL.ip, ip) ? IPL.ip[ip] : null }));
+  }
   res.writeHead(200, { "content-type": "text/plain; charset=utf-8" }); res.end("shs999 server ok");
 });
 const wss = new WebSocketServer({ server, maxPayload: 256 * 1024 });
 const NAMES = new Map();   // name -> socket (one live connection per name)
 const send = (ws, m) => { try { if (ws.readyState === 1) ws.send(JSON.stringify(m)); } catch {} };
-wss.on("connection", ws => {
-  ws.alive = true;
+wss.on("connection", (ws, req) => {
+  ws.alive = true; ws.ip = ipOf(req);
   ws.on("pong", () => ws.alive = true);
   ws.on("message", raw => {
     let m; try { m = JSON.parse(raw); } catch { return; }
@@ -120,19 +139,26 @@ wss.on("connection", ws => {
 });
 function hello(ws, m) {
   if (ws.room) return;
-  const name = String(m.name || "").trim().slice(0, MAXNAME) || "담당";
+  // name: this browser's token > the name fixed to this IP > what was typed (fixed to the IP once confirmed)
+  const tn = typeof m.tok === "string" && own(IPL.tok, m.tok) ? IPL.tok[m.tok] : null, ipn = own(IPL.ip, ws.ip) ? IPL.ip[ws.ip] : null;
+  const name = tn || ipn || String(m.name || "").trim().slice(0, MAXNAME);
+  if (!name) return send(ws, { t: "full", m: "이름을 입력하세요" });
   if (badName(name)) return send(ws, { t: "full", m: "쓸 수 없는 이름" });
+  if (!tn && !ipn) {
+    if (owned(name)) return send(ws, { t: "full", m: "다른 사람에게 고정된 이름이에요 · 다른 이름을 쓰세요" });
+    if (!m.bind) return send(ws, { t: "bindq", name });   // the client asks "이 IP로 … 고정됩니다" and says hello again with bind
+  }
+  if (!ipn) { IPL.ip[ws.ip] = name; dirty = true; }
+  if (!tn) { const tok = crypto.randomBytes(16).toString("hex"); IPL.tok[tok] = name; dirty = true; send(ws, { t: "tok", tok, name }); }
   const code = (String(m.room || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "MAIN").slice(0, 12);
   // same name somewhere else: that older connection steps aside (usually it's this person's dead tab)
   const old = NAMES.get(name);
   if (old && old !== ws) { send(old, { t: "kick", m: "같은 이름으로 다른 곳에서 접속해 연결을 넘겼어요" }); old.room = null; try { old.close(); } catch {} }
   for (const r of rooms.values()) if (r.code !== code && r.has(name)) r.remove(name);
   const room = roomOf(code);
-  if (!ACC[name] && !room.has(name) && m.acct && typeof m.acct === "object") {
-    ACC[name] = { chips: m.acct.chips, rebuy: m.acct.rebuy, peak: m.acct.peak, st: m.acct.st, t: Date.now() };   // first visit: bring the browser's saved account
-    dirty = true;
-  }
-  importBoard(m.board);
+  // browsers' pre-server saves (m.acct, m.board) are no longer taken: accounts were reset on 11/6 and a
+  // deleted name must start from scratch, not come back with an old browser balance
+
   const err = room.join(ws, name, m, ACC[name]);
   if (err) { send(ws, { t: "full", m: err }); return setTimeout(() => ws.close(), 300); }
   ws.name = name; ws.room = room; NAMES.set(name, ws);

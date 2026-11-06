@@ -11,7 +11,8 @@
 	handle @ws {
 		reverse_proxy 127.0.0.1:8099
 	}
-	handle /status {
+	@api path /status /ip
+	handle @api {
 		reverse_proxy 127.0.0.1:8099
 	}
 	# the same index.html as GitHub Pages, so the game also opens here directly

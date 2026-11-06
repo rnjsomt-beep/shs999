@@ -217,8 +217,16 @@ function slSpin(amt) {
 
 /* ---------- sports toto: next match is known (teams + odds) while betting; everyone on the sheet
    ready → the match is simulated here (ball frames for the pitch animation) and every bet settles */
-const TO_TEAMS = [["한강 FC", 82], ["낙동 유나이티드", 78], ["태백 레인저스", 74], ["제주 웨이브", 71], ["금강 타이거즈", 80], ["소백 이글스", 68],
-  ["영산 드래곤즈", 76], ["동해 샤크스", 72], ["서해 마린스", 66], ["지리 울브스", 85], ["설악 베어스", 70], ["백두 스톰", 88]];
+// strength 71–82 (was 66–88: the favourite won ~80% at 1.1x, the underdog almost never) — same order, half the gap
+const TO_TEAMS = [["한강 FC", 79], ["낙동 유나이티드", 77], ["태백 레인저스", 75], ["제주 웨이브", 74], ["금강 타이거즈", 78], ["소백 이글스", 72],
+  ["영산 드래곤즈", 76], ["동해 샤크스", 74], ["서해 마린스", 71], ["지리 울브스", 81], ["설악 베어스", 73], ["백두 스톰", 82]];
+/* team table: name -> [win, draw, loss, goals for, goals against], every match since records began */
+function toTm(home, away, hg, ag) {
+  for (const [t, f, a] of [[home, hg, ag], [away, ag, hg]]) {
+    const r = H.to.tm[t] || (H.to.tm[t] = [0, 0, 0, 0, 0]);
+    r[f > a ? 0 : f === a ? 1 : 2]++; r[3] += f; r[4] += a;
+  }
+}
 const TO_KEYS = ["h", "d", "a", "un", "ov"], TO_MS = 8000, TO_MARGIN = 0.92;
 const poi = (l, k) => { let p = Math.exp(-l); for (let i = 1; i <= k; i++) p *= l / i; return p; };
 function toNext(n) {
@@ -268,6 +276,7 @@ function runTo() {
   }
   H.to.last = { ...M, ...sim, hg, ag };
   H.to.hist = [{ n: M.n, home: M.home, away: M.away, hg, ag }, ...H.to.hist].slice(0, 9);   // 8 rows on the sheet + the match being shown
+  toTm(M.home, M.away, hg, ag);
   H.to.until = Date.now() + TO_MS;
   H.to.next = toNext(M.n + 1);
   setTimeout(broadcast, TO_MS + 50);
@@ -288,7 +297,7 @@ function rec(q, g, s, ret, res) {
 function snapshot(forId) {
   const hide = H.bj.phase === "play";
   return { t: "state", code, chat: H.chat, mg: H.mg, rdGo: H.rdGo || 0, skLog: H.skLog || [],
-    bac: H.bac, rl: H.rl, pk: H.pk, sl: H.sl, to: { next: H.to.next, last: H.to.last, hist: H.to.hist, live: Math.max(0, H.to.until - Date.now()) },
+    bac: H.bac, rl: H.rl, pk: H.pk, sl: H.sl, to: { next: H.to.next, last: H.to.last, hist: H.to.hist, tm: H.to.tm, live: Math.max(0, H.to.until - Date.now()) },
     bj: { phase: H.bj.phase, n: H.bj.n, ds: H.bj.ds, dealer: hide ? [H.bj.dealer[0], -1] : H.bj.dealer },
     hd: hdView(forId),
     board: ctx.board(), adm: {}, players: [...H.players].map(([id, p]) => ({ id, ...p, off: !conns.has(id) })) };
@@ -407,6 +416,10 @@ function hostHandle(id, msg) {
     const n = String(msg.name || "").slice(0, 8), v = Math.floor(Number(msg.chips));
     if (p.name !== EVT_NAME || !n || n === "__proto__" || !Number.isFinite(v) || v < 0 || v > 1e13) return;
     ctx.admSet(n, v);
+  } else if (msg.t === "adm-unbind") {   // free a name fixed to an IP (wrong name, shared wifi): next login picks again
+    const n = String(msg.name || "").slice(0, 8);
+    if (p.name !== EVT_NAME || !n) return;
+    ctx.unbind(n); reply(id, n + " IP 고정 해제");
   } else if (msg.t === "to-add" && TO_KEYS.includes(msg.k) && validBet(msg)) {
     if (H.to.until > Date.now()) { reply(id, "경기 중: 끝나면 다음 경기에 베팅"); return; }
     const a = stake(id, p, msg); if (!a) return;
@@ -848,7 +861,7 @@ let H = fresh();
 const conns = new Map();   // player id(name) -> socket
 function fresh() { return { players: new Map(), bac: { rounds: [], n: 0 }, rl: { hist: [], n: 0 }, bj: { phase: "bet", dealer: [], n: 0, ds: { n: 0, bust: 0, sum: 0, dist: {} } }, hd: hdFresh(), chat: [], cs: 0, mg: { ch: mgNew("ch"), om: mgNew("om"), c4: mgNew("c4"), tw: mgNew("tw") },
   pk: Array.from({ length: PK_N }, () => ({ id: null, n: 0, last: null, tot: 0, shots: 0, big: 0 })),
-  sl: Array.from({ length: SL_N }, () => ({ id: null, n: 0, last: null, tot: 0, shots: 0, big: 0 })), to: { next: toNext(1), last: null, hist: [], until: 0 } }; }
+  sl: Array.from({ length: SL_N }, () => ({ id: null, n: 0, last: null, tot: 0, shots: 0, big: 0 })), to: { next: toNext(1), last: null, hist: [], tm: {}, until: 0 } }; }
 const out = (ws, m) => { try { if (ws.readyState === 1) ws.send(JSON.stringify(m)); } catch {} };
 let bT = 0;
 function broadcast() {
@@ -886,7 +899,7 @@ function remove(id) {
 function dump() {
   const seat = m => ({ n: m.n, tot: m.tot, shots: m.shots, big: m.big, last: m.last });
   return { bac: H.bac, rl: H.rl, bj: { n: H.bj.n, ds: H.bj.ds }, hd: { n: H.hd.n, log: H.hd.log }, chat: H.chat, cs: H.cs, skLog: H.skLog || [],
-    to: { hist: H.to.hist, last: H.to.last, n: H.to.next.n }, pk: H.pk.map(seat), sl: H.sl.map(seat) };
+    to: { hist: H.to.hist, last: H.to.last, n: H.to.next.n, tm: H.to.tm }, pk: H.pk.map(seat), sl: H.sl.map(seat) };
 }
 function load(d) {
   if (!d || typeof d !== "object") return;
@@ -896,7 +909,10 @@ function load(d) {
   if (d.bj) { H.bj.n = num(d.bj.n); if (d.bj.ds && typeof d.bj.ds === "object") H.bj.ds = d.bj.ds; }
   if (d.hd) { H.hd.n = num(d.hd.n); H.hd.log = arr(d.hd.log, 10); }
   H.chat = arr(d.chat, 40); H.cs = num(d.cs); H.skLog = arr(d.skLog, 30);
-  if (d.to) { H.to.hist = arr(d.to.hist, 9); H.to.last = d.to.last || null; if (d.to.n > 1) H.to.next = toNext(num(d.to.n)); }
+  if (d.to) { H.to.hist = arr(d.to.hist, 9); H.to.last = d.to.last || null; if (d.to.n > 1) H.to.next = toNext(num(d.to.n));
+    // team table: the saved one, or (first load after it was added) rebuilt from the recent matches still on the sheet
+    if (d.to.tm && typeof d.to.tm === "object") { for (const [t, r] of Object.entries(d.to.tm)) if (TO_TEAMS.some(x => x[0] === t) && Array.isArray(r)) H.to.tm[t] = [0, 1, 2, 3, 4].map(i => num(r[i])); }
+    else for (const h of [...H.to.hist].reverse()) toTm(h.home, h.away, num(h.hg), num(h.ag)); }
   for (const g of ["pk", "sl"]) arr(d[g], PK_N).forEach((m, i) => { if (m) Object.assign(H[g][i], { n: num(m.n), tot: Number(m.tot) || 0, shots: num(m.shots), big: num(m.big), last: m.last || null }); });
 }
 return {

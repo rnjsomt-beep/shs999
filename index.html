@@ -651,12 +651,25 @@ const ROOM = (location.hash.slice(1).replace(/[^A-Za-z0-9]/g, "").toUpperCase() 
 const SERVER = new URLSearchParams(location.search).get("server") || "wss://161-33-208-220.sslip.io/";
 const isHost = false;
 let ws = null, myId = null, roomCode = "", want = false, lastMsg = 0, backoff = 0, rcT = 0;
+/* one name per IP: the server fixes the first name used from an IP (after 확인) and gives this browser a token,
+   so next time the name is already there and it logs straight in */
+let tok = "", ipName = null, bindAsk = null, bindOk = false;
+try { tok = localStorage.getItem("xs-tok") || ""; } catch {}
 function send(msg) { if (ws && ws.readyState === 1 && S) ws.send(JSON.stringify(msg)); }
 function enter() {
   if (want) return;
+  if (!tok && !ipName && !bindOk) {
+    if (!nameDraft.trim()) return say("이름을 입력하세요", true);
+    bindAsk = myName(); render(); return;   // 확인 / 취소 on the lobby sheet first
+  }
   want = true; backoff = 0;
   try { localStorage.setItem("xs-name", nameDraft); } catch {}
   connect();
+}
+function bindAnswer(ok) {
+  const n = bindAsk; bindAsk = null;
+  if (!ok) { render(); return say("취소했어요 · 다른 이름을 입력해도 됩니다"); }
+  nameDraft = n; bindOk = true; enter();
 }
 function connect() {
   clearTimeout(rcT);
@@ -667,7 +680,7 @@ function connect() {
   w.onopen = () => {
     clearTimeout(to); lastMsg = Date.now();
     // acct/board: only used the very first time, to bring over what this browser saved before the server existed
-    w.send(JSON.stringify({ t: "hello", name: myName(), room: ROOM, acct: loadAcct(), board, v: view }));
+    w.send(JSON.stringify({ t: "hello", name: myName(), room: ROOM, acct: loadAcct(), board, v: view, tok, bind: bindOk }));
   };
   w.onmessage = e => {
     if (ws !== w) return;
@@ -678,7 +691,9 @@ function connect() {
     else if (m.t === "mk") mkUpdate(m);
     else if (m.t === "err") say(m.m, true);
     else if (m.t === "event") showEvent(m);
-    else if (m.t === "full" || m.t === "kick") { want = false; S = null; render(); say(m.m || "입장 실패", true); }
+    else if (m.t === "tok") { tok = m.tok; ipName = nameDraft = m.name; try { localStorage.setItem("xs-tok", tok); localStorage.setItem("xs-name", m.name); } catch {} }
+    else if (m.t === "bindq") { want = false; ws = null; try { w.close(); } catch {} bindOk = false; bindAsk = m.name; render(); }
+    else if (m.t === "full" || m.t === "kick") { want = false; bindOk = false; S = null; render(); say(m.m || "입장 실패", true); }
   };
   w.onclose = () => {
     clearTimeout(to);
@@ -1310,10 +1325,18 @@ function header(put, codeCol, span) {
 /* ---------- views ---------- */
 function layoutLobby(put) {
   put(0, 0, "2026 4Q 자재 집계", "b", 3);
-  put(2, 0, "담당", "h"); put(2, 1, field("in-name", "이름", () => nameDraft, v => nameDraft = v, enter), "me");
-  put(3, 0, "입장", "h"); put(3, 1, button("입장", enter), "btn");
-  put(2, 3, "이름 입력 → 입장", "m", 6);
+  const fixed = ipName || (tok && nameDraft);
+  put(2, 0, "담당", "h"); put(2, 1, fixed ? fixed : field("in-name", "이름", () => nameDraft, v => nameDraft = v, enter), "me" + (fixed ? " b" : ""));
+  put(3, 0, "입장", "h"); put(3, 1, button(want ? "입장 중…" : "입장", enter), "btn");
+  put(2, 3, fixed ? "이 IP에 고정된 이름 · 자동 입장" : "이름 입력 → 입장 (처음 입장한 이름이 이 IP에 고정)", "m", 6);
   put(3, 3, "Esc: 시트 전환 · F9: 준비", "m", 6);
+  if (bindAsk) {
+    put(5, 0, "확인", "h b");
+    put(5, 1, "이 IP로 로그인하면 '" + bindAsk + "' 닉네임으로 고정됩니다", "b hold", 5);
+    put(6, 1, button("확인", () => bindAnswer(true)), "btn in");
+    put(6, 2, button("취소", () => bindAnswer(false)), "btn out");
+    put(7, 1, "고정 후에는 이 IP에서 다른 이름으로 들어갈 수 없어요", "m", 5);
+  }
 }
 
 function layoutBac(put) {
@@ -1787,7 +1810,7 @@ function layoutCfg(put) {
       const bx = document.createElement("span"); bx.className = "bx";
       bx.append(button("설정", () => apply(parseAmt(admDraft[key]))));
       if (p) bx.append(button("+1000만", () => apply(p.chips + 1e7)), button("-1000만", () => apply(Math.max(0, p.chips - 1e7))));
-      bx.append(button("0원", () => apply(0)));
+      bx.append(button("0원", () => apply(0)), button("IP 해제", () => send({ t: "adm-unbind", name: n })));
       put(r, 3, bx, "btn");
     });
   }
@@ -2101,6 +2124,8 @@ function toMen(f) {
   if (best >= 0) men[best] = [Math.max(0, Math.min(20, bx + (p ? 1 : -1))), by, p];
   return men;
 }
+/* team record from the server's table: [win, draw, loss, goals for, goals against] */
+const toRec = t => { const r = (S.to.tm || {})[t]; const n = r ? r[0] + r[1] + r[2] : 0; return n ? r[0] + "승" + r[1] + "무" + r[2] + "패 승률 " + Math.round(r[0] / n * 100) + "%" : "기록 없음"; };
 function layoutTo(put) {
   header(put, 14, 3);
   const me = meP(), live = !!toA || S.to.live > 0, M = toA ? toA.m : null, N = toA ? toA.nx : S.to.next, SL = M || N;
@@ -2135,7 +2160,7 @@ function layoutTo(put) {
   } else if (S.to.hist[0]) { const h = S.to.hist[0]; put(16, 0, "직전", "h c"); put(16, 1, h.n + "회  " + h.home + " " + h.hg + " : " + h.ag + " " + h.away, "m", 21); }
   /* betting slip for the next match */
   const y0 = 18;
-  put(y0 - 1, 0, "■ 제 " + SL.n + "회 " + SL.home + " vs " + SL.away + (live ? "  (경기 중 · 베팅 마감 · 다음: " + N.home + " vs " + N.away + ")" : ""), "b", 22);
+  put(y0 - 1, 0, "■ 제 " + SL.n + "회 " + SL.home + " (" + toRec(SL.home) + ") vs " + SL.away + " (" + toRec(SL.away) + ")" + (live ? "  (경기 중 · 베팅 마감 · 다음: " + N.home + " vs " + N.away + ")" : ""), "b", 22);
   put(y0, 0, "구분", "h c"); put(y0 + 1, 0, "배당", "h c"); put(y0 + 2, 0, "내 베팅", "h c"); put(y0 + 3, 0, "베팅", "h c");
   TO_KEY.forEach(([k, n], i) => {
     const c = 1 + i * 4, w = i === 4 ? 5 : 4;
@@ -2167,7 +2192,20 @@ function layoutTo(put) {
     put(yh + 1 + i, 0, h.n + "회", "c m"); put(yh + 1 + i, 1, h.home, "r", 7); put(yh + 1 + i, 8, h.hg + " : " + h.ag, "c b", 3); put(yh + 1 + i, 11, h.away, "", 7);
     put(yh + 1 + i, 18, w + " · " + (h.hg + h.ag > 2 ? "오버" : "언더"), "c " + (w === "홈승" ? "out" : w === "원정승" ? "in" : "hold"), 4);
   });
+  /* team table: points 3/1/0, then goal difference */
+  const yt = yh + 2 + Math.max(1, Math.min(8, S.to.hist.filter(h => !toA || h.n !== toA.m.n).length)), tm = S.to.tm || {};
+  put(yt, 0, "■ 팀 순위 (누적)", "b", 6);
+  ["순위", "팀", "경기", "승", "무", "패", "득실", "승률"].forEach((h, i) => put(yt + 1, [0, 1, 7, 9, 11, 13, 15, 18][i], h, "h c", [1, 6, 2, 2, 2, 2, 3, 4][i]));
+  TO_TEAMS.map(t => { const r = tm[t] || [0, 0, 0, 0, 0]; return { t, r, n: r[0] + r[1] + r[2], pt: r[0] * 3 + r[1], gd: r[3] - r[4] }; })
+    .sort((a, b) => b.pt - a.pt || b.gd - a.gd || b.r[3] - a.r[3] || b.n - a.n)
+    .forEach(({ t, r, n, gd }, i) => {
+      const y = yt + 2 + i;
+      put(y, 0, String(i + 1), "c m"); put(y, 1, t, SL && (t === SL.home || t === SL.away) ? "b" : "", 6); put(y, 7, String(n), "c", 2);
+      put(y, 9, String(r[0]), "c out", 2); put(y, 11, String(r[1]), "c hold", 2); put(y, 13, String(r[2]), "c in", 2);
+      put(y, 15, r[3] + ":" + r[4] + " (" + (gd > 0 ? "+" : "") + gd + ")", "c", 3); put(y, 18, n ? Math.round(r[0] / n * 100) + "%" : "-", "c b", 4);
+    });
 }
+const TO_TEAMS = ["한강 FC", "낙동 유나이티드", "태백 레인저스", "제주 웨이브", "금강 타이거즈", "소백 이글스", "영산 드래곤즈", "동해 샤크스", "서해 마린스", "지리 울브스", "설악 베어스", "백두 스톰"];
 const LAYOUT = { pk: layoutPk, sl: layoutSl, to: layoutTo, sk: layoutSk, cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
 const colName = i => i < 26 ? String.fromCharCode(65 + i) : "A" + String.fromCharCode(39 + i);
 
@@ -2915,6 +2953,11 @@ window.addEventListener("pagehide", () => { if (ws && ws.readyState === 1) try {
 try { nameDraft = localStorage.getItem("xs-name") || ""; } catch {}
 applyMode();
 render();
+if (tok) enter();
+else fetch(SERVER.replace(/^ws/, "http").replace(/\/?$/, "/") + "ip", { cache: "no-store" }).then(r => r.json()).then(d => {
+  if (!d || !d.name || S || want) return;
+  ipName = nameDraft = d.name; render(); enter();
+}).catch(() => {});
 })();
 </script>
 </body>
