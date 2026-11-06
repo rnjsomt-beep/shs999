@@ -31,6 +31,14 @@ function unbind(n) {
   for (const o of [IPL.ip, IPL.tok]) for (const k of Object.keys(o)) if (o[k] === n) delete o[k];
   dirty = true;
 }
+/* admin only: every name -> the IPs it is fixed to / connected from right now */
+const ADMIN = "성호";
+function ipList() {
+  const o = {}, add = (n, ip) => { if (!ip || n in Object.prototype) return; (o[n] = o[n] || []).includes(ip) || o[n].push(ip); };
+  for (const [ip, n] of Object.entries(IPL.ip)) add(n, ip);
+  for (const ws of wss.clients) if (ws.name && ws.room) add(ws.name, ws.ip);
+  return o;
+}
 let dirty = false;
 function save() {
   if (!dirty) return;
@@ -128,6 +136,7 @@ wss.on("connection", (ws, req) => {
     if (m.t === "ping") return send(ws, { t: "pong" });
     if (m.t === "hello") return hello(ws, m);
     if (!ws.room) return;
+    if (m.t === "adm-ips") return ws.name === ADMIN && send(ws, { t: "ips", ips: ipList() });
     if (m.t === "bye") { const r = ws.room; ws.room = null; if (NAMES.get(ws.name) === ws) NAMES.delete(ws.name); return r.remove(ws.name); }   // tab closed on purpose: leave now, no grace
     try { ws.room.handle(ws.name, m); } catch (e) { console.error("handle", ws.name, m.t, e); }
   });

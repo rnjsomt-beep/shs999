@@ -690,6 +690,7 @@ function connect() {
     else if (m.t === "you") { myId = m.id; roomCode = m.room; say("입장 완료"); $("saved").textContent = "저장됨"; }
     else if (m.t === "mk") mkUpdate(m);
     else if (m.t === "err") say(m.m, true);
+    else if (m.t === "ips") { IPS = m.ips || {}; if (view === "cfg") render(); }
     else if (m.t === "event") showEvent(m);
     else if (m.t === "tok") { tok = m.tok; ipName = nameDraft = m.name; try { localStorage.setItem("xs-tok", tok); localStorage.setItem("xs-name", m.name); } catch {} }
     else if (m.t === "bindq") { want = false; ws = null; try { w.close(); } catch {} bindOk = false; bindAsk = m.name; render(); }
@@ -1249,7 +1250,9 @@ function boardMerge(dst, src) {
   for (const k of Object.keys(dst)) if (!keep.has(k)) delete dst[k];
   return dst;
 }
-let board = boardMerge({}, lsGet("xs-board")), savedA = "", savedB = "";
+/* the server's board is the only ranking now: old browser copies (xs-board / xs-adm) brought back deleted names */
+try { localStorage.removeItem("xs-board"); localStorage.removeItem("xs-adm"); } catch {}
+let board = {}, savedA = "";
 function persist() {
   const me = meP();
   if (me) {
@@ -1259,20 +1262,10 @@ function persist() {
     const a = JSON.stringify({ chips: me.chips + onTable, rebuy: me.rebuy, peak: me.peak, st: me.st, admT: me.admT || 0 });
     if (a !== savedA) { savedA = a; lsSet("xs-acct:" + me.name, a); }
   }
-  if (S && S.board) {
-    boardMerge(board, S.board);
-    const b = JSON.stringify(board);
-    if (b !== savedB) { savedB = b; lsSet("xs-board", b); }
-  }
-  if (S && S.adm) {
-    boardMerge(adm, S.adm);
-    const m = JSON.stringify(adm);
-    if (m !== savedM) { savedM = m; lsSet("xs-adm", m); }
-  }
 }
 /* admin balance overrides: name -> [chips, time], gossiped like the board so a player who is offline
    now gets the new balance the next time they join (each account remembers the last override it took) */
-let adm = boardMerge({}, lsGet("xs-adm")), savedM = "";
+
 /* each game tab is its own room: only people on that sheet take part / need to be ready */
 const roomOf = g => S.players.filter(p => p.vw === g);
 const readyCount = g => { const ps = roomOf(g); return ps.filter(p => p.ready[g]).length + "/" + ps.length; };
@@ -1750,7 +1743,7 @@ function layoutRk(put) {
   put(0, 0, "2026 4Q 담당자 실적평가", "b", 3); put(0, 3, "전표코드", "m"); put(0, 4, S ? S.code : "-", "b", 2);
   // offline players stay listed: local copy of the board merged with the room's
   const live = new Map(S ? S.players.map(p => [p.name, p.off ? "off" : p.vw]) : []), me = meP(), myN = me ? me.name : nameDraft.trim();
-  const all = S ? boardMerge(boardMerge({}, board), S.board) : board;
+  const all = S ? boardMerge({}, S.board) : board;
   const rows = Object.entries(all).map(([n, e]) => ({ n, v: e[0], t: e[1] })).sort((a, b) => b.v - a.v);
   if (!rows.length) put(3, 0, S ? "기록 없음" : "기록 없음 · 입장하면 다른 사람 기록도 받아옵니다", "m", 6);
   ["순위", "담당", "등급", "계좌", "상태", "최종"].forEach((h, i) => put(2, i, h, "h c"));
@@ -1793,8 +1786,9 @@ function layoutCfg(put) {
     put(10, 2, "10초 동안 떨어지는 돈을 눌러서 줍기 · 최대 " + man(EVT_MAX) + "원", "m", 2);
     put(12, 0, "관리자 모드", "h b");
     put(12, 1, "잔액 입력 후 Enter 또는 설정 (예: 5000000 · 500만 · 1.5억)", "m", 3);
-    ["담당", "현재 잔액", "새 잔액", ""].forEach((h, i) => put(13, i, h, "h c"));
-    const all = boardMerge(boardMerge({}, board), S.board), on = new Set(S.players.map(p => p.name));
+    ["담당", "현재 잔액", "새 잔액", "", "IP"].forEach((h, i) => put(13, i, h, "h c"));
+    if (Date.now() - ipsAt > 5000) { ipsAt = Date.now(); send({ t: "adm-ips" }); }
+    const all = boardMerge({}, S.board), on = new Set(S.players.map(p => p.name));
     const rows = S.players.map(p => ({ n: p.name, p })).concat(Object.keys(all).filter(n => !on.has(n)).sort((x, y) => all[y][1] - all[x][1]).map(n => ({ n })));
     rows.slice(0, 28).forEach(({ n, p }, i) => {
       const r = 14 + i, key = "adm-" + n;
@@ -1812,11 +1806,12 @@ function layoutCfg(put) {
       if (p) bx.append(button("+1000만", () => apply(p.chips + 1e7)), button("-1000만", () => apply(Math.max(0, p.chips - 1e7))));
       bx.append(button("0원", () => apply(0)), button("IP 해제", () => send({ t: "adm-unbind", name: n })));
       put(r, 3, bx, "btn");
+      put(r, 4, (IPS[n] || []).join(", ") || "-", "m");
     });
   }
 }
 /* admin amount: "5,000,000" / "500만" / "1.5억" / "1억2000만" → number, null if unreadable */
-let admDraft = {};
+let admDraft = {}, IPS = {}, ipsAt = 0;
 function parseAmt(t) {
   const x = String(t || "").replace(/[,\s원]/g, "");
   if (!x) return null;
