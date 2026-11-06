@@ -277,6 +277,13 @@ canvas.sp{display:block;width:100%;height:15px}
 .rb .hit{box-shadow:inset 0 0 0 3px #ffd43b}.rb .sp{outline:3px solid #ffd43b;z-index:1}
 /* other players' roulette chips: one coloured disc (first letter of the name) per player on that spot */
 .ocs{display:inline-flex;gap:1px;vertical-align:middle;margin-left:3px;pointer-events:none}
+/* sheet roulette: chips float over the cell corner so they never widen the column */
+.grid .ocs{position:absolute;right:0;top:0;margin:0;gap:0;z-index:1}
+/* long text that must not widen the sheet columns: clipped with … instead */
+.grid .clip{display:block;width:0;min-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grid .ocs .rdot{min-width:0;width:7px;height:7px;padding:0;font-size:0;margin-left:-2px;box-shadow:0 0 0 1px #fff}
+.grid .ocw{position:relative;display:block;width:100%;height:100%}
+.grid button.ocw{display:block}
 .rdot{display:inline-block;min-width:13px;height:13px;border-radius:50%;color:#fff;font:700 9px/13px sans-serif;text-align:center;font-style:normal;box-shadow:0 0 0 1px rgba(255,255,255,.85),0 1px 2px rgba(0,0,0,.4);padding:0 1px}
 .rb .ocs{position:absolute;left:1px;bottom:1px;margin:0;flex-wrap:wrap;max-width:100%;z-index:2}
 .rb .rdot{min-width:12px;height:12px;line-height:12px;font-size:8px}
@@ -1426,6 +1433,7 @@ function rlLegend() {
   ps.forEach(p => { const s = el("span"); s.append(rlDot(p), el("b", "", p.name), " " + Object.entries(p.rl).map(([k, a]) => rlName(k) + " " + man(a)).join(" · ")); L.append(s); });
   return L;
 }
+const clipT = t => { const s = el("span", "clip", t); s.title = t; return s; };
 function layoutRl(put) {
   const me = meP(), mine = me ? me.rl : {};
   header(put, 9, 2);
@@ -1435,7 +1443,7 @@ function layoutRl(put) {
     const has = !!mine[k];
     let b = me ? button(text, () => send({ t: "rl-add", k, ...bet() }), has) : text;
     const oc = rlChips(k);
-    if (oc) { if (typeof b === "string") { const w = el("span", "", b); w.append(oc); b = w; } else b.append(oc); }
+    if (oc) { if (typeof b === "string") { const w = el("span", "ocw", b); w.append(oc); b = w; } else { b.classList.add("ocw"); b.append(oc); } }
     put(r, c, b,
       (me ? "btn num " : "c ") + (cls || "") + (k === "n" + last && S.rl.n ? fr : "") + (spin && k === "n" + spin.cur ? " spin" : ""), span);
   };
@@ -1467,14 +1475,14 @@ function layoutRl(put) {
   S.rl.hist.slice(0, 15).forEach(n => { const s = document.createElement("span"); s.textContent = n; s.className = rlCls(n); hist.append(s); });
   put(9, 3, hist, "", 11);
   put(10, 0, "내역", "h");
-  put(10, 1, Object.entries(mine).map(([k, a]) => rlName(k) + ":" + man(a)).join("  "), "m", 13);
+  put(10, 1, clipT(Object.entries(mine).map(([k, a]) => rlName(k) + ":" + man(a)).join("  ")), "m", 13);
 
   put(12, 0, "담당", "h", 3); put(12, 3, "잔액", "h", 3); put(12, 6, "베팅", "h", 3); put(12, 9, "준비", "h", 2); put(12, 11, "직전", "h", 3);
   roomOf("rl").forEach((p, i) => {
     const cls = p.id === myId ? "me" : "";
     const nm = el("span"); nm.append(rlDot(p), " " + p.name);
     put(13 + i, 0, nm, cls, 3); put(13 + i, 3, fmt(p.chips), "n " + cls, 3);
-    put(13 + i, 6, Object.entries(p.rl).map(([k, a]) => rlName(k) + " " + man(a)).join(" · "), "m", 3);
+    put(13 + i, 6, clipT(Object.entries(p.rl).map(([k, a]) => rlName(k) + " " + man(a)).join(" · ")), "m", 3);
     put(13 + i, 9, p.ready.rl ? "✓" : "대기", "c " + (p.ready.rl ? "in" : "m"), 2);
     put(13 + i, 11, p.lastNet ? sgn(p.lastNet) : "", netCls(p.lastNet), 3);
   });
