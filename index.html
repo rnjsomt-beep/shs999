@@ -64,7 +64,7 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 .status .wdb{cursor:pointer;color:var(--accent,#1a73e8);text-decoration:underline}
 .wdp{position:fixed;left:8px;bottom:calc(30px + env(safe-area-inset-bottom,0px));z-index:21;background:var(--bg,#fff);border:1px solid var(--line);box-shadow:0 4px 16px rgba(0,0,0,.2);padding:10px;width:min(320px,calc(100vw - 16px));display:flex;flex-direction:column;gap:6px;font-size:13px}
 .wdp .row{display:flex;gap:6px;align-items:center}.wdp input{flex:1;min-width:0;padding:4px}.wdp button{padding:4px 10px}
-.wdp .m{color:var(--muted)}
+.wdp .m{color:var(--muted)}.wdp[hidden]{display:none}
 .status .r{display:flex;gap:12px;font-variant-numeric:tabular-nums}
 .grid td.spin,.grid td.spin button{background:var(--accent);color:#fff;font-weight:700}
 .toasts{position:fixed;right:10px;bottom:calc(34px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;align-items:flex-end;z-index:20;pointer-events:none}
