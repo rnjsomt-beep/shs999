@@ -301,6 +301,42 @@ canvas.sp{display:block;width:100%;height:15px}
 .bill::before{content:"₩";position:absolute;left:5px;top:2px;font-size:10px;opacity:.6}
 .rain .gp{position:absolute;color:#ffd966;font:700 16px var(--ui);text-shadow:0 1px 3px #000;pointer-events:none;animation:gp .8s ease-out forwards}
 @keyframes gp{to{transform:translateY(-50px);opacity:0}}
+/* all-in sits first in the chip row, red so it's easy to hit on a phone */
+.grid td.btn.allin button{background:#e03131;color:#fff;font-weight:700}
+.grid td.btn.allin button[aria-pressed="true"]{background:#a51111;color:#fff;box-shadow:inset 0 0 0 2px #ffd43b}
+.grid td.r{text-align:right}
+.f-top .f-fill{font:inherit;font-weight:700;border:0;border-radius:6px;padding:3px 10px;background:#8fc1ff;color:#111;cursor:pointer}
+.f-top .f-fill.no{opacity:.55}
+/* pachinko cabinet */
+.grid td.pkf{background:#d4a017;color:#3a2a00;font-weight:700;text-align:center;padding:0}
+.grid td.pkt{font-size:11px;background:#d4a017}
+.grid td.pkb{background:#eef3fb;text-align:center;padding:0;color:#7a8597}
+.grid td.pkq{color:#c3cad6}
+.grid td.pkball{color:#2b3340;background:#ffe066;font-weight:700}
+.grid td.pkr{background:#1b1b1f;color:#ffd43b;text-align:center;padding:0}
+.grid td.pkd{font:700 14px var(--num);border-color:#444}
+.grid td.pkl{font-size:10px;color:#ff8787}
+.grid td.pks{color:#fff}
+.grid td.pkj{background:#e03131;color:#fff;animation:pkj .4s steps(2) infinite}
+@keyframes pkj{50%{background:#ffd43b;color:#e03131}}
+.grid td.pkbin{font:700 10px var(--num);color:#495057;background:#dfe7f5}
+.grid td.pkdv{color:#9aa5b8;background:#dfe7f5}
+.grid td.pkst{background:#ffd43b;color:#c92a2a}
+.grid td.pkhi{color:#c92a2a}
+.grid td.pkhit{background:#e03131!important;color:#fff!important}
+.grid td.pksel{background:var(--sel)}
+/* toto pitch */
+.grid td.tp{background:#4c9a4c;color:#fff;text-align:center;padding:0;border-color:#5aa85a}
+.grid td.tp2{background:#56a756}
+.grid td.tpl{box-shadow:inset 1px 0 #fff}
+.grid td.tpr{box-shadow:inset -1px 0 #fff}.grid td.tpL{box-shadow:inset 1px 0 #fff}
+.grid td.tpu{box-shadow:inset 0 1px #fff}.grid td.tpd{box-shadow:inset 0 -1px #fff}
+.grid td.tpt{background:#3d7f3d;border-color:#3d7f3d}
+.grid td.tgoal{background:#f1f3f5;color:#111;text-align:center;padding:0;border-color:#adb5bd}
+.grid td.tgoalin{background:#ffd43b!important;animation:pkj .3s steps(2) infinite}
+.grid td.tmh{color:#ff6b6b;font-weight:700;text-shadow:0 0 1px #000}
+.grid td.tma{color:#74c0fc;font-weight:700;text-shadow:0 0 1px #000}
+.grid td.tsc{font:700 14px var(--num)}
 </style>
 </head>
 <body>
@@ -317,6 +353,8 @@ canvas.sp{display:block;width:100%;height:15px}
   <button type="button" role="tab" data-v="rl" aria-selected="false">분석</button>
   <button type="button" role="tab" data-v="bj" aria-selected="false">정산</button>
   <button type="button" role="tab" data-v="hd" aria-selected="false">검토</button>
+  <button type="button" role="tab" data-v="pk" aria-selected="false">설비가동</button>
+  <button type="button" role="tab" data-v="to" aria-selected="false">출하일정</button>
   <button type="button" role="tab" data-v="sk" aria-selected="false">시세</button>
   <button type="button" role="tab" data-v="ch" aria-selected="false">BOM대조</button>
   <button type="button" role="tab" data-v="om" aria-selected="false">검수내역</button>
@@ -341,7 +379,7 @@ const EV_ALLIN_MIN = 100000;   // all-in win only announced when the stake was a
 const EV_BIG = 2000000;        // net win >= this → "대박"
 const EV_JACKPOT = 10000000;   // net win >= this → "잭팟"
 const EV_SPECIAL_MIN = 100000; // stake needed for tie / straight-up / blackjack call-outs
-const GNAME = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", sk: "주식" };
+const GNAME = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", sk: "주식", pk: "빠칭코", to: "토토" };
 const SB = 5000, BB = 10000, TURN_MS = 30000, NEXT_MS = 5000;
 const GAMES = ["bac", "rl", "bj", "hd"];
 const VIEWS = {
@@ -349,6 +387,8 @@ const VIEWS = {
   rl:    [30, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 34],
   bj:    [52, 56, 38, 38, 38, 38, 38, 36, 50, 56],
   hd:    [58, 64, 38, 38, 38, 38, 42, 50, 62, 58],
+  pk: [40, ...Array(19).fill(19)],
+  to: [36, ...Array(21).fill(16)],
   decoy: [44, 62, 70, 34, 44, 50, 50, 66],
   ch: [34, 34, 34, 34, 34, 34, 34, 34, 34],
   om: [26, ...Array(15).fill(24)],
@@ -362,7 +402,7 @@ const VIEWS = {
 /* settings (per viewer): normal = real game names instead of the spreadsheet disguise, table = felt baccarat */
 let MODE = { normal: false, table: false };
 try { Object.assign(MODE, JSON.parse(localStorage.getItem("xs-mode")) || {}); } catch {}
-const NTAB = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", sk: "주식", ch: "체스", om: "오목", c4: "사목", tw: "탑쌓기", rd: "랜덤디펜스", rk: "랭킹", cfg: "설정", decoy: "품목마스터" };
+const NTAB = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", pk: "빠칭코", to: "토토", sk: "주식", ch: "체스", om: "오목", c4: "사목", tw: "탑쌓기", rd: "랜덤디펜스", rk: "랭킹", cfg: "설정", decoy: "품목마스터" };
 const NRULE = [
   [/^2026 4Q 자재 집계$/, () => NTAB[view] || "카지노"], [/^2026 4Q 담당자 실적평가$/, "랭킹"],
   [/^BOM 대조표 \(L1\)$/, "체스"], [/^검수내역 대조$/, "오목"], [/^이월 정리$/, "사목 (4목)"], [/^적재 누계 \(L2\)$/, "탑 쌓기"],
@@ -591,7 +631,7 @@ function showEvent(m) {
 }
 
 /* refill only when broke: can't cover the smallest bet, nothing on any table, not alive in a hold'em hand */
-const broke = (p, hdHand) => p.chips < AMTS[0] && !sum(p.bac) && !sum(p.rl) && !p.bj.bet && !(hdHand && !hdHand.folded) && !Object.keys(p.stk || {}).length;
+const broke = (p, hdHand) => p.chips < AMTS[0] && !sum(p.to || {}) && !sum(p.bac) && !sum(p.rl) && !p.bj.bet && !(hdHand && !hdHand.folded) && !Object.keys(p.stk || {}).length;
 const canRefill = me => broke(me, S.hd.phase === "play" && S.hd.hands.find(h => h.id === myId));
 /* ---------- network: everyone connects to the game server (Oracle VM), which runs every table ----------
    one fixed room: #name in the URL picks another room · ?server=ws://… points at a test server */
@@ -1214,8 +1254,9 @@ function readyBtn(g, put, r, c, span) {
   put(r, c, button(me.ready[g] ? "준비완료 ✓ " + readyCount(g) : "준비 " + readyCount(g), () => send({ t: "ready", g }), me.ready[g]), "btn", span);
 }
 function amountRow(put, r, cols, span, withAll = true) {
+  // all-in goes in the first (leftmost) cell, the chips after it
+  if (withAll) { put(r, cols[0], button("올인", () => { allIn = !allIn; betPct = 0; render(); if (allIn) say("올인 모드: 누른 칸에 잔액 전부 베팅"); }, allIn), "btn allin", span); cols = cols.slice(1); }
   AMTS.forEach((a, i) => { if (cols[i] !== undefined) put(r, cols[i], button(man(a), () => { amt = a; allIn = false; betPct = 0; render(); }, amt === a && !betPct && !(withAll && allIn)), "btn", span); });
-  if (withAll && cols[AMTS.length] !== undefined) put(r, cols[AMTS.length], button("올인", () => { allIn = !allIn; betPct = 0; render(); if (allIn) say("올인 모드: 누른 칸에 잔액 전부 베팅"); }, allIn), "btn out", span);
 }
 /* payload for one bet click; all-in mode is one-shot so a stray click later can't shove everything in.
    % mode (25/50/75 or the slider) stays on: each click puts that share of the balance at that moment */
@@ -1808,7 +1849,237 @@ function applyMode() {
   $("ci").placeholder = NM("비고 입력 후 Enter");
   if (!formula.classList.contains("err")) formula.textContent = DEF_F();
 }
-const LAYOUT = { sk: layoutSk, cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
+
+/* ---------- pachinko (설비가동): 5 machines, the server rolls every ball; here we only animate the
+   last shot of the machine being looked at (balls drop pin by pin, START pocket spins the reel) ---------- */
+const PK_AMTS = [1000, 10000, 100000, 1000000], PK_BALLS = 10, PK_BIN = ["25", "4", ".5", "0", "S", "0", ".5", "4", "25"];
+const PK_R = 11, PK_STEP = 70, PK_LAUNCH = 180, PK_REEL = 650;   // board top row, ms per pin row, ms between balls, reel spin
+let pkAmt = 10000, pkAuto = false, pkWatch = 0, pkA = null;
+const pkShown = {};
+const pkMine = () => S ? S.pk.findIndex(m => m.id === myId) : -1;
+const pkView = () => { const i = pkMine(); return i >= 0 ? i : pkWatch; };
+const pkLen = n => (n - 1) * PK_LAUNCH + 18 * PK_STEP + PK_REEL;
+function watchPk() {
+  if (!S || !S.pk) { pkA = null; return; }
+  S.pk.forEach((m, i) => {
+    const n = m.last ? m.last.n : 0;
+    if (pkShown[i] === undefined) { pkShown[i] = n; return; }
+    if (n <= pkShown[i]) { if (n < pkShown[i]) pkShown[i] = n; return; }
+    pkShown[i] = n;
+    if (view !== "pk" || i !== pkView() || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const go = !pkA; pkA = { i, last: m.last, t0: performance.now(), f: -1 };
+    if (go) requestAnimationFrame(pkTick);
+  });
+}
+function pkTick() {
+  if (!pkA) return;
+  const t = performance.now() - pkA.t0;
+  if (t >= pkLen(pkA.last.balls.length)) {
+    const mine = pkA.last.by === (meP() || {}).name; pkA = null; render();
+    if (mine && pkAuto) setTimeout(pkFire, 150);
+    return;
+  }
+  const f = Math.floor(t / 35);
+  if (f !== pkA.f) { pkA.f = f; render(); }
+  requestAnimationFrame(pkTick);
+}
+function pkFire() {
+  const me = meP(); if (!me || pkMine() < 0 || view !== "pk") { pkAuto = false; return; }
+  if (pkA && pkA.i === pkMine()) return;
+  if (me.chips < pkAmt * PK_BALLS) { pkAuto = false; say("잔액 부족: 1회 " + fmt(pkAmt * PK_BALLS) + " 필요", true); render(); return; }
+  send({ t: "pk-fire", amt: pkAmt });
+}
+// where ball b is at time t: null = not launched, {r, x, done}
+function pkPos(ball, b, t) {
+  const s = Math.floor((t - b * PK_LAUNCH) / PK_STEP);
+  if (s < 0) return null;
+  if (s >= 17) return { r: PK_R + 17, x: 2 * ball.bin - 8, done: true, at: t - b * PK_LAUNCH - 17 * PK_STEP };
+  if (s === 0) return { r: PK_R, x: 0 };
+  const j = Math.floor((s - 1) / 2), k = ball.path.slice(0, j).reduce((a, v) => a + v, 0), x = 2 * k - j;
+  return { r: PK_R + s, x: (s - 1) % 2 ? x + (ball.path[j] ? 1 : -1) : x };
+}
+// winnings of balls that haven't landed yet (so the balance counts up as they drop)
+function pkPending() {
+  if (!pkA || pkA.last.by !== (meP() || {}).name) return 0;
+  const t = performance.now() - pkA.t0;
+  return pkA.last.balls.reduce((s, ball, b) => { const p = pkPos(ball, b, t); return s + (p && p.done && (!ball.reel || p.at >= PK_REEL) ? 0 : ball.win); }, 0);
+}
+function layoutPk(put) {
+  header(put, 12, 3);
+  const me = meP(), mine = pkMine(), vi = pkView(), M = S.pk[vi];
+  put(2, 0, "호기", "h c"); put(2, 1, "담당", "h c", 5); put(2, 6, "최근", "h c", 4); put(2, 10, "누적", "h c", 4); put(2, 14, "당첨", "h c", 2); put(2, 16, "", "h", 4);
+  S.pk.forEach((m, i) => {
+    const y = 3 + i, q = m.id && S.players.find(p => p.id === m.id), sel = i === vi ? " pksel" : "";
+    put(y, 0, (i + 1) + "호기", "c b" + sel);
+    put(y, 1, q ? q.name : "비어 있음", q ? "c" + (m.id === myId ? " me" : "") : "c m", 5);
+    put(y, 6, m.last ? sgn(m.last.net) : "", netCls(m.last ? m.last.net : 0), 4);
+    put(y, 10, m.shots ? sgn(m.tot) : "", netCls(m.tot), 4);
+    put(y, 14, m.big ? m.big + "회" : "", "n" + (m.big ? " hold b" : " m"), 2);
+    if (m.id === myId) put(y, 16, button("일어나기", () => { pkAuto = false; send({ t: "pk-sit", i }); }), "btn out", 4);
+    else if (!m.id && me) put(y, 16, button(mine >= 0 ? "옮기기" : "착석", () => { pkAuto = false; pkWatch = i; send({ t: "pk-sit", i }); }), "btn in", 4);
+    else put(y, 16, button(i === vi ? "보는 중" : "구경", () => { pkWatch = i; render(); }, i === vi), "btn", 4);
+  });
+  /* the machine: gold frame, reel window, pin field, pockets */
+  const R0 = PK_R - 2, owner = M.id && S.players.find(p => p.id === M.id);
+  for (let r = R0; r <= PK_R + 18; r++) { put(r, 1, "", "pkf"); put(r, 19, "", "pkf"); }
+  for (let c = 2; c <= 18; c++) { put(R0, c, "", "pkf"); put(PK_R + 18, c, "", "pkf"); }
+  put(R0, 3, "★ " + (vi + 1) + "호기 " + (owner ? owner.name : "") + " ★", "pkf pkt", 15);
+  const t = pkA && pkA.i === vi ? performance.now() - pkA.t0 : Infinity, L = pkA && pkA.i === vi ? pkA.last : M.last;
+  // reel: latest START ball that has landed; spinning digits for PK_REEL ms after it lands
+  let reel = null, spinning = false;
+  if (L) L.balls.forEach((ball, b) => { if (!ball.reel) return; const p = pkPos(ball, b, t); if (p && p.done) { reel = ball.reel; spinning = p.at < PK_REEL; } });
+  const hitR = reel && !spinning && reel[0] === reel[1] && reel[1] === reel[2];
+  for (let c = 2; c <= 18; c++) put(R0 + 1, c, "", "pkr");
+  [7, 10, 13].forEach((c, k) => put(R0 + 1, c - 1, reel ? String(spinning ? 1 + Math.floor(Math.random() * 7) : reel[k]) : "-", "pkr pkd" + (hitR ? " pkj" : spinning ? " pks" : ""), 3));
+  put(R0 + 1, 2, "START", "pkr pkl", 4);
+  put(R0 + 1, 16, hitR ? "대당첨" : "", "pkr pkl pkj", 3);
+  // balls in flight
+  const at = new Map(), hitBin = new Set();
+  if (L && t !== Infinity) L.balls.forEach((ball, b) => { const p = pkPos(ball, b, t); if (!p) return; if (p.done) { if (p.at < 260) hitBin.add(ball.bin); } else at.set(p.r + "," + p.x, 1); });
+  const queued = L && t !== Infinity ? L.balls.filter((ball, b) => !pkPos(ball, b, t)).length : 0;
+  for (let r = PK_R; r < PK_R + 17; r++) {
+    const s = r - PK_R, pin = s >= 1 && s % 2 === 1, j = (s - 1) / 2;
+    for (let x = -8; x <= 8; x++) {
+      const c = 10 + x;
+      if (at.has(r + "," + x)) { put(r, c, "●", "pkb pkball"); continue; }
+      if (s === 0) { put(r, c, x === 0 ? "▼" : "", "pkb pkp"); continue; }
+      put(r, c, pin && (x + j) % 2 === 0 ? (Math.abs(x) <= j ? "•" : "·") : "", "pkb pkp" + (pin && Math.abs(x) > j ? " pkq" : ""));
+    }
+  }
+  for (let x = -8; x <= 8; x++) {
+    const c = 10 + x, even = (x + 8) % 2 === 0, bin = (x + 8) / 2;
+    put(PK_R + 17, c, even ? PK_BIN[bin] : "┃", "pkb pkbin" + (even ? (bin === 4 ? " pkst" : bin === 0 || bin === 8 ? " pkhi" : "") + (hitBin.has(bin) ? " pkhit" : "") : " pkdv"));
+  }
+  put(PK_R + 18, 3, L ? "직전 " + (L.by || "") + " " + man(L.amt) + "×" + L.balls.length + "구 " + (t === Infinity ? sgn(L.net) : "…") : "발사 대기", "pkf pkt", 15);
+  if (queued) put(PK_R, 1, String(queued), "pkf pkt");
+  /* controls */
+  const y = PK_R + 20;
+  put(y, 0, "1구", "h c");
+  PK_AMTS.forEach((a, k) => put(y, 1 + k * 4, button(man(a), () => { pkAmt = a; render(); }, pkAmt === a), "btn num", 4));
+  put(y, 17, "×" + PK_BALLS + "구", "c m", 3);
+  if (mine >= 0) {
+    const busy = pkA && pkA.i === mine;
+    put(y + 1, 1, button(busy ? "발사 중…" : "▶ 발사 " + short(pkAmt * PK_BALLS), pkFire), "btn t5", 9);
+    put(y + 1, 10, button(pkAuto ? "자동 ■ 정지" : "자동 발사", () => { pkAuto = !pkAuto; if (pkAuto && !busy) pkFire(); render(); }, pkAuto), "btn hold", 5);
+    refillBtn(put, y + 1, 15, 5);
+  } else put(y + 1, 1, me ? "▲ 위 표에서 빈 호기에 착석하면 발사할 수 있습니다" : "", "m", 19);
+  if (me) put(y + 2, 1, "잔액 " + fmt(me.chips - pkPending()), "b", 9);
+  if (me && me.st.pk && me.st.pk.n) put(y + 2, 10, "누적 " + sgn(me.st.pk.net) + " · " + me.st.pk.n + "회", netCls(me.st.pk.net), 10);
+  put(y + 4, 0, "배당", "h c"); put(y + 4, 1, "양끝 ×25 · 둘째 ×4 · 셋째 ×0.5 · 가운데 START → 추첨", "m", 19);
+  put(y + 5, 1, "777 ×150 · 같은 숫자 3개 ×50 · 2개 ×0.5 (1구 금액 기준)", "m", 19);
+}
+
+/* ---------- sports toto (출하일정): 승무패 + 언더/오버 2.5. The server plays the whole match at once;
+   we replay its ball frames on the pitch over TO_MS and keep the old state on screen meanwhile ---------- */
+const TO_MS = 24000;
+let toA = null, toShown = null;
+function watchTo() {
+  if (!S || !S.to) { toA = null; toShown = null; return; }
+  const L = S.to.last, n = L ? L.n : 0;
+  if (toShown === null) {
+    toShown = n;
+    // joined in the middle of a match: watch the rest of it
+    if (L && S.to.live > 500) { toA = { base: S, m: L, nx: S.to.next, t0: performance.now() - (TO_MS - S.to.live), f: -1 }; requestAnimationFrame(toTick); }
+    return;
+  }
+  if (n <= toShown) { if (n < toShown) toShown = n; return; }
+  toShown = n;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const go = !toA; toA = { base: prevS || S, m: L, nx: S.to.next, t0: performance.now(), f: -1 };
+  if (go) requestAnimationFrame(toTick);
+}
+function toTick() {
+  if (!toA) return;
+  const t = performance.now() - toA.t0;
+  if (t >= TO_MS) { toA = null; render(); return; }
+  const f = Math.floor(t / (TO_MS / toA.m.fr.length));
+  if (f !== toA.f) { toA.f = f; if (view === "to") render(); }
+  requestAnimationFrame(toTick);
+}
+const TO_KEY = [["h", "홈 승"], ["d", "무"], ["a", "원정 승"], ["un", "언더 2.5"], ["ov", "오버 2.5"]];
+// 5 a side: formation shifted toward the ball, the side on the ball has a man right behind it
+function toMen(f) {
+  const [bx, by, p] = f, men = [];
+  const base = [[1, 5], [5, 2], [5, 8], [10, 4], [13, 7]];
+  for (const s of [0, 1]) base.forEach(([x, y], k) => {
+    let mx = k ? Math.round(x + (bx - 10) * 0.45) : 1, my = k ? Math.round(y + (by - 5) * 0.35) : Math.max(3, Math.min(7, Math.round(5 + (by - 5) * 0.4)));
+    if (s) mx = 20 - (k ? Math.round(x - (bx - 10) * 0.45) : 1);
+    men.push([Math.max(k ? 1 : 0, Math.min(k ? 19 : 20, mx)), Math.max(0, Math.min(10, my)), s]);
+  });
+  // carrier: closest outfield man of the side on the ball steps next to it
+  let best = -1, bd = 1e9;
+  men.forEach((m, i) => { if (m[2] !== p || i % 5 === 0) return; const d = Math.abs(m[0] - bx) + Math.abs(m[1] - by); if (d < bd) { bd = d; best = i; } });
+  if (best >= 0) men[best] = [Math.max(0, Math.min(20, bx + (p ? 1 : -1))), by, p];
+  return men;
+}
+function layoutTo(put) {
+  header(put, 14, 3);
+  const me = meP(), live = !!toA || S.to.live > 0, M = toA ? toA.m : null, N = toA ? toA.nx : S.to.next, SL = M || N;
+  const fi = toA ? Math.max(0, toA.f) : -1, F = M ? M.fr[Math.min(fi, M.fr.length - 1)] : null;
+  let hg = 0, ag = 0; if (M) for (let i = 0; i <= fi && i < M.fr.length; i++) if (M.fr[i][3] === 2) { if (M.fr[i][2]) ag++; else hg++; }
+  const T = M || N, minute = M ? Math.min(M.mins, Math.floor(fi / 2) + 1) : 0;
+  put(2, 0, "회차", "h c"); put(2, 1, "제 " + T.n + "회", "b", 4);
+  put(2, 5, T.home, "b r out", 5); put(2, 10, M ? String(hg) : "-", "c b tsc"); put(2, 11, ":", "c b"); put(2, 12, M ? String(ag) : "-", "c b tsc"); put(2, 13, T.away, "b in", 5);
+  put(2, 18, M ? (fi >= M.fr.length - 1 ? "종료" : minute + "'" + (minute === 45 ? " HT" : "")) : "경기 전", "c b" + (M ? " hold" : " m"), 4);
+  // pitch: y 0–10 rows, x 0–20 columns, goals at x 0/20 y 4–6
+  const men = toMen(F || [10, 5, 0]), mm = new Map(men.map(m => [m[0] + "," + m[1], m[2]]));
+  for (let x = 0; x <= 20; x++) { put(3, x + 1, "", "tpt"); put(15, x + 1, "", "tpt"); }
+  for (let y = 0; y <= 10; y++) for (let x = 0; x <= 20; x++) {
+    const goal = (x === 0 || x === 20) && y >= 4 && y <= 6;
+    let cls = goal ? "tgoal" : "tp" + (x % 4 < 2 ? "" : " tp2");
+    if (x === 10) cls += " tpl";
+    if ((x === 3 || x === 17) && y >= 2 && y <= 8) cls += x === 3 ? " tpr" : " tpL";
+    if ((y === 2 || y === 8) && (x <= 3 || x >= 17) && x > 0 && x < 20) cls += y === 2 ? " tpu" : " tpd";
+    const k = x + "," + y, ball = F ? F[0] === x && F[1] === y : x === 10 && y === 5;
+    let txt = "";
+    if (ball) { txt = "⚽"; cls += F && F[3] === 2 ? " tgoalin" : ""; }
+    else if (mm.has(k)) { txt = "●"; cls += mm.get(k) ? " tma" : " tmh"; }
+    else if (x === 10 && y === 5) txt = "○";
+    put(4 + y, x + 1, txt, cls);
+  }
+  put(4, 0, T.home.slice(0, 4), "c b out"); put(14, 0, T.away.slice(0, 4), "c b in");
+  put(9, 0, F && F[3] === 2 ? "GOAL!" : F && F[3] === 3 ? "슈팅" : "", "c b hold");
+  // goal list so far
+  if (M) {
+    const gl = s => M.goals.filter(g => g.s === s && M.fr.findIndex((f, i) => f[3] === 2 && i <= fi && Math.floor(i / 2) + 1 === g.m) >= 0).map(g => g.m + "'").join(" ");
+    put(16, 0, "득점", "h c"); put(16, 1, "⚽ " + (gl(0) || "-"), "out", 10); put(16, 11, "⚽ " + (gl(1) || "-"), "in", 11);
+  } else if (S.to.hist[0]) { const h = S.to.hist[0]; put(16, 0, "직전", "h c"); put(16, 1, h.n + "회  " + h.home + " " + h.hg + " : " + h.ag + " " + h.away, "m", 21); }
+  /* betting slip for the next match */
+  const y0 = 18;
+  put(y0 - 1, 0, "■ 제 " + SL.n + "회 " + SL.home + " vs " + SL.away + (live ? "  (경기 중 · 베팅 마감 · 다음: " + N.home + " vs " + N.away + ")" : ""), "b", 22);
+  put(y0, 0, "구분", "h c"); put(y0 + 1, 0, "배당", "h c"); put(y0 + 2, 0, "내 베팅", "h c"); put(y0 + 3, 0, "베팅", "h c");
+  TO_KEY.forEach(([k, n], i) => {
+    const c = 1 + i * 4, w = i === 4 ? 5 : 4;
+    put(y0, c, n, "h c" + (i < 3 ? "" : " hold"), w);
+    put(y0 + 1, c, SL.odds[k].toFixed(2), "c b", w);
+    put(y0 + 2, c, me && me.to && me.to[k] ? man(me.to[k]) + " → " + short(Math.floor(me.to[k] * SL.odds[k])) : "", "c in", w);
+    if (me && !live) put(y0 + 3, c, button(n, () => send({ t: "to-add", k, ...bet() })), "btn" + (i === 0 ? " out" : i === 2 ? " in" : ""), w);
+    else put(y0 + 3, c, "-", "c m", w);
+  });
+  if (me && !live) {
+    amountRow(put, y0 + 4, [1, 4, 7, 10, 13, 16, 19], 3);
+    put(y0 + 5, 1, betTools("to"), "btn", 21);
+    put(y0 + 6, 1, button("취소", () => send({ t: "to-clear" })), "btn", 5);
+    readyBtn("to", put, y0 + 6, 6, 9);
+    refillBtn(put, y0 + 6, 15, 7);
+  } else if (me) put(y0 + 4, 1, "경기가 끝나면 다음 회차 베팅이 열립니다", "m", 21);
+  /* who's here */
+  const yp = y0 + 8;
+  put(yp, 0, "담당", "h c"); put(yp, 1, "베팅", "h c", 12); put(yp, 13, "준비", "h c", 3); put(yp, 16, "직전", "h c", 6);
+  roomOf("to").forEach((p, i) => {
+    const y = yp + 1 + i, bt = TO_KEY.filter(([k]) => p.to && p.to[k]).map(([k, n]) => n + " " + man(p.to[k])).join(" · ");
+    put(y, 0, p.name, p.id === myId ? "me" : ""); put(y, 1, bt, "m", 12);
+    put(y, 13, p.ready.to ? "✓" : "", "c in", 3); put(y, 16, p.lastNet ? sgn(p.lastNet) : "", netCls(p.lastNet), 6);
+  });
+  const yh = yp + 2 + Math.max(1, roomOf("to").length);
+  put(yh, 0, "■ 최근 경기", "b", 6);
+  S.to.hist.filter(h => !toA || h.n !== toA.m.n).slice(0, 8).forEach((h, i) => {
+    const w = h.hg > h.ag ? "홈승" : h.hg < h.ag ? "원정승" : "무";
+    put(yh + 1 + i, 0, h.n + "회", "c m"); put(yh + 1 + i, 1, h.home, "r", 7); put(yh + 1 + i, 8, h.hg + " : " + h.ag, "c b", 3); put(yh + 1 + i, 11, h.away, "", 7);
+    put(yh + 1 + i, 18, w + " · " + (h.hg + h.ag > 2 ? "오버" : "언더"), "c " + (w === "홈승" ? "out" : w === "원정승" ? "in" : "hold"), 4);
+  });
+}
+const LAYOUT = { pk: layoutPk, to: layoutTo, sk: layoutSk, cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
 const colName = i => i < 26 ? String.fromCharCode(65 + i) : "A" + String.fromCharCode(39 + i);
 
 /* roulette spin: when a new result arrives, run a highlight around the board in wheel order,
@@ -2147,6 +2418,9 @@ function drawFeltBac() {
   if (me) {
     const mn = el("span", "f-me"); mn.append(el("span", tierCls(me.name).trim(), me.name), " · " + fmt(me.chips)); top.append(mn);
     if (me.lastNet) top.append(el("span", me.lastNet > 0 ? "pos" : "neg", sgn(me.lastNet)));
+    // refill is always on the table bar; it only goes through when broke (server rule)
+    const ok = canRefill(me);
+    top.append(fbtn("f-fill" + (ok ? "" : " no"), "충전 +" + man(START), () => ok ? send({ t: "refill" }) : say("충전은 잔액 " + man(AMTS[0]) + " 미만 + 걸어둔 베팅·보유 주식이 없을 때 가능", true)));
   }
   W.append(top);
   const roads = el("div", "f-roads"); roads.append(beadEl(S.bac.rounds), bigEl(S.bac.rounds)); W.append(roads);
@@ -2453,11 +2727,14 @@ function render() {
   const a = document.activeElement;
   if (!S && a && a.id === "in-name") return;
   watchSpin();
+  watchPk();
+  watchTo();
   watchSq();
   rdSyncGo();
   const real = S;
   if (spin && view === "rl") S = spin.base;
   if (sq && view === "bac") S = sq.base;
+  if (toA && view === "to") S = toA.base;
   const fid = a && a.id && a.id.startsWith("adm-") ? a.id : "", sel = fid ? a.selectionStart : 0;
   try { draw_(); } finally { S = real; prevS = isHost && real ? clone(real) : real; }
   if (fid) { const n = document.getElementById(fid); if (n) { n.focus(); try { n.setSelectionRange(sel, sel); } catch {} } }
@@ -2507,7 +2784,7 @@ function draw_() {
   }
   const me = meP();
   $("st-cnt").textContent = "개수: " + (view === "decoy" ? ITEMS.length : S ? S.players.length : 0);
-  $("st-sum").textContent = "합계: " + (view === "decoy" ? "96,240" : me ? fmt(me.chips) : "-");
+  $("st-sum").textContent = "합계: " + (view === "decoy" ? "96,240" : me ? fmt(me.chips - (view === "pk" ? pkPending() : 0)) : "-");
   if (view === "rd") rdPaint();
 }
 
@@ -2547,7 +2824,6 @@ window.addEventListener("pagehide", () => { if (ws && ws.readyState === 1) try {
 
 try { nameDraft = localStorage.getItem("xs-name") || ""; } catch {}
 applyMode();
-if (typeof Peer === "undefined") say("네트워크 모듈을 불러오지 못했습니다 (인터넷 연결 확인)", true);
 render();
 })();
 </script>

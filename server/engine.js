@@ -15,15 +15,17 @@ const EV_ALLIN_MIN = 100000;   // all-in win only announced when the stake was a
 const EV_BIG = 2000000;        // net win >= this → "대박"
 const EV_JACKPOT = 10000000;   // net win >= this → "잭팟"
 const EV_SPECIAL_MIN = 100000; // stake needed for tie / straight-up / blackjack call-outs
-const GNAME = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", sk: "주식" };
+const GNAME = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", sk: "주식", pk: "빠칭코", to: "토토" };
 const SK_FEE = 0.001;   // 주식 매수·매도 수수료 0.1%
 const SB = 5000, BB = 10000, TURN_MS = 30000, NEXT_MS = 5000;
-const GAMES = ["bac", "rl", "bj", "hd"];
+const GAMES = ["bac", "rl", "bj", "hd", "to"];
 const VIEWS = {
   bac:   [34, 62, 30, 40, 40, 44, 50, 62, 66, 52],
   rl:    [30, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 34],
   bj:    [52, 56, 38, 38, 38, 38, 38, 36, 50, 56],
   hd:    [58, 64, 38, 38, 38, 38, 42, 50, 62, 58],
+  pk: [40, ...Array(19).fill(19)],
+  to: [36, ...Array(21).fill(16)],
   decoy: [44, 62, 70, 34, 44, 50, 50, 66],
   ch: [34, 34, 34, 34, 34, 34, 34, 34, 34],
   om: [26, ...Array(15).fill(24)],
@@ -177,9 +179,90 @@ function equity(mine, board, opp, iters = 500) {
 const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
 const empty = () => ({ p: 0, b: 0, t: 0 });
 
+/* ---------- pachinko: 5 machines, one player each. A shot = 10 balls through an 8-row pin field
+   (each pin: left/right) into 9 pockets; the middle pocket is START → 3-digit reel.
+   RTP ≈ 96%: pockets 2·(25 + 8·4 + 28·0.5)/256 + 70/256 · reel(777 ×150, other triple ×50, pair ×0.5) */
+const PK_N = 5, PK_BALLS = 10, PK_AMTS = [1000, 10000, 100000, 1000000], PK_BIN = [25, 4, 0.5, 0, -1, 0, 0.5, 4, 25], PK_GAP = 1200;
+function pkShot(amt) {
+  const balls = [];
+  for (let i = 0; i < PK_BALLS; i++) {
+    const r = rnd(), path = []; let k = 0;
+    for (let j = 0; j < 8; j++) { const b = (r >> j) & 1; path.push(b); k += b; }
+    const ball = { path, bin: k, win: 0 };
+    if (PK_BIN[k] >= 0) ball.win = Math.floor(amt * PK_BIN[k]);
+    else {
+      const d = [1 + rnd() % 7, 1 + rnd() % 7, 1 + rnd() % 7]; ball.reel = d;
+      const m = d[0] === d[1] && d[1] === d[2] ? (d[0] === 7 ? 150 : 50) : d[0] === d[1] || d[1] === d[2] || d[0] === d[2] ? 0.5 : 0;
+      ball.win = Math.floor(amt * m);
+    }
+    balls.push(ball);
+  }
+  return balls;
+}
+const pkSeat = id => H.pk.findIndex(m => m.id === id);
+function pkLeave(id) { for (const m of H.pk) if (m.id === id) m.id = null; }
+
+/* ---------- sports toto: next match is known (teams + odds) while betting; everyone on the sheet
+   ready → the match is simulated here (ball frames for the pitch animation) and every bet settles */
+const TO_TEAMS = [["한강 FC", 82], ["낙동 유나이티드", 78], ["태백 레인저스", 74], ["제주 웨이브", 71], ["금강 타이거즈", 80], ["소백 이글스", 68],
+  ["영산 드래곤즈", 76], ["동해 샤크스", 72], ["서해 마린스", 66], ["지리 울브스", 85], ["설악 베어스", 70], ["백두 스톰", 88]];
+const TO_KEYS = ["h", "d", "a", "un", "ov"], TO_MS = 24000, TO_MARGIN = 0.92;
+const poi = (l, k) => { let p = Math.exp(-l); for (let i = 1; i <= k; i++) p *= l / i; return p; };
+function toNext(n) {
+  const i = rnd() % TO_TEAMS.length; let j = rnd() % (TO_TEAMS.length - 1); if (j >= i) j++;
+  const [hn, hr] = TO_TEAMS[i], [an, ar] = TO_TEAMS[j], f = ((hr + (rnd() % 9) - 4) - (ar + (rnd() % 9) - 4)) / 20;
+  const lh = 1.35 * Math.exp(f / 2) * 1.12, la = 1.35 * Math.exp(-f / 2) / 1.12;
+  let ph = 0, pd = 0, pu = 0;
+  for (let x = 0; x <= 10; x++) for (let y = 0; y <= 10; y++) { const q = poi(lh, x) * poi(la, y); if (x > y) ph += q; else if (x === y) pd += q; if (x + y <= 2) pu += q; }
+  const od = p => Math.max(1.05, Math.floor(TO_MARGIN / p * 100) / 100);
+  return { n, home: hn, away: an, lh, la, odds: { h: od(ph), d: od(pd), a: od(1 - ph - pd), un: od(pu), ov: od(1 - pu) } };
+}
+/* frames = [x 0–20, y 0–10, side with the ball 0 home/1 away, kind 0 play/1 attack/2 goal/3 shot wide], 2 per minute */
+function toSim(M) {
+  const mins = 90 + rnd() % 5, goals = [], fr = [];
+  for (let m = 1; m <= mins; m++) for (const [s, l] of [[0, M.lh], [1, M.la]]) if (rnd() / 4294967296 < l / 90 && !goals.some(g => g.m === m)) goals.push({ m, s });
+  let x = 10, y = 5, p = rnd() & 1;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  for (let m = 1; m <= mins; m++) {
+    const g = goals.find(e => e.m === m);
+    for (let h = 0; h < 2; h++) {
+      if (g) {
+        // build-up, then the ball in the net, then kick-off for the other side
+        p = g.s;
+        if (h === 0) { x = p ? 3 : 17; y = clamp(y, 3, 7); fr.push([x, y, p, 1]); }
+        else { fr.push([p ? 0 : 20, 5, p, 2]); x = 10; y = 5; p = 1 - g.s; }
+        continue;
+      }
+      if (rnd() % 100 < 14) p = 1 - p;
+      const dir = p ? -1 : 1;
+      x = clamp(x + dir * ((rnd() % 4) - 1), 1, 19); y = clamp(y + (rnd() % 3) - 1, 1, 9);
+      if ((p === 0 && x >= 19) || (p === 1 && x <= 1)) { fr.push([x, y, p, 3]); x = p ? 3 : 17; y = 5; p = 1 - p; continue; }  // shot wide → goal kick
+      fr.push([x, y, p, 0]);
+    }
+  }
+  return { goals, fr, mins };
+}
+function runTo() {
+  const M = H.to.next, sim = toSim(M), hg = sim.goals.filter(g => !g.s).length, ag = sim.goals.length - hg;
+  const hit = { h: hg > ag, d: hg === ag, a: hg < ag, un: hg + ag <= 2, ov: hg + ag > 2 };
+  for (const q of H.players.values()) {
+    const s = sum(q.to); if (!s) continue;
+    let ret = 0; for (const [k, a] of Object.entries(q.to)) if (hit[k]) ret += Math.floor(a * M.odds[k]);
+    const allin = q.chips === 0 && !sum(q.bac) && !sum(q.rl) && !q.bj.bet;
+    q.chips += ret; q.lastNet = ret - s; rec(q, "to", s, ret);
+    announce(q, "to", s, ret, allin, ret >= s * 4 && s >= EV_SPECIAL_MIN ? "고배당 적중" : "", TO_MS + 300);
+    q.lb = { ...q.lb, to: { ...q.to } }; q.to = {};
+  }
+  H.to.last = { ...M, ...sim, hg, ag };
+  H.to.hist = [{ n: M.n, home: M.home, away: M.away, hg, ag }, ...H.to.hist].slice(0, 20);
+  H.to.until = Date.now() + TO_MS;
+  H.to.next = toNext(M.n + 1);
+  setTimeout(broadcast, TO_MS + 50);
+}
+
 function newPlayer(name) {
-  return { name, chips: START, lastNet: 0, bac: empty(), rl: {}, bj: { bet: 0, cards: [], done: false, res: "" }, ready: { bac: false, rl: false, bj: false, hd: false }, hdSeat: false, rebuy: 0, rdReady: false, vw: "bac",
-    peak: START, st: { bac: { n: 0, w: 0, l: 0, net: 0 }, rl: { n: 0, w: 0, l: 0, net: 0 }, bj: { n: 0, w: 0, l: 0, net: 0, push: 0, bj: 0, bust: 0 }, hd: { n: 0, w: 0, l: 0, net: 0, sd: 0 }, sk: { n: 0, w: 0, l: 0, net: 0 } }, stk: {} };
+  return { name, chips: START, lastNet: 0, bac: empty(), rl: {}, bj: { bet: 0, cards: [], done: false, res: "" }, ready: { bac: false, rl: false, bj: false, hd: false, to: false }, to: {}, hdSeat: false, rebuy: 0, rdReady: false, vw: "bac",
+    peak: START, st: { bac: { n: 0, w: 0, l: 0, net: 0 }, rl: { n: 0, w: 0, l: 0, net: 0 }, bj: { n: 0, w: 0, l: 0, net: 0, push: 0, bj: 0, bust: 0 }, hd: { n: 0, w: 0, l: 0, net: 0, sd: 0 }, sk: { n: 0, w: 0, l: 0, net: 0 }, pk: { n: 0, w: 0, l: 0, net: 0 }, to: { n: 0, w: 0, l: 0, net: 0 } }, stk: {} };
 }
 function rec(q, g, s, ret, res) {
   const t = q.st[g];
@@ -192,7 +275,7 @@ function rec(q, g, s, ret, res) {
 function snapshot(forId) {
   const hide = H.bj.phase === "play";
   return { t: "state", code, chat: H.chat, mg: H.mg, rdGo: H.rdGo || 0, skLog: H.skLog || [],
-    bac: H.bac, rl: H.rl,
+    bac: H.bac, rl: H.rl, pk: H.pk, to: { next: H.to.next, last: H.to.last, hist: H.to.hist, live: Math.max(0, H.to.until - Date.now()) },
     bj: { phase: H.bj.phase, n: H.bj.n, ds: H.bj.ds, dealer: hide ? [H.bj.dealer[0], -1] : H.bj.dealer },
     hd: hdView(forId),
     board: ctx.board(), adm: {}, players: [...H.players].map(([id, p]) => ({ id, ...p, off: !conns.has(id) })) };
@@ -253,10 +336,11 @@ function hostHandle(id, msg) {
   if (p && msg.t === "rd-ready") { p.rdReady = !p.rdReady; rdReadyCheck(); broadcast(); return; }
   if (p && String(msg.t).startsWith("g-")) { mgHandle(id, msg); return; }
   if (!p) return;
-  if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; if (GAMES.includes(p.vw)) p.ready[p.vw] = false; p.vw = msg.v; }
+  if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; if (GAMES.includes(p.vw)) p.ready[p.vw] = false; if (p.vw === "pk") pkLeave(id); p.vw = msg.v; }
   else if (msg.t === "ready" && GAMES.includes(msg.g)) {
     if (msg.g === "bj" && H.bj.phase !== "bet") return;
     if (msg.g === "hd" && (H.hd.running || H.hd.phase !== "idle")) return;
+    if (msg.g === "to" && H.to.until > Date.now()) return;
     p.ready[msg.g] = !p.ready[msg.g];
   }
   else if (msg.t === "bac-add" && ["p", "b", "t"].includes(msg.k) && validBet(msg)) {
@@ -310,15 +394,39 @@ function hostHandle(id, msg) {
     const n = String(msg.name || "").slice(0, 8), v = Math.floor(Number(msg.chips));
     if (p.name !== EVT_NAME || !n || n === "__proto__" || !Number.isFinite(v) || v < 0 || v > 1e13) return;
     ctx.admSet(n, v);
-  } else if (msg.t === "rebet" && ["bac", "rl", "bj"].includes(msg.g)) {
+  } else if (msg.t === "to-add" && TO_KEYS.includes(msg.k) && validBet(msg)) {
+    if (H.to.until > Date.now()) { reply(id, "경기 중: 끝나면 다음 경기에 베팅"); return; }
+    const a = stake(id, p, msg); if (!a) return;
+    p.to[msg.k] = (p.to[msg.k] || 0) + a; p.ready.to = false;
+  } else if (msg.t === "to-clear") {
+    if (H.to.until > Date.now()) return;
+    p.chips += sum(p.to); p.to = {}; p.ready.to = false;
+  } else if (msg.t === "pk-sit" && Number.isInteger(msg.i) && msg.i >= 0 && msg.i < PK_N) {
+    const m = H.pk[msg.i];
+    if (m.id === id) m.id = null;
+    else if (!m.id && p.vw === "pk") { pkLeave(id); m.id = id; }
+    else return;
+  } else if (msg.t === "pk-fire" && PK_AMTS.includes(msg.amt)) {
+    const i = pkSeat(id), n = Date.now();
+    if (i < 0 || n - (p.pkT || 0) < PK_GAP) return;
+    if (!take(id, p, msg.amt * PK_BALLS)) return;
+    p.pkT = n;
+    const M = H.pk[i], balls = pkShot(msg.amt), s = msg.amt * PK_BALLS, ret = balls.reduce((a, b) => a + b.win, 0);
+    p.chips += ret; p.lastNet = ret - s; rec(p, "pk", s, ret);
+    M.last = { n: ++M.n, by: p.name, amt: msg.amt, balls, net: ret - s }; M.tot += ret - s; M.shots++;
+    const jack = balls.find(b => b.reel && b.reel[0] === b.reel[1] && b.reel[1] === b.reel[2]);
+    if (jack) { M.big++; announce(p, "pk", s, ret, false, jack.reel.join("") + " 당첨", 2600); }
+  } else if (msg.t === "rebet" && ["bac", "rl", "bj", "to"].includes(msg.g)) {
     /* same stakes as this player's previous round of that game */
     const L = p.lb && p.lb[msg.g];
     if (!L) return;
     if (msg.g === "bj" && H.bj.phase !== "bet") return;
+    if (msg.g === "to" && H.to.until > Date.now()) return;
     const tot = msg.g === "bj" ? L : sum(L);
     if (!(tot > 0) || !take(id, p, tot)) return;
     if (msg.g === "bac") for (const k of ["p", "b", "t"]) p.bac[k] += L[k] || 0;
     else if (msg.g === "rl") for (const [k, a] of Object.entries(L)) { if (RL_KEYS.has(k)) p.rl[k] = (p.rl[k] || 0) + a; }
+    else if (msg.g === "to") for (const [k, a] of Object.entries(L)) { if (TO_KEYS.includes(k)) p.to[k] = (p.to[k] || 0) + a; }
     else p.bj.bet += L;
     p.ready[msg.g] = false;
   } else if (msg.t === "sk-buy") {
@@ -356,7 +464,7 @@ function hostHandle(id, msg) {
 }
 
 /* refill only when broke: can't cover the smallest bet, nothing on any table, not alive in a hold'em hand */
-const broke = (p, hdHand) => p.chips < AMTS[0] && !sum(p.bac) && !sum(p.rl) && !p.bj.bet && !(hdHand && !hdHand.folded) && !Object.keys(p.stk || {}).length;
+const broke = (p, hdHand) => p.chips < AMTS[0] && !sum(p.to || {}) && !sum(p.bac) && !sum(p.rl) && !p.bj.bet && !(hdHand && !hdHand.folded) && !Object.keys(p.stk || {}).length;
 function checkReady() {
   if (!H.players.size) return;
   for (const g of GAMES) {
@@ -365,7 +473,7 @@ function checkReady() {
     const ps = [...H.players.values()].filter(q => q.vw === g);
     if (!ps.length || !ps.every(q => q.ready[g])) continue;
     for (const q of ps) q.ready[g] = false;
-    if (g === "bac") runBac(); else if (g === "rl") runRl(); else if (g === "bj") runBj(); else hdStart();
+    if (g === "bac") runBac(); else if (g === "rl") runRl(); else if (g === "bj") runBj(); else if (g === "to") runTo(); else hdStart();
   }
   hdTick();
 }
@@ -716,7 +824,8 @@ function restore(p, a) {
 
 let H = fresh();
 const conns = new Map();   // player id(name) -> socket
-function fresh() { return { players: new Map(), bac: { rounds: [], n: 0 }, rl: { hist: [], n: 0 }, bj: { phase: "bet", dealer: [], n: 0, ds: { n: 0, bust: 0, sum: 0, dist: {} } }, hd: hdFresh(), chat: [], cs: 0, mg: { ch: mgNew("ch"), om: mgNew("om"), c4: mgNew("c4"), tw: mgNew("tw") } }; }
+function fresh() { return { players: new Map(), bac: { rounds: [], n: 0 }, rl: { hist: [], n: 0 }, bj: { phase: "bet", dealer: [], n: 0, ds: { n: 0, bust: 0, sum: 0, dist: {} } }, hd: hdFresh(), chat: [], cs: 0, mg: { ch: mgNew("ch"), om: mgNew("om"), c4: mgNew("c4"), tw: mgNew("tw") },
+  pk: Array.from({ length: PK_N }, () => ({ id: null, n: 0, last: null, tot: 0, shots: 0, big: 0 })), to: { next: toNext(1), last: null, hist: [], until: 0 } }; }
 const out = (ws, m) => { try { if (ws.readyState === 1) ws.send(JSON.stringify(m)); } catch {} };
 let bT = 0;
 function broadcast() {
@@ -735,8 +844,8 @@ function emit(ev, delay) {
 }
 /* bets still lying on the table (not dealt yet) go back to the balance */
 function refund(p) {
-  p.chips += sum(p.bac) + sum(p.rl) + (H.bj.phase === "bet" ? p.bj.bet : 0);
-  p.bac = empty(); p.rl = {}; if (H.bj.phase === "bet") p.bj.bet = 0;
+  p.chips += sum(p.bac) + sum(p.rl) + sum(p.to || {}) + (H.bj.phase === "bet" ? p.bj.bet : 0);
+  p.bac = empty(); p.rl = {}; p.to = {}; if (H.bj.phase === "bet") p.bj.bet = 0;
 }
 function skLog(e) { e.t = Date.now(); (H.skLog = H.skLog || []).unshift(e); if (H.skLog.length > 30) H.skLog.length = 30; }
 function remove(id) {
@@ -746,7 +855,7 @@ function remove(id) {
   refund(q);
   H.players.delete(id);
   ctx.saw(q, true);
-  mgLeave(id); hdLeave(id); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast();
+  mgLeave(id); pkLeave(id); hdLeave(id); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast();
   emit({ sys: 1, k: "leave", name: q.name });
 }
 return {
@@ -764,7 +873,7 @@ return {
     if (VIEWS[msg.v]) np.vw = msg.v;
     H.players.set(name, np);
     emit({ sys: 1, k: "join", name, v: acct(np) });
-    for (const q of H.players.values()) q.ready = { bac: false, rl: false, bj: false, hd: false };
+    for (const q of H.players.values()) q.ready = { bac: false, rl: false, bj: false, hd: false, to: false };
     checkReady(); broadcast();
     return "";
   },
