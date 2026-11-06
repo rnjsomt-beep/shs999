@@ -15,7 +15,7 @@ const EV_ALLIN_MIN = 100000;   // all-in win only announced when the stake was a
 const EV_BIG = 2000000;        // net win >= this → "대박"
 const EV_JACKPOT = 10000000;   // net win >= this → "잭팟"
 const EV_SPECIAL_MIN = 100000; // stake needed for tie / straight-up / blackjack call-outs
-const GNAME = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", sk: "주식", pk: "빠칭코", to: "토토" };
+const GNAME = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", sk: "주식", pk: "빠칭코", sl: "슬롯", to: "토토" };
 const SK_FEE = 0.001;   // 주식 매수·매도 수수료 0.1%
 const SB = 5000, BB = 10000, TURN_MS = 30000, NEXT_MS = 5000;
 const GAMES = ["bac", "rl", "bj", "hd", "to"];
@@ -25,6 +25,7 @@ const VIEWS = {
   bj:    [52, 56, 38, 38, 38, 38, 38, 36, 50, 56],
   hd:    [58, 64, 38, 38, 38, 38, 42, 50, 62, 58],
   pk: [40, ...Array(19).fill(19)],
+  sl: [24, ...Array(5).fill([20, 20, 20, 3]).flat()],
   to: [36, ...Array(21).fill(16)],
   decoy: [44, 62, 70, 34, 44, 50, 50, 66],
   ch: [34, 34, 34, 34, 34, 34, 34, 34, 34],
@@ -179,7 +180,7 @@ function equity(mine, board, opp, iters = 500) {
 const sum = o => Object.values(o).reduce((a, b) => a + b, 0);
 const empty = () => ({ p: 0, b: 0, t: 0 });
 
-/* ---------- pachinko: 5 machines, one player each. A shot = 10 balls through an 8-row pin field
+/* ---------- pachinko: one machine, 5 seats (H.pk[i] = seat i) all shooting into the same pin field. A shot = 10 balls through an 8-row pin field
    (each pin: left/right) into 9 pockets; the middle pocket is START → 3-digit reel.
    RTP ≈ 96%: pockets 2·(25 + 8·4 + 28·0.5)/256 + 70/256 · reel(777 ×150, other triple ×50, pair ×0.5) */
 const PK_N = 5, PK_BALLS = 10, PK_AMTS = [1000, 10000, 100000, 1000000], PK_BIN = [25, 4, 0.5, 0, -1, 0, 0.5, 4, 25], PK_GAP = 1200;
@@ -200,13 +201,25 @@ function pkShot(amt) {
   return balls;
 }
 const pkSeat = id => H.pk.findIndex(m => m.id === id);
-function pkLeave(id) { for (const m of H.pk) if (m.id === id) m.id = null; }
+function pkLeave(id) { for (const m of H.pk) if (m.id === id) m.id = null; for (const m of H.sl) if (m.id === id) m.id = null; }
+
+/* ---------- slots: 5 machines side by side, one player each, 3 reels, middle row pays.
+   Reel strip weights 🍒8 🍋7 🍊6 🔔5 ⭐3 💎2 7️⃣1 (/32 each reel); three of a kind ×10/15/20/30/100/300/1000,
+   exactly two 🍒 ×1.5 → RTP ≈ 95.6% */
+const SL_N = 5, SL_W = [8, 7, 6, 5, 3, 2, 1], SL_PAY = [10, 15, 20, 30, 100, 300, 1000], SL_AMTS = [1000, 10000, 100000, 1000000], SL_GAP = 900;
+const slSym = () => { let r = rnd() % 32; for (let k = 0; k < SL_W.length; k++) { if (r < SL_W[k]) return k; r -= SL_W[k]; } return 0; };
+function slSpin(amt) {
+  const reels = [0, 1, 2].map(() => [slSym(), slSym(), slSym()]), mid = reels.map(r => r[1]);
+  const cherries = mid.filter(k => k === 0).length;
+  const m = mid[0] === mid[1] && mid[1] === mid[2] ? SL_PAY[mid[0]] : cherries === 2 ? 1.5 : 0;
+  return { reels, mult: m, win: Math.floor(amt * m) };
+}
 
 /* ---------- sports toto: next match is known (teams + odds) while betting; everyone on the sheet
    ready → the match is simulated here (ball frames for the pitch animation) and every bet settles */
 const TO_TEAMS = [["한강 FC", 82], ["낙동 유나이티드", 78], ["태백 레인저스", 74], ["제주 웨이브", 71], ["금강 타이거즈", 80], ["소백 이글스", 68],
   ["영산 드래곤즈", 76], ["동해 샤크스", 72], ["서해 마린스", 66], ["지리 울브스", 85], ["설악 베어스", 70], ["백두 스톰", 88]];
-const TO_KEYS = ["h", "d", "a", "un", "ov"], TO_MS = 24000, TO_MARGIN = 0.92;
+const TO_KEYS = ["h", "d", "a", "un", "ov"], TO_MS = 8000, TO_MARGIN = 0.92;
 const poi = (l, k) => { let p = Math.exp(-l); for (let i = 1; i <= k; i++) p *= l / i; return p; };
 function toNext(n) {
   const i = rnd() % TO_TEAMS.length; let j = rnd() % (TO_TEAMS.length - 1); if (j >= i) j++;
@@ -262,7 +275,7 @@ function runTo() {
 
 function newPlayer(name) {
   return { name, chips: START, lastNet: 0, bac: empty(), rl: {}, bj: { bet: 0, cards: [], done: false, res: "" }, ready: { bac: false, rl: false, bj: false, hd: false, to: false }, to: {}, hdSeat: false, rebuy: 0, rdReady: false, vw: "bac",
-    peak: START, st: { bac: { n: 0, w: 0, l: 0, net: 0 }, rl: { n: 0, w: 0, l: 0, net: 0 }, bj: { n: 0, w: 0, l: 0, net: 0, push: 0, bj: 0, bust: 0 }, hd: { n: 0, w: 0, l: 0, net: 0, sd: 0 }, sk: { n: 0, w: 0, l: 0, net: 0 }, pk: { n: 0, w: 0, l: 0, net: 0 }, to: { n: 0, w: 0, l: 0, net: 0 } }, stk: {} };
+    peak: START, st: { bac: { n: 0, w: 0, l: 0, net: 0 }, rl: { n: 0, w: 0, l: 0, net: 0 }, bj: { n: 0, w: 0, l: 0, net: 0, push: 0, bj: 0, bust: 0 }, hd: { n: 0, w: 0, l: 0, net: 0, sd: 0 }, sk: { n: 0, w: 0, l: 0, net: 0 }, pk: { n: 0, w: 0, l: 0, net: 0 }, sl: { n: 0, w: 0, l: 0, net: 0 }, to: { n: 0, w: 0, l: 0, net: 0 } }, stk: {} };
 }
 function rec(q, g, s, ret, res) {
   const t = q.st[g];
@@ -275,7 +288,7 @@ function rec(q, g, s, ret, res) {
 function snapshot(forId) {
   const hide = H.bj.phase === "play";
   return { t: "state", code, chat: H.chat, mg: H.mg, rdGo: H.rdGo || 0, skLog: H.skLog || [],
-    bac: H.bac, rl: H.rl, pk: H.pk, to: { next: H.to.next, last: H.to.last, hist: H.to.hist, live: Math.max(0, H.to.until - Date.now()) },
+    bac: H.bac, rl: H.rl, pk: H.pk, sl: H.sl, to: { next: H.to.next, last: H.to.last, hist: H.to.hist, live: Math.max(0, H.to.until - Date.now()) },
     bj: { phase: H.bj.phase, n: H.bj.n, ds: H.bj.ds, dealer: hide ? [H.bj.dealer[0], -1] : H.bj.dealer },
     hd: hdView(forId),
     board: ctx.board(), adm: {}, players: [...H.players].map(([id, p]) => ({ id, ...p, off: !conns.has(id) })) };
@@ -336,7 +349,7 @@ function hostHandle(id, msg) {
   if (p && msg.t === "rd-ready") { p.rdReady = !p.rdReady; rdReadyCheck(); broadcast(); return; }
   if (p && String(msg.t).startsWith("g-")) { mgHandle(id, msg); return; }
   if (!p) return;
-  if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; if (GAMES.includes(p.vw)) p.ready[p.vw] = false; if (p.vw === "pk") pkLeave(id); p.vw = msg.v; }
+  if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; if (GAMES.includes(p.vw)) p.ready[p.vw] = false; if (p.vw === "pk" || p.vw === "sl") pkLeave(id); p.vw = msg.v; }
   else if (msg.t === "ready" && GAMES.includes(msg.g)) {
     if (msg.g === "bj" && H.bj.phase !== "bet") return;
     if (msg.g === "hd" && (H.hd.running || H.hd.phase !== "idle")) return;
@@ -401,11 +414,20 @@ function hostHandle(id, msg) {
   } else if (msg.t === "to-clear") {
     if (H.to.until > Date.now()) return;
     p.chips += sum(p.to); p.to = {}; p.ready.to = false;
-  } else if (msg.t === "pk-sit" && Number.isInteger(msg.i) && msg.i >= 0 && msg.i < PK_N) {
-    const m = H.pk[msg.i];
+  } else if ((msg.t === "pk-sit" || msg.t === "sl-sit") && Number.isInteger(msg.i) && msg.i >= 0 && msg.i < PK_N) {
+    const g = msg.t.slice(0, 2), m = H[g][msg.i];
     if (m.id === id) m.id = null;
-    else if (!m.id && p.vw === "pk") { pkLeave(id); m.id = id; }
+    else if (!m.id && p.vw === g) { pkLeave(id); m.id = id; }
     else return;
+  } else if (msg.t === "sl-spin" && SL_AMTS.includes(msg.amt)) {
+    const i = H.sl.findIndex(m => m.id === id), n = Date.now();
+    if (i < 0 || n - (p.slT || 0) < SL_GAP) return;
+    if (!take(id, p, msg.amt)) return;
+    p.slT = n;
+    const M = H.sl[i], r = slSpin(msg.amt);
+    p.chips += r.win; p.lastNet = r.win - msg.amt; rec(p, "sl", msg.amt, r.win);
+    M.last = { n: ++M.n, by: p.name, amt: msg.amt, ...r, net: r.win - msg.amt }; M.tot += r.win - msg.amt; M.shots++;
+    if (r.mult >= 100) { M.big++; announce(p, "sl", msg.amt, r.win, false, ["🍒", "🍋", "🍊", "🔔", "⭐", "💎", "7️⃣"][r.reels[0][1]].repeat(3) + " 당첨", 1300); }
   } else if (msg.t === "pk-fire" && PK_AMTS.includes(msg.amt)) {
     const i = pkSeat(id), n = Date.now();
     if (i < 0 || n - (p.pkT || 0) < PK_GAP) return;
@@ -825,7 +847,8 @@ function restore(p, a) {
 let H = fresh();
 const conns = new Map();   // player id(name) -> socket
 function fresh() { return { players: new Map(), bac: { rounds: [], n: 0 }, rl: { hist: [], n: 0 }, bj: { phase: "bet", dealer: [], n: 0, ds: { n: 0, bust: 0, sum: 0, dist: {} } }, hd: hdFresh(), chat: [], cs: 0, mg: { ch: mgNew("ch"), om: mgNew("om"), c4: mgNew("c4"), tw: mgNew("tw") },
-  pk: Array.from({ length: PK_N }, () => ({ id: null, n: 0, last: null, tot: 0, shots: 0, big: 0 })), to: { next: toNext(1), last: null, hist: [], until: 0 } }; }
+  pk: Array.from({ length: PK_N }, () => ({ id: null, n: 0, last: null, tot: 0, shots: 0, big: 0 })),
+  sl: Array.from({ length: SL_N }, () => ({ id: null, n: 0, last: null, tot: 0, shots: 0, big: 0 })), to: { next: toNext(1), last: null, hist: [], until: 0 } }; }
 const out = (ws, m) => { try { if (ws.readyState === 1) ws.send(JSON.stringify(m)); } catch {} };
 let bT = 0;
 function broadcast() {
