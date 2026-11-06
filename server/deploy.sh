@@ -2,7 +2,13 @@
 # shs999 게임 서버를 오라클 161 서버에 올린다 (PC의 Git Bash에서: sh server/deploy.sh)
 # 처음 한 번은 Node·Caddy 설치, 방화벽 80/443 열기, 서비스 등록까지 한다. 다음부터는 코드만 바꾸고 재시작.
 set -e
-KEY="/c/Users/jien0/OneDrive/바탕 화면/Claude/오라클 key/ssh-key-2026-09-09.key"
+# 키 위치는 PC마다 다름: SHS_KEY 환경변수 > 아래 후보 중 있는 것
+for K in "$SHS_KEY" \
+  "/c/Users/jien0/OneDrive/바탕 화면/Claude/오라클 key/ssh-key-2026-09-09.key" \
+  "/c/Users/ASUS/Documents/카카오톡 받은 파일/ssh-key-2026-09-09.key"; do
+  [ -n "$K" ] && [ -f "$K" ] && { KEY="$K"; break; }
+done
+[ -n "$KEY" ] || { echo "SSH 키를 못 찾음 (SHS_KEY=키경로 로 지정)"; exit 1; }
 SRV=opc@161.33.208.220
 cd "$(dirname "$0")"
 
