@@ -275,6 +275,12 @@ canvas.sp{display:block;width:100%;height:15px}
 .rb button:disabled{cursor:default}
 .rb .r{background:#b01025}.rb .g{background:#2f9e55}.rb .o{background:rgba(255,255,255,.08)}
 .rb .hit{box-shadow:inset 0 0 0 3px #ffd43b}.rb .sp{outline:3px solid #ffd43b;z-index:1}
+/* other players' roulette chips: one coloured disc (first letter of the name) per player on that spot */
+.ocs{display:inline-flex;gap:1px;vertical-align:middle;margin-left:3px;pointer-events:none}
+.rdot{display:inline-block;min-width:13px;height:13px;border-radius:50%;color:#fff;font:700 9px/13px sans-serif;text-align:center;font-style:normal;box-shadow:0 0 0 1px rgba(255,255,255,.85),0 1px 2px rgba(0,0,0,.4);padding:0 1px}
+.rb .ocs{position:absolute;left:1px;bottom:1px;margin:0;flex-wrap:wrap;max-width:100%;z-index:2}
+.rb .rdot{min-width:12px;height:12px;line-height:12px;font-size:8px}
+.ocl{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;margin:4px 0}.ocl span{display:inline-flex;align-items:center;gap:3px}
 .rb .mn{white-space:nowrap;position:absolute;right:-3px;top:-6px;background:#ffd43b;color:#111;border-radius:8px;font-size:9px;line-height:13px;padding:0 3px;z-index:2;pointer-events:none}
 .sqwrap{position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;font:13px var(--ui)}
 .sqwrap .sqt{font-weight:700;font-size:15px}
@@ -1403,6 +1409,23 @@ function layoutBac(put) {
   anaBac(put, 12 + (extra.length ? extra.length + 1 : 0));
 }
 
+/* roulette: who bet where. Each player gets a colour (join order); their chips sit on the board spots */
+const RL_COL = ["#e8590c", "#1c7ed6", "#2f9e44", "#ae3ec9", "#f08c00", "#0c8599", "#d6336c", "#5f3dc4", "#66a80f", "#495057"];
+const rlCol = p => RL_COL[Math.max(0, S.players.findIndex(q => q.name === p.name)) % RL_COL.length];
+const rlDot = (p, a) => { const i = el("i", "rdot", [...p.name][0] || "?"); i.style.background = rlCol(p); i.title = p.name + (a ? " " + man(a) : ""); return i; };
+function rlChips(k) {
+  const ps = S.players.filter(p => p.id !== myId && p.rl && p.rl[k] > 0);
+  if (!ps.length) return null;
+  const s = el("span", "ocs"); ps.forEach(p => s.append(rlDot(p, p.rl[k]))); return s;
+}
+// "● 해준 17 5만 · RED 10만" per player who has chips down
+function rlLegend() {
+  const ps = S.players.filter(p => sum(p.rl || {}));
+  if (!ps.length) return null;
+  const L = el("div", "ocl");
+  ps.forEach(p => { const s = el("span"); s.append(rlDot(p), el("b", "", p.name), " " + Object.entries(p.rl).map(([k, a]) => rlName(k) + " " + man(a)).join(" · ")); L.append(s); });
+  return L;
+}
 function layoutRl(put) {
   const me = meP(), mine = me ? me.rl : {};
   header(put, 9, 2);
@@ -1410,7 +1433,10 @@ function layoutRl(put) {
   const fr = S.rl.n && seen.rl !== undefined && S.rl.n > seen.rl ? " new" : "";
   const bcell = (r, c, k, text, cls, span) => {
     const has = !!mine[k];
-    put(r, c, me ? button(text, () => send({ t: "rl-add", k, ...bet() }), has) : text,
+    let b = me ? button(text, () => send({ t: "rl-add", k, ...bet() }), has) : text;
+    const oc = rlChips(k);
+    if (oc) { if (typeof b === "string") { const w = el("span", "", b); w.append(oc); b = w; } else b.append(oc); }
+    put(r, c, b,
       (me ? "btn num " : "c ") + (cls || "") + (k === "n" + last && S.rl.n ? fr : "") + (spin && k === "n" + spin.cur ? " spin" : ""), span);
   };
   bcell(2, 0, "n0", "0", "hold");
@@ -1430,6 +1456,8 @@ function layoutRl(put) {
     put(11, 1, betTools("rl"), "btn", 13);
     put(8, 1, button("취소", () => send({ t: "rl-clear" })), "btn", 2);
     refillBtn(put, 8, 3, 4);
+    const L = me.lb && me.lb.rl, tot = L ? sum(L) : 0;
+    if (tot && !isSpec(me, "rl")) put(8, 7, button("↺ 이전 배팅 " + short(tot), () => send({ t: "rebet", g: "rl" })), "btn in", 4);
     readyBtn("rl", put, 8, 11, 3);
   }
   put(9, 0, "결과", "h");
@@ -1444,8 +1472,9 @@ function layoutRl(put) {
   put(12, 0, "담당", "h", 3); put(12, 3, "잔액", "h", 3); put(12, 6, "베팅", "h", 3); put(12, 9, "준비", "h", 2); put(12, 11, "직전", "h", 3);
   roomOf("rl").forEach((p, i) => {
     const cls = p.id === myId ? "me" : "";
-    put(13 + i, 0, p.name, cls, 3); put(13 + i, 3, fmt(p.chips), "n " + cls, 3);
-    put(13 + i, 6, sum(p.rl) ? fmt(sum(p.rl)) : "", "n m", 3);
+    const nm = el("span"); nm.append(rlDot(p), " " + p.name);
+    put(13 + i, 0, nm, cls, 3); put(13 + i, 3, fmt(p.chips), "n " + cls, 3);
+    put(13 + i, 6, Object.entries(p.rl).map(([k, a]) => rlName(k) + " " + man(a)).join(" · "), "m", 3);
     put(13 + i, 9, p.ready.rl ? "✓" : "대기", "c " + (p.ready.rl ? "in" : "m"), 2);
     put(13 + i, 11, p.lastNet ? sgn(p.lastNet) : "", netCls(p.lastNet), 3);
   });
@@ -2695,6 +2724,9 @@ function feltAct(W, g, clearT, goLabel) {
   if (isSpec(me, g)) act.append(fbtn("", "관전 중 " + readyCount(g), null, true));
   else {
     if (clearT) act.append(fbtn("", "베팅 취소", () => send({ t: clearT })));
+    // same chips as last round, one tap
+    const L = me.lb && me.lb[g], tot = !L ? 0 : g === "bj" ? L : sum(L);
+    if (tot && g !== "hd") act.append(fbtn("fill", "↺ 이전 배팅 " + short(tot), () => send({ t: "rebet", g })));
     const go = fbtn("go", (me.ready[g] ? "준비완료 ✓ " : goLabel + " ") + readyCount(g), () => send({ t: "ready", g })); go.setAttribute("aria-pressed", me.ready[g]); act.append(go);
   }
   act.append(fbtn("", specLabel(me, g), () => send({ t: "spec", g })));
@@ -2737,6 +2769,7 @@ function drawFeltRl() {
     if (spin && n === spin.cur) b.classList.add("sp");
     if (!spin && R.n && n === last) b.classList.add("hit");
     if (mine[k]) b.append(el("span", "mn", man(mine[k])));
+    const oc = rlChips(k); if (oc) b.append(oc);
     bd.append(b);
   };
   cell("n0", "0", "g", "1", "1 / 4");
@@ -2746,6 +2779,7 @@ function drawFeltRl() {
   [["low", "1-18", "o"], ["even", "짝", "o"], ["red", "RED", "r"], ["black", "BLK", ""], ["odd", "홀", "o"], ["high", "19-36", "o"]]
     .forEach(([k, t, c], i) => cell(k, t, c, (2 + i * 2) + " / " + (4 + i * 2), "5"));
   W.append(bd);
+  const lg = rlLegend(); if (lg) W.append(lg);
   const ks = Object.keys(mine);
   if (ks.length) W.append(el("div", "f-msg", "내 베팅: " + ks.map(k => rlName(k) + " " + man(mine[k])).join(" · ") + "  (합계 " + man(sum(mine)) + ")"));
   if (me && !spin) { feltRack(W, true, "rl"); feltAct(W, "rl", "rl-clear", "스핀 준비"); }

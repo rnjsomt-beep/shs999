@@ -882,6 +882,18 @@ function restore(p, a) {
     const q = Math.floor(Number(h && h.q)), av = Number(h && h.avg);
     if (ctx.stock(k) && q > 0 && q <= 1e9 && av > 0 && av <= 1e9) p.stk[k] = { q, avg: av };
   }
+  // last round's stakes per game (이전 배팅), so the rebet button survives a refresh
+  if (a.lb && typeof a.lb === "object") {
+    const ok = v => Number.isInteger(v) && v > 0 && v <= 1e13, L = {};
+    for (const g of ["bac", "rl", "to"]) {
+      const o = a.lb[g]; if (!o || typeof o !== "object") continue;
+      const keys = g === "bac" ? ["p", "b", "t"] : g === "rl" ? [...RL_KEYS] : TO_KEYS, m = {};
+      for (const k of keys) if (ok(o[k])) m[k] = o[k];
+      if (Object.keys(m).length) L[g] = m;
+    }
+    if (ok(a.lb.bj)) L.bj = a.lb.bj;
+    if (Object.keys(L).length) p.lb = L;
+  }
   if (a.st && typeof a.st === "object") for (const g of Object.keys(p.st)) for (const k of Object.keys(p.st[g])) {
     const v = Number(a.st[g] && a.st[g][k]);
     if (Number.isFinite(v) && Math.abs(v) <= 1e13) p.st[g][k] = v;

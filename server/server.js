@@ -90,7 +90,7 @@ const badName = n => !n || n.length > MAXNAME || n in Object.prototype;
 function saw(p) {
   const pend = Object.values(p.bac || {}).reduce((a, b) => a + b, 0) + Object.values(p.rl || {}).reduce((a, b) => a + b, 0)
     + (p.bj && !p.bj.cards.length ? p.bj.bet : 0) + Object.values(p.to || {}).reduce((a, b) => a + b, 0);
-  ACC[p.name] = { chips: p.chips + pend, rebuy: p.rebuy || 0, peak: p.peak, st: p.st, stk: JSON.parse(JSON.stringify(p.stk || {})), t: Date.now() };
+  ACC[p.name] = { chips: p.chips + pend, rebuy: p.rebuy || 0, peak: p.peak, st: p.st, stk: JSON.parse(JSON.stringify(p.stk || {})), lb: JSON.parse(JSON.stringify(p.lb || {})), t: Date.now() };
   dirty = true; boardAt = 0;
 }
 let boardC = {}, boardAt = 0;
