@@ -8,6 +8,7 @@ const SPIN_MS = 3200;
 const EMO = ["🤡", "😜", "🫵", "🤣", "😭", "💸", "🥱", "👋"];
 
 module.exports = function makeRoom(code, ctx) {
+const ADM_NAMES = ["성호", "관리성호"], isAdm = n => ADM_NAMES.includes(n);
 const EVT_NAME = "성호", EVT_MS = 10000, EVT_MAX = 50000000, EVT_BILLS = [10000, 50000, 100000, 300000, 500000, 1000000, 3000000];
 const START = 1000000, MAX = 10, AMTS = [10000, 50000, 100000, 500000, 1000000, 10000000], NROWS = 44;
 /* event alerts: tune these to change what counts as "special" */
@@ -424,18 +425,18 @@ function hostHandle(id, msg) {
     p.hdSeat = !p.hdSeat;
   } else if (msg.t === "evt-go") {
     const n = Date.now();
-    if (p.name !== EVT_NAME || (p.evt && n < p.evt.end)) return;
+    if (!isAdm(p.name) || (p.evt && n < p.evt.end)) return;
     p.evt = { end: n + EVT_MS + 1500, got: 0 };
     return;
   } else if (msg.t === "evt-grab") {
     const e = p.evt, n = Date.now();
-    if (p.name !== EVT_NAME || !e || n > e.end) return;
+    if (!isAdm(p.name) || !e || n > e.end) return;
     const a = Math.min(Math.floor(Number(msg.amt)) || 0, EVT_BILLS[EVT_BILLS.length - 1], EVT_MAX - e.got);
     if (a <= 0) return;
     e.got += a; p.chips += a; p.peak = Math.max(p.peak, p.chips);
   } else if (msg.t === "adm-set") {
     const n = String(msg.name || "").slice(0, 8), v = Math.floor(Number(msg.chips));
-    if (p.name !== EVT_NAME || !n || n === "__proto__" || !Number.isFinite(v) || v < 0 || v > 1e13) return;
+    if (!isAdm(p.name) || !n || n === "__proto__" || !Number.isFinite(v) || v < 0 || v > 1e13) return;
     ctx.admSet(n, v);
   } else if (msg.t === "wd-req") {   // game money → withdrawal request (whole 억 only), held until the admin answers
     const a = Math.floor(Number(msg.amt));

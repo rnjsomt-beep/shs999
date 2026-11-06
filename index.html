@@ -401,6 +401,7 @@ canvas.sp{display:block;width:100%;height:15px}
 <script>
 (() => {
 const PREFIX = "xlsheet-sb-";
+const ADM_NAMES = ["성호", "관리성호"], isAdm = n => ADM_NAMES.includes(n);
 const EVT_NAME = "성호", EVT_MS = 10000, EVT_MAX = 50000000, EVT_BILLS = [10000, 50000, 100000, 300000, 500000, 1000000, 3000000];
 const START = 1000000, MAX = 10, AMTS = [10000, 50000, 100000, 500000, 1000000, 10000000], NROWS = 60;
 /* event alerts: tune these to change what counts as "special" */
@@ -1826,10 +1827,10 @@ function layoutCfg(put) {
   put(4, 1, button("시트형", () => set("table", false), !MODE.table), "btn");
   put(4, 2, button("테이블형 (테스트)", () => set("table", true), MODE.table), "btn");
   put(4, 3, MODE.table ? "바카라·룰렛·블랙잭·홀덤 실제 테이블 화면 (바카라 출목표·카드 쬐기)" : "기존 스프레드시트 화면", "m");
-  put(6, 0, "쬐기", "h"); put(6, 1, "테이블형: 카드 가장자리를 잡고 안쪽으로 끌면 그 방향으로 젖혀집니다 · 탭 = 바로 오픈", "m", 3);
+  put(6, 0, "쬐기", "h"); put(6, 1, "테이블형: 가장자리를 잡고 끌면 젖혀지고 되돌리면 다시 덮입니다 · 끝까지 내리면 다른 가장자리로 다시 쬐기 · 탭 = 바로 오픈", "m", 3);
   put(8, 0, "※ 설정은 이 기기에만 저장됩니다", "m", 4);
   const me = meP();
-  if (me && me.name === EVT_NAME) {
+  if (me && isAdm(me.name)) {
     put(10, 0, "이벤트", "h");
     put(10, 1, button(rain ? "진행 중…" : "💸 돈벼락", moneyRain, !!rain), "btn");
     put(10, 2, "10초 동안 떨어지는 돈을 눌러서 줍기 · 최대 " + man(EVT_MAX) + "원", "m", 2);
@@ -1924,7 +1925,7 @@ function parseAmt(t) {
 let rain = null;
 function moneyRain() {
   const me = meP();
-  if (rain || !me || me.name !== EVT_NAME) return;
+  if (rain || !me || !isAdm(me.name)) return;
   send({ t: "evt-go" });
   const box = document.createElement("div"); box.className = "rain";
   const hd = document.createElement("div"); hd.className = "rh"; box.append(hd);
@@ -2329,7 +2330,7 @@ function spinTick() {
 /* baccarat squeeze: a new round is dealt card by card — first P/B cards flip, the rest stay
    face-down until rubbed open (drag peels the back off; tap opens; idle slowly peels by itself).
    Like the spin, the sheet shows the pre-result state meanwhile, and win toasts wait. */
-const SQ_PX = 150, SQ_IDLE = 1200, SQ_AUTO = 0.4, SQ_FLIP = 500, SQ_GAP = 700;
+const SQ_PX = 150, SQ_IDLE = 1200, SQ_IDLE_T = 6000, SQ_AUTO = 0.4, SQ_FLIP = 500, SQ_GAP = 700, SQ_OPEN = 0.9, SQ_DOWN = 0.03;
 let sq = null, bacShown = null;
 function watchSq() {
   if (!S) { sq = null; bacShown = null; return; }
@@ -2362,7 +2363,7 @@ function sqTick() {
   if (now >= sq.at) {
     if (sq.seq[sq.k].auto) return sqNext(now);
     if (!sq.live) { sq.live = true; sq.last = now; render(); }
-    if (!sq.drag && now - sq.last > SQ_IDLE) sq.p = Math.min(1, sq.p + dt * SQ_AUTO);
+    if (!sq.drag && now - sq.last > (sq.touched ? SQ_IDLE_T : SQ_IDLE)) sq.p = Math.min(1, sq.p + dt * SQ_AUTO);
     if (sq.p >= 1) return sqNext(now);
     sqPaint();
   }
@@ -2700,7 +2701,7 @@ function drawFeltBac() {
     big.append(cardFace(c, sz), back, el("div", "sqflap"));
     const ob = el("button", "", "전체 오픈"); ob.type = "button"; ob.onclick = () => sqEnd();
     ov.append(el("div", "sqt", (cur.s === "P" ? "PLAYER" : "BANKER") + " " + (cur.i + 1) + "번째 카드"), big,
-      el("div", "", "가장자리를 잡고 안쪽으로 끌어서 쬐기 · 탭 = 바로 오픈"), ob);
+      el("div", "", "가장자리를 잡고 끌어서 쬐기 · 다시 내리기 가능 · 끝까지 내리면 다른 쪽으로 · 탭 = 바로 오픈"), ob);
     F.append(ov);
     feltPaint();
   }
@@ -2920,15 +2921,18 @@ function feltPaint() {
   b.querySelector(".cover").style.clipPath = "inset(" + { t: P + "% 0 0 0", b: "0 0 " + P + "% 0", l: "0 0 0 " + P + "%", r: "0 " + P + "% 0 0" }[dir] + " round 6px)";
   const g = { t: "to bottom", b: "to top", l: "to right", r: "to left" }[dir], f = b.querySelector(".sqflap");
   f.style.cssText = P <= 0 ? "display:none" : (dir === "t" || dir === "b" ? "left:0;right:0;height:" : "top:0;bottom:0;width:") + L + "%;" +
-    { t: "top", b: "bottom", l: "left", r: "right" }[dir] + ":" + P + "%;background:linear-gradient(" + g + ",#9a9a9a,#f4f4f4 35%,#fff 70%,#e2e2e2)";
+    { t: "top", b: "bottom", l: "left", r: "right" }[dir] + ":" + P + "%;background:linear-gradient(" + g + ",#9a9a9a,#f4f4f4 35%,#fff 70%,#e2e2e2);box-shadow:0 0 " + (6 + P * .12).toFixed(1) + "px rgba(0,0,0," + (.35 + sq.p * .3).toFixed(2) + ")";
 }
 $("felt").addEventListener("pointerdown", e => {
   const b = e.target.closest(".sqbig");
   if (!sq || !sq.live || !b) return;
   e.preventDefault();
   const R = b.getBoundingClientRect();
-  if (!sq.dir) { const d = { t: e.clientY - R.top, b: R.bottom - e.clientY, l: e.clientX - R.left, r: R.right - e.clientX }; sq.dir = Object.keys(d).reduce((a, k) => d[k] < d[a] ? k : a); }
+  // fully laid back down → grab any edge again (e.g. bottom first, then the right side)
+  if (!sq.dir || sq.p <= SQ_DOWN) { const d = { t: e.clientY - R.top, b: R.bottom - e.clientY, l: e.clientX - R.left, r: R.right - e.clientX }; sq.dir = Object.keys(d).reduce((a, k) => d[k] < d[a] ? k : a); sq.p = 0; }
+  sq.touched = true;
   sq.drag = { x: e.clientX, y: e.clientY, p: sq.p, t: performance.now(), m: 0, dir: sq.dir, dim: sq.dir === "t" || sq.dir === "b" ? R.height : R.width };
+  b.style.cursor = "grabbing";
 });
 grid.addEventListener("pointerdown", e => {
   if (!sq || !sq.live || !e.target.closest("td.sqc")) return;
@@ -2939,7 +2943,8 @@ addEventListener("pointermove", e => {
   if (!sq || !sq.drag) return;
   const D = sq.drag, dx = e.clientX - D.x, dy = e.clientY - D.y, d = Math.hypot(dx, dy);
   D.m = Math.max(D.m, d);
-  if (D.dir) { sq.p = Math.min(1, Math.max(sq.p, D.p + Math.max(0, { b: -dy, t: dy, l: dx, r: -dx }[D.dir]) / D.dim)); if (sq.p > .85) sq.p = 1; }
+  // table mode: the corner follows the finger both ways — lift, hold, lay it back down
+  if (D.dir) { sq.p = Math.min(1, Math.max(0, D.p + { b: -dy, t: dy, l: dx, r: -dx }[D.dir] / D.dim)); if (sq.p >= SQ_OPEN) { sq.p = 1; navigator.vibrate && navigator.vibrate(25); } }
   else sq.p = Math.min(1, Math.max(sq.p, D.p + d / SQ_PX));
   sq.last = performance.now();
   sqPaint();
@@ -2947,7 +2952,9 @@ addEventListener("pointermove", e => {
 const sqUp = () => {
   if (!sq || !sq.drag) return;
   if (sq.drag.m < 6 && performance.now() - sq.drag.t < 300) sq.p = 1;
+  else if (sq.drag.dir && sq.p <= SQ_DOWN) { sq.p = 0; sq.dir = null; sqPaint(); }
   sq.drag = null; sq.last = performance.now();
+  const b = document.querySelector("#felt .sqbig"); if (b) b.style.cursor = "";
 };
 addEventListener("pointerup", sqUp); addEventListener("pointercancel", sqUp);
 
