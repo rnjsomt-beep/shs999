@@ -445,12 +445,12 @@ function hostHandle(id, msg) {
     if (ctx.wdPend(p.name) >= 5) { reply(id, "대기 중인 출금 신청이 5건이에요"); return; }
     p.chips -= a; ctx.wdReq(p.name, a); reply(id, (a / ctx.WD_RATE).toLocaleString() + "원 출금 신청 완료 · 승인 대기");
   } else if (msg.t === "wd-ans" || msg.t === "wd-paid") {
-    if (p.name !== EVT_NAME) return;
+    if (!isAdm(p.name)) return;
     if (msg.t === "wd-ans") ctx.wdAns(String(msg.id || ""), !!msg.ok); else ctx.wdPaid(String(msg.name || "").slice(0, 8));
     return;
   } else if (msg.t === "adm-unbind") {   // free a name fixed to an IP (wrong name, shared wifi): next login picks again
     const n = String(msg.name || "").slice(0, 8);
-    if (p.name !== EVT_NAME || !n) return;
+    if (!isAdm(p.name) || !n) return;
     ctx.unbind(n); reply(id, n + " IP 고정 해제");
   } else if (msg.t === "to-add" && TO_KEYS.includes(msg.k) && validBet(msg)) {
     if (H.to.until > Date.now()) { reply(id, "경기 중: 끝나면 다음 경기에 베팅"); return; }

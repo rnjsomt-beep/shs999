@@ -21,8 +21,10 @@ const LEGACY = load("legacy_board.json") || {};   // old offline rankings brough
    token for that name, so the same phone keeps its name when its IP changes (LTE ↔ wifi) or shares a wifi */
 const IPL = load("ips.json") || {};
 IPL.ip = IPL.ip || {}; IPL.tok = IPL.tok || {};
+const ADMINS = ["성호", "관리성호"], isAdm = n => ADMINS.includes(n);
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
-const owned = n => Object.values(IPL.ip).includes(n) || Object.values(IPL.tok).includes(n);
+const owned1 = n => Object.values(IPL.ip).includes(n) || Object.values(IPL.tok).includes(n);
+const owned = n => isAdm(n) ? ADMINS.some(owned1) : owned1(n);   // admin names share one owner
 function ipOf(req) {
   const x = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket.remoteAddress || "";
   return x.replace(/^::ffff:/, "");
@@ -32,7 +34,6 @@ function unbind(n) {
   dirty = true;
 }
 /* admin only: every name -> the IPs it is fixed to / connected from right now */
-const ADMIN = "성호";
 function ipList() {
   const o = {}, add = (n, ip) => { if (!ip || n in Object.prototype) return; (o[n] = o[n] || []).includes(ip) || o[n].push(ip); };
   for (const [ip, n] of Object.entries(IPL.ip)) add(n, ip);
@@ -45,7 +46,7 @@ function ipList() {
 const WD_RATE = 1e8;
 const WD = load("wd.json") || {};
 WD.req = Array.isArray(WD.req) ? WD.req : []; WD.bal = WD.bal || {}; WD.log = Array.isArray(WD.log) ? WD.log : [];
-function toAdmin(m) { const w = NAMES.get(ADMIN); if (w) send(w, { t: "err", m }); }
+function toAdmin(m) { for (const a of ADMINS) { const w = NAMES.get(a); if (w) send(w, { t: "err", m }); } }
 function refreshAll() { for (const r of rooms.values()) if (r.size) r.refresh(); }
 function addChips(n, v) {
   for (const r of rooms.values()) if (r.has(n)) return r.addChips(n, v);
@@ -74,7 +75,7 @@ function wdPaid(n) {
   refreshAll();
 }
 const wdView = n => ({ bal: WD.bal[n] || 0, mine: WD.req.filter(r => r.name === n), rate: WD_RATE,
-  ...(n === ADMIN ? { all: WD.req, bals: WD.bal, log: WD.log.slice(0, 20) } : {}) });
+  ...(isAdm(n) ? { all: WD.req, bals: WD.bal, log: WD.log.slice(0, 20) } : {}) });
 let dirty = false;
 function save() {
   if (!dirty) return;
@@ -172,7 +173,7 @@ wss.on("connection", (ws, req) => {
     if (m.t === "ping") return send(ws, { t: "pong" });
     if (m.t === "hello") return hello(ws, m);
     if (!ws.room) return;
-    if (m.t === "adm-ips") return ws.name === ADMIN && send(ws, { t: "ips", ips: ipList() });
+    if (m.t === "adm-ips") return isAdm(ws.name) && send(ws, { t: "ips", ips: ipList() });
     if (m.t === "bye") { const r = ws.room; ws.room = null; if (NAMES.get(ws.name) === ws) NAMES.delete(ws.name); return r.remove(ws.name); }   // tab closed on purpose: leave now, no grace
     try { ws.room.handle(ws.name, m); } catch (e) { console.error("handle", ws.name, m.t, e); }
   });
@@ -186,7 +187,9 @@ function hello(ws, m) {
   if (ws.room) return;
   // name: this browser's token > the name fixed to this IP > what was typed (fixed to the IP once confirmed)
   const tn = typeof m.tok === "string" && own(IPL.tok, m.tok) ? IPL.tok[m.tok] : null, ipn = own(IPL.ip, ws.ip) ? IPL.ip[ws.ip] : null;
-  const name = tn || ipn || String(m.name || "").trim().slice(0, MAXNAME);
+  const typed = String(m.name || "").trim().slice(0, MAXNAME), fixed = tn || ipn;
+  // the admin's own device may switch between the admin names (성호 ↔ 관리성호); its IP/token binding stays as is
+  const name = fixed && isAdm(fixed) && isAdm(typed) ? typed : fixed || typed;
   if (!name) return send(ws, { t: "full", m: "이름을 입력하세요" });
   if (badName(name)) return send(ws, { t: "full", m: "쓸 수 없는 이름" });
   if (!tn && !ipn) {

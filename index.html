@@ -1834,6 +1834,10 @@ function layoutCfg(put) {
     put(10, 0, "이벤트", "h");
     put(10, 1, button(rain ? "진행 중…" : "💸 돈벼락", moneyRain, !!rain), "btn");
     put(10, 2, "10초 동안 떨어지는 돈을 눌러서 줍기 · 최대 " + man(EVT_MAX) + "원", "m", 2);
+    const alt = ADM_NAMES.find(n => n !== me.name);
+    put(11, 0, "관리자 이름", "h");
+    put(11, 1, button(alt + "(으)로 전환", () => admSwitch(alt)), "btn");
+    put(11, 2, "이 기기에서 " + ADM_NAMES.join(" · ") + " 어느 이름으로 들어가도 관리자 모드 (잔액은 이름마다 따로)", "m", 2);
     /* withdrawal requests: 수락 → that player's 출금 가능, 거절 → game money back */
     const W = S.wd || {}, req = W.all || [], bals = Object.entries(W.bals || {});
     let Y = 12;
@@ -1876,6 +1880,13 @@ function layoutCfg(put) {
       put(r, 4, (IPS[n] || []).join(", ") || "-", "m");
     });
   }
+}
+/* the admin's device can come back in under the other admin name (the server keeps this device's IP/token binding) */
+function admSwitch(n) {
+  if (!ADM_NAMES.includes(n)) return;
+  try { localStorage.setItem("xs-name", n); } catch {}
+  if (ws && ws.readyState === 1) try { ws.send('{"t":"bye"}'); } catch {}
+  location.reload();
 }
 /* admin amount: "5,000,000" / "500만" / "1.5억" / "1억2000만" → number, null if unreadable */
 let admDraft = {}, IPS = {}, ipsAt = 0;
