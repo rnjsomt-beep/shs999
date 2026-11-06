@@ -182,8 +182,8 @@ const empty = () => ({ p: 0, b: 0, t: 0 });
 
 /* ---------- pachinko: one machine, 5 seats (H.pk[i] = seat i) all shooting into the same pin field. A shot = 10 balls through an 8-row pin field
    (each pin: left/right) into 9 pockets; the middle pocket is START → 3-digit reel.
-   RTP ≈ 96%: pockets 2·(25 + 8·4 + 28·0.5)/256 + 70/256 · reel(777 ×150, other triple ×50, pair ×0.5) */
-const PK_N = 5, PK_BALLS = 10, PK_AMTS = [1000, 10000, 100000, 1000000], PK_BIN = [25, 4, 0.5, 0, -1, 0, 0.5, 4, 25], PK_GAP = 1200;
+   RTP ≈ 99% with most balls paying something: pockets 2·(10 + 8·2 + 28·1 + 56·0.6)/256 + 70/256 · reel(777 ×100, other triple ×30, pair ×0.8) */
+const PK_N = 5, PK_BALLS = 10, PK_AMTS = [1000, 10000, 100000, 1000000], PK_BIN = [10, 2, 1, 0.6, -1, 0.6, 1, 2, 10], PK_GAP = 1200;
 function pkShot(amt) {
   const balls = [];
   for (let i = 0; i < PK_BALLS; i++) {
@@ -193,7 +193,7 @@ function pkShot(amt) {
     if (PK_BIN[k] >= 0) ball.win = Math.floor(amt * PK_BIN[k]);
     else {
       const d = [1 + rnd() % 7, 1 + rnd() % 7, 1 + rnd() % 7]; ball.reel = d;
-      const m = d[0] === d[1] && d[1] === d[2] ? (d[0] === 7 ? 150 : 50) : d[0] === d[1] || d[1] === d[2] || d[0] === d[2] ? 0.5 : 0;
+      const m = d[0] === d[1] && d[1] === d[2] ? (d[0] === 7 ? 100 : 30) : d[0] === d[1] || d[1] === d[2] || d[0] === d[2] ? 0.8 : 0;
       ball.win = Math.floor(amt * m);
     }
     balls.push(ball);
@@ -204,14 +204,14 @@ const pkSeat = id => H.pk.findIndex(m => m.id === id);
 function pkLeave(id) { for (const m of H.pk) if (m.id === id) m.id = null; for (const m of H.sl) if (m.id === id) m.id = null; }
 
 /* ---------- slots: 5 machines side by side, one player each, 3 reels, middle row pays.
-   Reel strip weights 🍒8 🍋7 🍊6 🔔5 ⭐3 💎2 7️⃣1 (/32 each reel); three of a kind ×10/15/20/30/100/300/1000,
-   exactly two 🍒 ×1.5 → RTP ≈ 95.6% */
-const SL_N = 5, SL_W = [8, 7, 6, 5, 3, 2, 1], SL_PAY = [10, 15, 20, 30, 100, 300, 1000], SL_AMTS = [1000, 10000, 100000, 1000000], SL_GAP = 900;
+   Reel strip weights 🍒8 🍋7 🍊6 🔔5 ⭐3 💎2 7️⃣1 (/32 each reel); three of a kind ×5/10/15/25/80/250/1000,
+   exactly two 🍒 ×2, exactly one 🍒 ×0.4 → RTP ≈ 98.5%, something comes back on ~60% of spins */
+const SL_N = 5, SL_W = [8, 7, 6, 5, 3, 2, 1], SL_PAY = [5, 10, 15, 25, 80, 250, 1000], SL_AMTS = [1000, 10000, 100000, 1000000], SL_GAP = 900;
 const slSym = () => { let r = rnd() % 32; for (let k = 0; k < SL_W.length; k++) { if (r < SL_W[k]) return k; r -= SL_W[k]; } return 0; };
 function slSpin(amt) {
   const reels = [0, 1, 2].map(() => [slSym(), slSym(), slSym()]), mid = reels.map(r => r[1]);
   const cherries = mid.filter(k => k === 0).length;
-  const m = mid[0] === mid[1] && mid[1] === mid[2] ? SL_PAY[mid[0]] : cherries === 2 ? 1.5 : 0;
+  const m = mid[0] === mid[1] && mid[1] === mid[2] ? SL_PAY[mid[0]] : cherries === 2 ? 2 : cherries === 1 ? 0.4 : 0;
   return { reels, mult: m, win: Math.floor(amt * m) };
 }
 
@@ -283,7 +283,7 @@ function runTo() {
 }
 
 function newPlayer(name) {
-  return { name, chips: START, lastNet: 0, bac: empty(), rl: {}, bj: { bet: 0, cards: [], done: false, res: "" }, ready: { bac: false, rl: false, bj: false, hd: false, to: false }, to: {}, hdSeat: false, rebuy: 0, rdReady: false, vw: "bac",
+  return { name, chips: START, lastNet: 0, bac: empty(), rl: {}, bj: { bet: 0, cards: [], done: false, res: "" }, ready: { bac: false, rl: false, bj: false, hd: false, to: false }, spec: {}, to: {}, hdSeat: false, rebuy: 0, rdReady: false, vw: "bac",
     peak: START, st: { bac: { n: 0, w: 0, l: 0, net: 0 }, rl: { n: 0, w: 0, l: 0, net: 0 }, bj: { n: 0, w: 0, l: 0, net: 0, push: 0, bj: 0, bust: 0 }, hd: { n: 0, w: 0, l: 0, net: 0, sd: 0 }, sk: { n: 0, w: 0, l: 0, net: 0 }, pk: { n: 0, w: 0, l: 0, net: 0 }, sl: { n: 0, w: 0, l: 0, net: 0 }, to: { n: 0, w: 0, l: 0, net: 0 } }, stk: {} };
 }
 function rec(q, g, s, ret, res) {
@@ -300,7 +300,7 @@ function snapshot(forId) {
     bac: H.bac, rl: H.rl, pk: H.pk, sl: H.sl, to: { next: H.to.next, last: H.to.last, hist: H.to.hist, tm: H.to.tm, live: Math.max(0, H.to.until - Date.now()) },
     bj: { phase: H.bj.phase, n: H.bj.n, ds: H.bj.ds, dealer: hide ? [H.bj.dealer[0], -1] : H.bj.dealer },
     hd: hdView(forId),
-    board: ctx.board(), adm: {}, players: [...H.players].map(([id, p]) => ({ id, ...p, off: !conns.has(id) })) };
+    board: ctx.board(), adm: {}, wd: ctx.wdView(forId), players: [...H.players].map(([id, p]) => ({ id, ...p, off: !conns.has(id) })) };
 }
 /* random defense: everyone ready → bump rdGo, each client starts its own run on seeing it */
 function rdReadyCheck() {
@@ -358,11 +358,32 @@ function hostHandle(id, msg) {
   if (p && msg.t === "rd-ready") { p.rdReady = !p.rdReady; rdReadyCheck(); broadcast(); return; }
   if (p && String(msg.t).startsWith("g-")) { mgHandle(id, msg); return; }
   if (!p) return;
+  /* spectators watch a game without betting; the round no longer waits for them to be ready */
+  const BET_G = { "bac-add": "bac", "rl-add": "rl", "bj-add": "bj", "bj-double": "bj", "to-add": "to", "hd-seat": "hd", "rebet": msg.g };
+  if (BET_G[msg.t] && p.spec && p.spec[BET_G[msg.t]]) { reply(id, "관전 중: 관전 해제 후 참여"); return; }
+  if (msg.t === "spec" && GAMES.includes(msg.g)) {
+    const g = msg.g;
+    p.spec = p.spec || {};
+    if (!p.spec[g]) {
+      if (g === "bj" && p.bj.bet && H.bj.phase !== "bet") { reply(id, "진행 중인 판이 끝나고 관전"); return; }
+      if (g === "to" && sum(p.to) && H.to.until > Date.now()) { reply(id, "경기가 끝나고 관전"); return; }
+      // bets not dealt yet go back to the balance
+      if (g === "bac") { p.chips += sum(p.bac); p.bac = empty(); }
+      else if (g === "rl") { p.chips += sum(p.rl); p.rl = {}; }
+      else if (g === "to") { p.chips += sum(p.to); p.to = {}; }
+      else if (g === "bj" && H.bj.phase === "bet") { p.chips += p.bj.bet; p.bj.bet = 0; }
+      else if (g === "hd") p.hdSeat = false;
+      p.spec[g] = true;
+    } else delete p.spec[g];
+    p.ready[g] = false;
+    checkReady(); broadcast(); return;
+  }
   if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; if (GAMES.includes(p.vw)) p.ready[p.vw] = false; if (p.vw === "pk" || p.vw === "sl") pkLeave(id); p.vw = msg.v; }
   else if (msg.t === "ready" && GAMES.includes(msg.g)) {
     if (msg.g === "bj" && H.bj.phase !== "bet") return;
     if (msg.g === "hd" && (H.hd.running || H.hd.phase !== "idle")) return;
     if (msg.g === "to" && H.to.until > Date.now()) return;
+    if (p.spec && p.spec[msg.g]) return;
     p.ready[msg.g] = !p.ready[msg.g];
   }
   else if (msg.t === "bac-add" && ["p", "b", "t"].includes(msg.k) && validBet(msg)) {
@@ -416,6 +437,16 @@ function hostHandle(id, msg) {
     const n = String(msg.name || "").slice(0, 8), v = Math.floor(Number(msg.chips));
     if (p.name !== EVT_NAME || !n || n === "__proto__" || !Number.isFinite(v) || v < 0 || v > 1e13) return;
     ctx.admSet(n, v);
+  } else if (msg.t === "wd-req") {   // game money → withdrawal request (whole 억 only), held until the admin answers
+    const a = Math.floor(Number(msg.amt));
+    if (!(a >= ctx.WD_RATE) || a % ctx.WD_RATE || a > 1e13) { reply(id, "출금은 1억 단위 (1억 = 1원)"); return; }
+    if (a > p.chips) { reply(id, "잔액 부족: 가용 " + fmt(p.chips)); return; }
+    if (ctx.wdPend(p.name) >= 5) { reply(id, "대기 중인 출금 신청이 5건이에요"); return; }
+    p.chips -= a; ctx.wdReq(p.name, a); reply(id, (a / ctx.WD_RATE).toLocaleString() + "원 출금 신청 완료 · 승인 대기");
+  } else if (msg.t === "wd-ans" || msg.t === "wd-paid") {
+    if (p.name !== EVT_NAME) return;
+    if (msg.t === "wd-ans") ctx.wdAns(String(msg.id || ""), !!msg.ok); else ctx.wdPaid(String(msg.name || "").slice(0, 8));
+    return;
   } else if (msg.t === "adm-unbind") {   // free a name fixed to an IP (wrong name, shared wifi): next login picks again
     const n = String(msg.name || "").slice(0, 8);
     if (p.name !== EVT_NAME || !n) return;
@@ -440,7 +471,7 @@ function hostHandle(id, msg) {
     const M = H.sl[i], r = slSpin(msg.amt);
     p.chips += r.win; p.lastNet = r.win - msg.amt; rec(p, "sl", msg.amt, r.win);
     M.last = { n: ++M.n, by: p.name, amt: msg.amt, ...r, net: r.win - msg.amt }; M.tot += r.win - msg.amt; M.shots++;
-    if (r.mult >= 100) { M.big++; announce(p, "sl", msg.amt, r.win, false, ["🍒", "🍋", "🍊", "🔔", "⭐", "💎", "7️⃣"][r.reels[0][1]].repeat(3) + " 당첨", 1300); }
+    if (r.mult >= 80) { M.big++; announce(p, "sl", msg.amt, r.win, false, ["🍒", "🍋", "🍊", "🔔", "⭐", "💎", "7️⃣"][r.reels[0][1]].repeat(3) + " 당첨", 1300); }
   } else if (msg.t === "pk-fire" && PK_AMTS.includes(msg.amt)) {
     const i = pkSeat(id), n = Date.now();
     if (i < 0 || n - (p.pkT || 0) < PK_GAP) return;
@@ -505,7 +536,7 @@ function checkReady() {
   for (const g of GAMES) {
     /* baccarat: only players on the baccarat sheet need to be ready */
     /* each game is its own room: only the players looking at that game's sheet need to be ready */
-    const ps = [...H.players.values()].filter(q => q.vw === g);
+    const ps = [...H.players.values()].filter(q => q.vw === g && !(q.spec && q.spec[g]));
     if (!ps.length || !ps.every(q => q.ready[g])) continue;
     for (const q of ps) q.ready[g] = false;
     if (g === "bac") runBac(); else if (g === "rl") runRl(); else if (g === "bj") runBj(); else if (g === "to") runTo(); else hdStart();
@@ -596,7 +627,7 @@ function shuffled() {
 /* table session: everyone ready once → hands keep dealing until fewer than 2 are seated */
 function hdStart() {
   H.hd.running = true; H.hd.nextAt = 0;
-  for (const q of H.players.values()) q.hdSeat = q.vw === "hd";
+  for (const q of H.players.values()) q.hdSeat = q.vw === "hd" && !(q.spec && q.spec.hd);
   runHd();
 }
 function hdStop() {
@@ -949,6 +980,7 @@ return {
     const n = Date.now();
     for (const [id, q] of H.players) if (q.off && n - q.off > ctx.GRACE) remove(id);
   },
+  addChips(name, v) { const q = H.players.get(name); if (!q) return false; q.chips += v; q.peak = Math.max(q.peak, q.chips); broadcast(); return true; },
   setChips(name, v) { const q = H.players.get(name); if (!q) return false; q.chips = v; q.peak = Math.max(q.peak, v); q.lastNet = 0; broadcast(); return true; },
   refund,
   refresh: broadcast,

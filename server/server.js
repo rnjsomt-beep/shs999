@@ -39,11 +39,47 @@ function ipList() {
   for (const ws of wss.clients) if (ws.name && ws.room) add(ws.name, ws.ip);
   return o;
 }
+/* withdrawals: a player turns game money into withdrawable money (1억 → 1원). The chips leave the table when the
+   request is made; the admin accepts (→ that player's 출금 가능 balance) or rejects (→ chips back). The admin marks
+   a balance 지급 완료 once it has actually been paid out. */
+const WD_RATE = 1e8;
+const WD = load("wd.json") || {};
+WD.req = Array.isArray(WD.req) ? WD.req : []; WD.bal = WD.bal || {}; WD.log = Array.isArray(WD.log) ? WD.log : [];
+function toAdmin(m) { const w = NAMES.get(ADMIN); if (w) send(w, { t: "err", m }); }
+function refreshAll() { for (const r of rooms.values()) if (r.size) r.refresh(); }
+function addChips(n, v) {
+  for (const r of rooms.values()) if (r.has(n)) return r.addChips(n, v);
+  const a = ACC[n]; if (!a) return;
+  a.chips += v; a.t = Date.now(); dirty = true; boardAt = 0;
+}
+function wdReq(n, amt) {
+  WD.req.push({ id: crypto.randomBytes(6).toString("hex"), name: n, amt, won: amt / WD_RATE, t: Date.now() });
+  dirty = true; toAdmin(n + " 님이 " + (amt / WD_RATE).toLocaleString() + "원 (" + amt.toLocaleString() + ") 출금 신청을 했어요"); refreshAll();
+}
+const wdPend = n => WD.req.filter(r => r.name === n).length;
+function wdAns(rid, ok) {
+  const i = WD.req.findIndex(r => r.id === rid); if (i < 0) return;
+  const [r] = WD.req.splice(i, 1);
+  if (ok) WD.bal[r.name] = (WD.bal[r.name] || 0) + r.won; else addChips(r.name, r.amt);
+  WD.log.unshift({ ...r, ok: !!ok, at: Date.now() }); WD.log.length = Math.min(WD.log.length, 100);
+  dirty = true;
+  const w = NAMES.get(r.name); if (w) send(w, { t: "err", m: "출금 " + r.won.toLocaleString() + "원 " + (ok ? "수락됨 → 출금 가능 금액에 추가" : "거절됨 → 게임머니 반환") });
+  refreshAll();
+}
+function wdPaid(n) {
+  if (!WD.bal[n]) return;
+  WD.log.unshift({ name: n, won: WD.bal[n], paid: true, at: Date.now() }); WD.log.length = Math.min(WD.log.length, 100);
+  delete WD.bal[n]; dirty = true;
+  const w = NAMES.get(n); if (w) send(w, { t: "err", m: "출금 가능 금액 지급 완료" });
+  refreshAll();
+}
+const wdView = n => ({ bal: WD.bal[n] || 0, mine: WD.req.filter(r => r.name === n), rate: WD_RATE,
+  ...(n === ADMIN ? { all: WD.req, bals: WD.bal, log: WD.log.slice(0, 20) } : {}) });
 let dirty = false;
 function save() {
   if (!dirty) return;
   dirty = false;
-  for (const [n, o] of [["accounts.json", ACC], ["legacy_board.json", LEGACY], ["ips.json", IPL]]) {
+  for (const [n, o] of [["accounts.json", ACC], ["legacy_board.json", LEGACY], ["ips.json", IPL], ["wd.json", WD]]) {
     try { fs.writeFileSync(file(n) + ".tmp", JSON.stringify(o)); fs.renameSync(file(n) + ".tmp", file(n)); }
     catch (e) { console.error("save failed", n, e.message); dirty = true; }
   }
@@ -96,7 +132,7 @@ function saveRooms() {
   catch (e) { console.error("save failed rooms.json", e.message); }
 }
 setInterval(saveRooms, 5000);
-const ctx = { board, saw, admSet, unbind, GRACE, stock: k => market.get(k), skValue: market.value };
+const ctx = { board, saw, admSet, unbind, wdReq, wdAns, wdPaid, wdView, wdPend, WD_RATE, GRACE, stock: k => market.get(k), skValue: market.value };
 function roomOf(code) {
   let r = rooms.get(code);
   if (!r) { r = makeRoom(code, ctx); r.code = code; r.emptyAt = 0; try { r.load(ROOMS[code]); } catch (e) { console.error("room load", code, e); } rooms.set(code, r); }

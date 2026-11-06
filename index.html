@@ -61,6 +61,10 @@ table.grid{border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabu
 .tabs button{font:inherit;color:var(--muted);background:transparent;border:0;border-right:1px solid var(--line);padding:3px 10px;cursor:pointer;white-space:nowrap}
 .tabs button[aria-selected="true"]{background:var(--bg);color:var(--accent);font-weight:600}
 .status{display:flex;gap:12px;justify-content:space-between;background:var(--chrome);border-top:1px solid var(--line);padding:2px 8px calc(2px + env(safe-area-inset-bottom,0px));color:var(--muted)}
+.status .wdb{cursor:pointer;color:var(--accent,#1a73e8);text-decoration:underline}
+.wdp{position:fixed;left:8px;bottom:calc(30px + env(safe-area-inset-bottom,0px));z-index:21;background:var(--bg,#fff);border:1px solid var(--line);box-shadow:0 4px 16px rgba(0,0,0,.2);padding:10px;width:min(320px,calc(100vw - 16px));display:flex;flex-direction:column;gap:6px;font-size:13px}
+.wdp .row{display:flex;gap:6px;align-items:center}.wdp input{flex:1;min-width:0;padding:4px}.wdp button{padding:4px 10px}
+.wdp .m{color:var(--muted)}
 .status .r{display:flex;gap:12px;font-variant-numeric:tabular-nums}
 .grid td.spin,.grid td.spin button{background:var(--accent);color:#fff;font-weight:700}
 .toasts{position:fixed;right:10px;bottom:calc(34px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;align-items:flex-end;z-index:20;pointer-events:none}
@@ -376,8 +380,9 @@ canvas.sp{display:block;width:100%;height:15px}
   <button type="button" role="tab" data-v="cfg" aria-selected="false">설정</button>
   <button type="button" role="tab" data-v="decoy" aria-selected="false">품목마스터</button>
 </div>
-<div class="status"><span id="ready">준비</span><span class="r"><span id="st-cnt">개수: -</span><span id="st-sum">합계: -</span></span></div>
+<div class="status"><span id="ready">준비</span><span class="r"><span id="st-wd" class="wdb" role="button" tabindex="0" hidden>출금신청</span><span id="st-cnt">개수: -</span><span id="st-sum">합계: -</span></span></div>
 
+<div class="wdp" id="wdp" hidden></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
 <script>
@@ -1267,11 +1272,18 @@ function persist() {
    now gets the new balance the next time they join (each account remembers the last override it took) */
 
 /* each game tab is its own room: only people on that sheet take part / need to be ready */
-const roomOf = g => S.players.filter(p => p.vw === g);
-const readyCount = g => { const ps = roomOf(g); return ps.filter(p => p.ready[g]).length + "/" + ps.length; };
+/* spectators (관전) watch without betting and are left out of the ready count, so the round runs without them */
+const isSpec = (p, g) => !!(p.spec && p.spec[g]);
+const roomOf = g => S.players.filter(p => p.vw === g && !isSpec(p, g));
+const readyCount = g => { const ps = roomOf(g), w = S.players.filter(p => p.vw === g && isSpec(p, g)).length; return ps.filter(p => p.ready[g]).length + "/" + ps.length + (w ? " · 관전 " + w : ""); };
+const specLabel = (me, g) => isSpec(me, g) ? "관전 해제" : "👁 관전";
 function readyBtn(g, put, r, c, span) {
   const me = meP(); if (!me) return;
-  put(r, c, button(me.ready[g] ? "준비완료 ✓ " + readyCount(g) : "준비 " + readyCount(g), () => send({ t: "ready", g }), me.ready[g]), "btn", span);
+  const bx = document.createElement("span"); bx.className = "bx";
+  if (isSpec(me, g)) bx.append(button("관전 중 " + readyCount(g), null, true));
+  else bx.append(button(me.ready[g] ? "준비완료 ✓ " + readyCount(g) : "준비 " + readyCount(g), () => send({ t: "ready", g }), me.ready[g]));
+  bx.append(button(specLabel(me, g), () => send({ t: "spec", g }), isSpec(me, g)));
+  put(r, c, bx, "btn", span);
 }
 function amountRow(put, r, cols, span, withAll = true) {
   // all-in goes in the first (leftmost) cell, the chips after it
@@ -1784,14 +1796,31 @@ function layoutCfg(put) {
     put(10, 0, "이벤트", "h");
     put(10, 1, button(rain ? "진행 중…" : "💸 돈벼락", moneyRain, !!rain), "btn");
     put(10, 2, "10초 동안 떨어지는 돈을 눌러서 줍기 · 최대 " + man(EVT_MAX) + "원", "m", 2);
-    put(12, 0, "관리자 모드", "h b");
-    put(12, 1, "잔액 입력 후 Enter 또는 설정 (예: 5000000 · 500만 · 1.5억)", "m", 3);
-    ["담당", "현재 잔액", "새 잔액", "", "IP"].forEach((h, i) => put(13, i, h, "h c"));
+    /* withdrawal requests: 수락 → that player's 출금 가능, 거절 → game money back */
+    const W = S.wd || {}, req = W.all || [], bals = Object.entries(W.bals || {});
+    let Y = 12;
+    put(Y, 0, "출금 신청", "h b"); put(Y, 1, "게임머니 1억 = 1원 · 수락하면 출금 가능 금액으로, 거절하면 게임머니 반환", "m", 4); Y++;
+    if (!req.length) put(Y++, 0, "대기 중인 신청 없음", "m", 3);
+    req.forEach(q => {
+      const d = new Date(q.t);
+      put(Y, 0, q.name + " 님이 " + q.won.toLocaleString() + "원 (" + fmt(q.amt) + ") 출금 신청을 했어요", "b", 3);
+      const bx = document.createElement("span"); bx.className = "bx";
+      bx.append(button("수락", () => send({ t: "wd-ans", id: q.id, ok: true })), button("거절", () => send({ t: "wd-ans", id: q.id, ok: false })));
+      put(Y, 3, bx, "btn"); put(Y, 4, (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"), "m"); Y++;
+    });
+    if (bals.length) {
+      put(Y, 0, "출금 가능", "h"); put(Y, 1, "지급하고 나서 지급 완료를 누르면 0원이 됩니다", "m", 3); Y++;
+      bals.forEach(([n, won]) => { put(Y, 0, n); put(Y, 1, won.toLocaleString() + "원", "n b"); put(Y, 3, button("지급 완료", () => send({ t: "wd-paid", name: n })), "btn"); Y++; });
+    }
+    Y++;
+    put(Y, 0, "관리자 모드", "h b");
+    put(Y, 1, "잔액 입력 후 Enter 또는 설정 (예: 5000000 · 500만 · 1.5억)", "m", 3);
+    ["담당", "현재 잔액", "새 잔액", "", "IP"].forEach((h, i) => put(Y + 1, i, h, "h c"));
     if (Date.now() - ipsAt > 5000) { ipsAt = Date.now(); send({ t: "adm-ips" }); }
     const all = boardMerge({}, S.board), on = new Set(S.players.map(p => p.name));
     const rows = S.players.map(p => ({ n: p.name, p })).concat(Object.keys(all).filter(n => !on.has(n)).sort((x, y) => all[y][1] - all[x][1]).map(n => ({ n })));
     rows.slice(0, 28).forEach(({ n, p }, i) => {
-      const r = 14 + i, key = "adm-" + n;
+      const r = Y + 2 + i, key = "adm-" + n;
       const apply = v => {
         if (v === null || v < 0 || v > 1e13) return say("금액 확인: 0 ~ 10조", true);
         delete admDraft[key]; send({ t: "adm-set", name: n, chips: v });
@@ -1812,6 +1841,37 @@ function layoutCfg(put) {
 }
 /* admin amount: "5,000,000" / "500만" / "1.5억" / "1억2000만" → number, null if unreadable */
 let admDraft = {}, IPS = {}, ipsAt = 0;
+/* 출금신청: status-bar link on every tab → small panel (amount in 원, 1원 = 1억 game money) */
+let wdOpen = false, wdDraft = "";
+function wdBar() {
+  const b = $("st-wd"), me = meP(), W = S && S.wd;
+  b.hidden = !me || !W || view === "decoy";
+  if (b.hidden) { $("wdp").hidden = true; return; }
+  b.textContent = "출금신청" + (W.bal ? " · 가능 " + W.bal.toLocaleString() + "원" : "") + (W.mine.length ? " · 대기 " + W.mine.length : "");
+  if (wdOpen) wdPanel();
+}
+function wdPanel() {
+  const P = $("wdp"), me = meP(), W = S && S.wd;
+  if (!wdOpen || !me || !W) { P.hidden = true; return; }
+  const act = document.activeElement && document.activeElement.id === "wd-in";
+  P.hidden = false; P.textContent = "";
+  const max = Math.floor(me.chips / W.rate);
+  P.append(el("b", "", "출금 신청"), el("div", "m", "게임머니 1억 = 1원 · 1원 단위로 신청 · 성호가 수락하면 출금 가능 금액에 들어가요"));
+  P.append(el("div", "", "게임머니 " + fmt(me.chips) + " → 최대 " + max.toLocaleString() + "원"));
+  const row = el("div", "row"), inp = document.createElement("input");
+  inp.id = "wd-in"; inp.inputMode = "numeric"; inp.placeholder = "원 (예: 3 = 3억)"; inp.value = wdDraft;
+  inp.oninput = () => { wdDraft = inp.value; };
+  const go = () => { const won = Math.floor(Number(String(wdDraft).replace(/[,\s원]/g, ""))); if (!(won >= 1)) return say("1원(=1억) 이상 입력", true); if (won > max) return say("게임머니 부족: 최대 " + max + "원", true); send({ t: "wd-req", amt: won * W.rate }); wdDraft = ""; };
+  inp.onkeydown = e => { if (e.key === "Enter") go(); };
+  row.append(inp, fbtn("", "전액", () => { wdDraft = String(max); wdPanel(); }), fbtn("go", "신청", go));
+  P.append(row);
+  P.append(el("div", "", "출금 가능: " + W.bal.toLocaleString() + "원"));
+  W.mine.forEach(q => P.append(el("div", "m", "대기 중 · " + q.won.toLocaleString() + "원 (" + fmt(q.amt) + ")")));
+  P.append(fbtn("", "닫기", () => { wdOpen = false; wdPanel(); }));
+  if (act) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+}
+$("st-wd").onclick = () => { wdOpen = !wdOpen; wdPanel(); };
+$("st-wd").onkeydown = e => { if (e.key === "Enter") { wdOpen = !wdOpen; wdPanel(); } };
 function parseAmt(t) {
   const x = String(t || "").replace(/[,\s원]/g, "");
   if (!x) return null;
@@ -1882,7 +1942,7 @@ function applyMode() {
 
 /* ---------- pachinko (설비가동): one machine, 5 seats shooting into the same pin field. The server rolls
    every ball; here every seat's latest shot is replayed (balls coloured by seat, START pocket spins the reel) ---------- */
-const PK_AMTS = [1000, 10000, 100000, 1000000], PK_BALLS = 10, PK_BIN = ["25", "4", ".5", "0", "S", "0", ".5", "4", "25"];
+const PK_AMTS = [1000, 10000, 100000, 1000000], PK_BALLS = 10, PK_BIN = ["10", "2", "1", ".6", "S", ".6", "1", "2", "10"];
 const PK_R = 11, PK_STEP = 70, PK_LAUNCH = 180, PK_REEL = 650;   // board top row, ms per pin row, ms between balls, reel spin
 let pkAmt = 10000, pkAuto = false, pkAs = [], pkRun = false;
 const pkShown = {};
@@ -2000,12 +2060,12 @@ function layoutPk(put) {
   } else put(y + 1, 1, me ? (S.pk.some(m => !m.id) ? "▲ 위 표에서 빈자리에 착석하면 발사할 수 있습니다" : "자리가 다 찼습니다 (5/5)") : "", "m", 19);
   if (me) put(y + 2, 1, "잔액 " + fmt(me.chips - pkPending()), "b", 9);
   if (me && me.st.pk && me.st.pk.n) put(y + 2, 10, "누적 " + sgn(me.st.pk.net) + " · " + me.st.pk.n + "회", netCls(me.st.pk.net), 10);
-  put(y + 4, 0, "배당", "h c"); put(y + 4, 1, "양끝 ×25 · 둘째 ×4 · 셋째 ×0.5 · 가운데 START → 추첨", "m", 19);
-  put(y + 5, 1, "777 ×150 · 같은 숫자 3개 ×50 · 2개 ×0.5 (1구 금액 기준)", "m", 19);
+  put(y + 4, 0, "배당", "h c"); put(y + 4, 1, "양끝 ×10 · 둘째 ×2 · 셋째 ×1 · 넷째 ×0.6 · 가운데 START → 추첨", "m", 19);
+  put(y + 5, 1, "777 ×100 · 같은 숫자 3개 ×30 · 2개 ×0.8 (1구 금액 기준)", "m", 19);
 }
 
 /* ---------- slots (라인점검): 5 machines side by side on one sheet, everyone sees every reel spin ---------- */
-const SL_SYM = ["🍒", "🍋", "🍊", "🔔", "⭐", "💎", "7️⃣"], SL_PAY = [10, 15, 20, 30, 100, 300, 1000], SL_AMTS = [1000, 10000, 100000, 1000000];
+const SL_SYM = ["🍒", "🍋", "🍊", "🔔", "⭐", "💎", "7️⃣"], SL_PAY = [5, 10, 15, 25, 80, 250, 1000], SL_AMTS = [1000, 10000, 100000, 1000000];
 const SL_STOP = [500, 800, 1100], SL_LEN = 1500;   // each reel stops at, whole spin incl. win flash
 let slAmt = 10000, slAuto = false, slAs = [], slRun = false, slF = -1;
 const slShown = {};
@@ -2073,7 +2133,7 @@ function layoutSl(put) {
   if (me && me.st.sl && me.st.sl.n) put(y + 2, 9, "누적 " + sgn(me.st.sl.net) + " · " + me.st.sl.n + "회", netCls(me.st.sl.net), 11);
   put(y + 4, 0, "배당", "h c"); put(y + 4, 1, "가운데 줄 3개 같으면 (1회 금액 ×)", "m", 19);
   SL_SYM.forEach((s, k) => { const r = y + 5 + Math.floor(k / 3), c = 1 + (k % 3) * 6; put(r, c, s.repeat(3) + " ×" + SL_PAY[k], "c" + (k >= 4 ? " hold b" : ""), 6); });
-  put(y + 7, 7, "🍒 2개 ×1.5", "c", 6);
+  put(y + 7, 7, "🍒 2개 ×2 · 1개 ×0.4", "c", 6);
 }
 
 /* ---------- sports toto (출하일정): 승무패 + 언더/오버 2.5. The server plays the whole match at once;
@@ -2584,7 +2644,8 @@ function drawFeltBac() {
     const act = el("div", "f-act");
     const cl = el("button", "", "베팅 취소"); cl.type = "button"; cl.onclick = () => send({ t: "bac-clear" });
     const go = el("button", "go", (me.ready.bac ? "준비완료 ✓ " : "딜 준비 ") + readyCount("bac")); go.type = "button"; go.setAttribute("aria-pressed", me.ready.bac); go.onclick = () => send({ t: "ready", g: "bac" });
-    act.append(cl, go);
+    if (isSpec(me, "bac")) act.append(fbtn("", "관전 중 " + readyCount("bac"), null, true)); else act.append(cl, go);
+    act.append(fbtn("", specLabel(me, "bac"), () => send({ t: "spec", g: "bac" })));
     if (canRefill(me)) { const f = el("button", "fill", "충전 +" + man(START)); f.type = "button"; f.onclick = () => send({ t: "refill" }); act.append(f); }
     W.append(act);
   }
@@ -2631,8 +2692,12 @@ function feltRack(W, withAll, g) {
 // cancel / ready / refill row shared by the betting games
 function feltAct(W, g, clearT, goLabel) {
   const me = meP(), act = el("div", "f-act");
-  if (clearT) act.append(fbtn("", "베팅 취소", () => send({ t: clearT })));
-  const go = fbtn("go", (me.ready[g] ? "준비완료 ✓ " : goLabel + " ") + readyCount(g), () => send({ t: "ready", g })); go.setAttribute("aria-pressed", me.ready[g]); act.append(go);
+  if (isSpec(me, g)) act.append(fbtn("", "관전 중 " + readyCount(g), null, true));
+  else {
+    if (clearT) act.append(fbtn("", "베팅 취소", () => send({ t: clearT })));
+    const go = fbtn("go", (me.ready[g] ? "준비완료 ✓ " : goLabel + " ") + readyCount(g), () => send({ t: "ready", g })); go.setAttribute("aria-pressed", me.ready[g]); act.append(go);
+  }
+  act.append(fbtn("", specLabel(me, g), () => send({ t: "spec", g })));
   if (canRefill(me)) act.append(fbtn("fill", "충전 +" + man(START), () => send({ t: "refill" })));
   W.append(act);
 }
@@ -2797,8 +2862,10 @@ function drawFeltHd() {
       : "전원 준비 시 테이블 시작 (이후 자동 진행)";
     if (info) W.append(el("div", "f-msg", info));
     const act = el("div", "f-act");
-    if (D.running) act.append(fbtn(me.hdSeat ? "" : "go", me.hdSeat ? "일어나기" : "참가", () => send({ t: "hd-seat" })));
+    if (isSpec(me, "hd")) act.append(fbtn("", "관전 중", null, true));
+    else if (D.running) act.append(fbtn(me.hdSeat ? "" : "go", me.hdSeat ? "일어나기" : "참가", () => send({ t: "hd-seat" })));
     else { const go = fbtn("go", (me.ready.hd ? "준비완료 ✓ " : "준비 ") + readyCount("hd"), () => send({ t: "ready", g: "hd" })); go.setAttribute("aria-pressed", me.ready.hd); act.append(go); }
+    act.append(fbtn("", specLabel(me, "hd"), () => send({ t: "spec", g: "hd" })));
     if (canRefill(me)) act.append(fbtn("fill", "리바인 +" + man(START), () => send({ t: "refill" })));
     W.append(act);
   }
@@ -2909,6 +2976,7 @@ function draw_() {
   $("st-cnt").textContent = "개수: " + (view === "decoy" ? ITEMS.length : S ? S.players.length : 0);
   $("st-sum").textContent = "합계: " + (view === "decoy" ? "96,240" : me ? fmt(me.chips - (view === "pk" ? pkPending() : view === "sl" ? slPending() : 0)) : "-");
   if (view === "rd") rdPaint();
+  wdBar();
 }
 
 /* ---------- tabs / keys ---------- */
