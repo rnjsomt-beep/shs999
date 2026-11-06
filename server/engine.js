@@ -688,12 +688,12 @@ function mgHandle(id, msg) {
 const acct = p => p.chips + ctx.skValue(p.stk) - START * (p.rebuy || 0);
 function boardMerge(dst, src) {
   if (!src || typeof src !== "object") return dst;
-  for (const [n, e] of Object.entries(src).slice(0, 200)) {
+  for (const [n, e] of Object.entries(src).slice(0, 300)) {
     const k = String(n).slice(0, 8), v = Number(e && e[0]), t = Number(e && e[1]);
     if (!k || k === "__proto__" || !Number.isFinite(v) || !Number.isFinite(t)) continue;
     if (!dst[k] || dst[k][1] < t) dst[k] = [v, t];
   }
-  const keep = new Set(Object.entries(dst).sort((a, b) => b[1][1] - a[1][1]).slice(0, 40).map(e => e[0]));
+  const keep = new Set(Object.entries(dst).sort((a, b) => b[1][1] - a[1][1]).slice(0, 300).map(e => e[0]));
   for (const k of Object.keys(dst)) if (!keep.has(k)) delete dst[k];
   return dst;
 }

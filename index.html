@@ -1173,12 +1173,12 @@ const loadAcct = () => lsGet("xs-acct:" + myName());
 /* leaderboard: name -> [account, time]; every player keeps a copy and the host merges them, so it survives host changes */
 function boardMerge(dst, src) {
   if (!src || typeof src !== "object") return dst;
-  for (const [n, e] of Object.entries(src).slice(0, 200)) {
+  for (const [n, e] of Object.entries(src).slice(0, 300)) {
     const k = String(n).slice(0, 8), v = Number(e && e[0]), t = Number(e && e[1]);
     if (!k || k === "__proto__" || !Number.isFinite(v) || !Number.isFinite(t)) continue;
     if (!dst[k] || dst[k][1] < t) dst[k] = [v, t];
   }
-  const keep = new Set(Object.entries(dst).sort((a, b) => b[1][1] - a[1][1]).slice(0, 40).map(e => e[0]));
+  const keep = new Set(Object.entries(dst).sort((a, b) => b[1][1] - a[1][1]).slice(0, 300).map(e => e[0]));
   for (const k of Object.keys(dst)) if (!keep.has(k)) delete dst[k];
   return dst;
 }
@@ -1678,7 +1678,7 @@ function layoutRk(put) {
   const rows = Object.entries(all).map(([n, e]) => ({ n, v: e[0], t: e[1] })).sort((a, b) => b.v - a.v);
   if (!rows.length) put(3, 0, S ? "기록 없음" : "기록 없음 · 입장하면 다른 사람 기록도 받아옵니다", "m", 6);
   ["순위", "담당", "등급", "계좌", "상태", "최종"].forEach((h, i) => put(2, i, h, "h c"));
-  rows.slice(0, 25).forEach((r, i) => {
+  rows.forEach((r, i) => {
     const y = 3 + i, t = tierOf(r.v), mine = myN && r.n === myN ? " me" : "", d = new Date(r.t);
     put(y, 0, String(i + 1), "c" + mine + (i < 3 ? " b" : "")); put(y, 1, r.n, "b t-" + t[2] + mine);
     put(y, 2, t[1], "c t-" + t[2] + mine); put(y, 3, fmt(r.v), "n" + (r.v < 0 ? " out" : "") + mine);
@@ -1687,7 +1687,7 @@ function layoutRk(put) {
     put(y, 4, at === "off" ? "연결 끊김 (대기)" : live.has(r.n) ? (tab ? tab + " 보는 중" : "접속") : "오프라인", "c " + (live.has(r.n) ? "in" : "m") + mine);
     put(y, 5, (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"), "c m" + mine);
   });
-  const ry = 4 + Math.min(rows.length, 25);
+  const ry = 4 + rows.length;
   put(ry, 0, "■ 등급 기준 (계좌 = 잔액 − 충전 " + man(START) + " × 횟수)", "b", 6);
   ["등급", "5", "4", "3", "2", "1"].forEach((h, i) => put(ry + 1, i, h, "h c"));
   MAJORS.forEach(([lo, n, c, d], i) => {
@@ -2480,7 +2480,8 @@ function draw_() {
   const nc = widths.length;
   const cells = Array.from({ length: NROWS }, () => Array(nc).fill(null));
   const put = (r, c, content, cls, span) => {
-    if (r >= NROWS || c >= nc) return;
+    if (c >= nc || r > 999) return;
+    while (cells.length <= r) cells.push(Array(nc).fill(null));
     cells[r][c] = mk(content, cls, span);
     for (let k = 1; k < (span || 1) && c + k < nc; k++) cells[r][c + k] = false;
   };

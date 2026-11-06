@@ -41,13 +41,13 @@ function board() {
   const b = {};
   for (const [n, e] of Object.entries(LEGACY)) if (!ACC[n]) b[n] = e;
   for (const [n, a] of Object.entries(ACC)) b[n] = [a.chips + market.value(a.stk) - START * (a.rebuy || 0), a.t];   // 계좌 = 칩 + 주식 평가 − 충전
-  const keep = Object.entries(b).sort((x, y) => y[1][1] - x[1][1]).slice(0, 60);
+  const keep = Object.entries(b).sort((x, y) => y[1][1] - x[1][1]).slice(0, 300);
   boardC = Object.fromEntries(keep); boardAt = Date.now();
   return boardC;
 }
 function importBoard(src) {
   if (!src || typeof src !== "object") return;
-  for (const [n, e] of Object.entries(src).slice(0, 200)) {
+  for (const [n, e] of Object.entries(src).slice(0, 300)) {
     const k = String(n).slice(0, MAXNAME), v = Number(e && e[0]), t = Number(e && e[1]);
     if (badName(k) || ACC[k] || !Number.isFinite(v) || !Number.isFinite(t) || t > Date.now() + 864e5) continue;
     if (!LEGACY[k] || LEGACY[k][1] < t) { LEGACY[k] = [v, t]; dirty = true; boardAt = 0; }
