@@ -267,7 +267,7 @@ function runTo() {
     q.lb = { ...q.lb, to: { ...q.to } }; q.to = {};
   }
   H.to.last = { ...M, ...sim, hg, ag };
-  H.to.hist = [{ n: M.n, home: M.home, away: M.away, hg, ag }, ...H.to.hist].slice(0, 20);
+  H.to.hist = [{ n: M.n, home: M.home, away: M.away, hg, ag }, ...H.to.hist].slice(0, 9);   // 8 rows on the sheet + the match being shown
   H.to.until = Date.now() + TO_MS;
   H.to.next = toNext(M.n + 1);
   setTimeout(broadcast, TO_MS + 50);
@@ -881,7 +881,26 @@ function remove(id) {
   mgLeave(id); pkLeave(id); hdLeave(id); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast();
   emit({ sys: 1, k: "leave", name: q.name });
 }
+/* game records that outlive the players: saved by the server (data/rooms.json) and put back when the
+   room is made again (everyone left, or a restart). Each list keeps only as many rows as its sheet has. */
+function dump() {
+  const seat = m => ({ n: m.n, tot: m.tot, shots: m.shots, big: m.big, last: m.last });
+  return { bac: H.bac, rl: H.rl, bj: { n: H.bj.n, ds: H.bj.ds }, hd: { n: H.hd.n, log: H.hd.log }, chat: H.chat, cs: H.cs, skLog: H.skLog || [],
+    to: { hist: H.to.hist, last: H.to.last, n: H.to.next.n }, pk: H.pk.map(seat), sl: H.sl.map(seat) };
+}
+function load(d) {
+  if (!d || typeof d !== "object") return;
+  const arr = (a, n) => Array.isArray(a) ? a.slice(0, n) : [], num = v => Number.isFinite(v) && v >= 0 ? v : 0;
+  if (d.bac) { H.bac.rounds = arr(d.bac.rounds, 100); H.bac.n = num(d.bac.n); }
+  if (d.rl) { H.rl.hist = arr(d.rl.hist, 300); H.rl.n = num(d.rl.n); }
+  if (d.bj) { H.bj.n = num(d.bj.n); if (d.bj.ds && typeof d.bj.ds === "object") H.bj.ds = d.bj.ds; }
+  if (d.hd) { H.hd.n = num(d.hd.n); H.hd.log = arr(d.hd.log, 10); }
+  H.chat = arr(d.chat, 40); H.cs = num(d.cs); H.skLog = arr(d.skLog, 30);
+  if (d.to) { H.to.hist = arr(d.to.hist, 9); H.to.last = d.to.last || null; if (d.to.n > 1) H.to.next = toNext(num(d.to.n)); }
+  for (const g of ["pk", "sl"]) arr(d[g], PK_N).forEach((m, i) => { if (m) Object.assign(H[g][i], { n: num(m.n), tot: Number(m.tot) || 0, shots: num(m.shots), big: num(m.big), last: m.last || null }); });
+}
 return {
+  dump, load,
   get size() { return H.players.size; },
   has: id => H.players.has(id),
   players: () => [...H.players.values()],

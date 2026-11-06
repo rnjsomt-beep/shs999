@@ -64,17 +64,27 @@ function admSet(n, v) {
 
 /* ---------- rooms ---------- */
 const rooms = new Map();   // code -> { room, empty since }
+/* each room's game records (rounds, results, logs, chat), kept across empty rooms and restarts */
+const ROOMS = load("rooms.json") || {};
+let roomsJ = JSON.stringify(ROOMS);
+function saveRooms() {
+  for (const r of rooms.values()) { try { ROOMS[r.code] = r.dump(); } catch (e) { console.error("room dump", r.code, e); } }
+  const j = JSON.stringify(ROOMS); if (j === roomsJ) return;
+  try { fs.writeFileSync(file("rooms.json") + ".tmp", j); fs.renameSync(file("rooms.json") + ".tmp", file("rooms.json")); roomsJ = j; }
+  catch (e) { console.error("save failed rooms.json", e.message); }
+}
+setInterval(saveRooms, 5000);
 const ctx = { board, saw, admSet, GRACE, stock: k => market.get(k), skValue: market.value };
 function roomOf(code) {
   let r = rooms.get(code);
-  if (!r) { r = makeRoom(code, ctx); r.code = code; r.emptyAt = 0; rooms.set(code, r); }
+  if (!r) { r = makeRoom(code, ctx); r.code = code; r.emptyAt = 0; try { r.load(ROOMS[code]); } catch (e) { console.error("room load", code, e); } rooms.set(code, r); }
   return r;
 }
 setInterval(() => {
   const n = Date.now();
   for (const [code, r] of rooms) {
     try { r.tick(); } catch (e) { console.error("tick", code, e); }
-    if (r.size) r.emptyAt = 0; else if (!r.emptyAt) r.emptyAt = n; else if (n - r.emptyAt > 600000) rooms.delete(code);
+    if (r.size) r.emptyAt = 0; else if (!r.emptyAt) r.emptyAt = n; else if (n - r.emptyAt > 600000) { saveRooms(); rooms.delete(code); }
   }
 }, 1000);
 
@@ -148,5 +158,5 @@ setInterval(() => {
 server.listen(PORT, HOST, () => console.log("shs999 server on", HOST + ":" + PORT, "data", DATA));
 for (const s of ["SIGINT", "SIGTERM"]) process.on(s, () => {
   for (const r of rooms.values()) { try { r.shutdown(); } catch (e) { console.error("shutdown", e); } for (const p of r.players()) saw(p); }
-  dirty = true; save(); market.save(); process.exit(0);
+  dirty = true; save(); saveRooms(); market.save(); process.exit(0);
 });
