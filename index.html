@@ -428,7 +428,7 @@ const VIEWS = {
   rd: [26, ...Array(14).fill(48)],
   sk: [62, 96, 80, 70, 62, 104, 54, 78, 86, 62, 52, 52],
   rk: [34, 70, 84, 96, 116, 84],
-  cfg: [84, 96, 110, 260],
+  cfg: [84, 96, 110, 260, 150],
 };
 /* settings (per viewer): normal = real game names instead of the spreadsheet disguise, table = felt baccarat */
 let MODE = { normal: false, table: false };
@@ -2599,12 +2599,14 @@ PIPS[6] = [[0, 0], [100, 0], [0, 50], [100, 50], [0, 100], [100, 100]];
 PIPS[7] = [...PIPS[6], [50, 25]]; PIPS[8] = [...PIPS[7], [50, 75]];
 PIPS[9] = [[0, 0], [100, 0], [0, 33.3], [100, 33.3], [0, 66.7], [100, 66.7], [0, 100], [100, 100], [50, 50]];
 PIPS[10] = [[0, 0], [100, 0], [0, 33.3], [100, 33.3], [0, 66.7], [100, 66.7], [0, 100], [100, 100], [50, 16.7], [50, 83.3]];
-function cardFace(c, w) {
+// sqz: the squeeze card has no corner numbers — like a real squeeze you count the pips as they come into view
+const FIG = { 11: "♞", 12: "♛", 13: "♚" };
+function cardFace(c, w, sqz) {
   const d = el("div", "pc" + (isRed(c) ? " rd" : "")), r = rank(c), s = SUIT[Math.floor(c / 13)];
   d.style.setProperty("--cw", w + "px");
-  for (const k of ["tl", "br"]) { const i = el("div", "ix " + k); i.append(el("b", "", RK[r]), el("i", "", s)); d.append(i); }
+  if (!sqz) for (const k of ["tl", "br"]) { const i = el("div", "ix " + k); i.append(el("b", "", RK[r]), el("i", "", s)); d.append(i); }
   const a = el("div", "pa");
-  if (r > 10) { const f = el("div", "fc"); f.append(el("b", "", RK[r]), el("i", "", s)); a.append(f); }
+  if (r > 10) { const f = el("div", "fc"); f.append(el("b", "", sqz ? FIG[r] : RK[r]), el("i", "", s)); a.append(f); }
   else PIPS[r].forEach(([x, y]) => { const p = el("span", "pp" + (y > 50 ? " fl" : "") + (r === 1 ? " ace" : ""), s); p.style.left = x + "%"; p.style.top = y + "%"; a.append(p); });
   d.append(a);
   return d;
@@ -2709,7 +2711,7 @@ function drawFeltBac() {
     const cur = sq.seq[sq.k], c = sq.r[cur.s][cur.i], ov = el("div", "sqwrap");
     const big = el("div", "sqbig"), sz = Math.round(Math.min(190, innerWidth * .46, innerHeight * .34));
     const back = cardBack(sz); back.classList.add("cover");
-    big.append(cardFace(c, sz), back, el("div", "sqflap"));
+    big.append(cardFace(c, sz, true), back, el("div", "sqflap"));
     const ob = el("button", "", "전체 오픈"); ob.type = "button"; ob.onclick = () => sqEnd();
     ov.append(el("div", "sqt", (cur.s === "P" ? "PLAYER" : "BANKER") + " " + (cur.i + 1) + "번째 카드"), big,
       el("div", "", "가장자리를 잡고 끌어서 쬐기 · 다시 내리기 가능 · 끝까지 내리면 다른 쪽으로 · 탭 = 바로 오픈"), ob);
