@@ -1,24 +1,26 @@
 "use strict";
-/* 지뢰찾기 (view "ms", sheet 불량체크): one shared board per room, up to 4 players open it at the same time.
-   Every safe cell you reveal (flood fill included) is a point; stepping on a mine costs points and freezes you;
-   flags are scored when the board is done (right +3, wrong −3). Mines are placed after the first click, away from it. */
+/* 지뢰찾기 (view "ms", sheet 불량체크): one shared board per room, up to 4 players taking turns.
+   On your turn you open one cell (or a number whose flags are all placed, which opens its neighbours).
+   A mine knocks you out; missing your turn twice in a row does too. Last one standing wins — or, if the
+   board gets cleared, the survivor who opened the most cells. Flags can be placed any time, they're just notes.
+   Mines are placed after the first click, away from it. */
 const LEVELS = [
   { k: "초급", w: 9,  h: 9,  m: 10 },
   { k: "중급", w: 16, h: 16, m: 40 },
   { k: "고급", w: 30, h: 16, m: 99 },
 ];
-const MAXP = 4, BOOM = 10, FREEZE = 3000, FLAG_OK = 3, FLAG_BAD = 3;
+const MAXP = 4, TURN_MS = 15000, AFK_OUT = 2;
 
 function makeMs(api, rand = Math.random) {
-  let G = fresh(0);
+  let G = fresh(0), turnT = 0;
   function fresh(lv) {
     const L = LEVELS[lv];
     return { ph: "lobby", lv, w: L.w, h: L.h, m: L.m, mine: null, open: new Int8Array(L.w * L.h).fill(-1), by: new Int8Array(L.w * L.h).fill(-1),
-      flag: new Int8Array(L.w * L.h).fill(-1), pl: [], t0: 0, t1: 0, left: L.w * L.h - L.m, log: [] };
+      flag: new Int8Array(L.w * L.h).fill(-1), pl: [], turn: -1, until: 0, t0: 0, t1: 0, left: L.w * L.h - L.m, log: [], win: "" };
   }
-  const P = id => G.pl.find(p => p.id === id);
   const idx = id => G.pl.findIndex(p => p.id === id);
-  function log(s) { G.log.unshift(s); if (G.log.length > 5) G.log.length = 5; }
+  const alive = () => G.pl.filter(p => !p.out);
+  function log(s) { G.log.unshift(s); if (G.log.length > 6) G.log.length = 6; }
   function around(i, f) {
     const x = i % G.w, y = i / G.w | 0;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -48,35 +50,66 @@ function makeMs(api, rand = Math.random) {
     }
     return n;
   }
-  function hit(p, pi, cells) {
-    let gained = 0, boom = 0;
-    for (const i of cells) { const r = reveal(i, pi); if (r < 0) boom++; else gained += r; }
-    p.score += gained; p.cells += gained; G.left -= gained;
-    if (boom) { p.score -= BOOM * boom; p.booms += boom; p.frozen = Date.now() + FREEZE; log(p.id + " 지뢰 밟음 −" + BOOM * boom); }
-    if (G.left <= 0) finish();
+  /* ---------- turns ---------- */
+  function setTurn(pi) {
+    clearTimeout(turnT);
+    G.turn = pi; G.until = Date.now() + TURN_MS;
+    turnT = setTimeout(timeout, TURN_MS + 100);
+  }
+  function nextTurn() {
+    if (G.ph !== "play") return;
+    const n = G.pl.length;
+    for (let k = 1; k <= n; k++) { const j = (G.turn + k) % n; if (!G.pl[j].out) return setTurn(j); }
+    finish();
+  }
+  function timeout() {
+    if (G.ph !== "play") return;
+    const p = G.pl[G.turn];
+    if (p) {
+      p.miss++;
+      if (p.miss >= AFK_OUT) { p.out = "시간초과"; log(p.id + " 시간 초과 " + AFK_OUT + "회 — 탈락"); }
+      else log(p.id + " 시간 초과 — 차례 넘김");
+    }
+    if (!checkEnd()) nextTurn();
+    push();
+  }
+  /* game over when one player is left (of several), nobody is left, or every safe cell is open */
+  function checkEnd() {
+    const a = alive();
+    if (G.left <= 0 || !a.length || (G.pl.length > 1 && a.length === 1)) { finish(); return true; }
+    return false;
+  }
+  function move(p, pi, cells) {
+    let gained = 0, boom = false;
+    for (const i of cells) { const r = reveal(i, pi); if (r < 0) boom = true; else gained += r; }
+    p.cells += gained; G.left -= gained; p.miss = 0;
+    if (boom) { p.out = "지뢰"; log(p.id + " 지뢰를 밟아 탈락!"); }
+    else if (gained) log(p.id + " +" + gained + "칸");
+    if (!checkEnd()) nextTurn();
   }
   function finish() {
-    G.ph = "over"; G.t1 = Date.now();
-    for (let i = 0; i < G.flag.length; i++) {
-      const f = G.flag[i]; if (f < 0 || !G.pl[f]) continue;
-      if (G.mine[i]) { G.pl[f].score += FLAG_OK; G.pl[f].fok++; } else G.pl[f].score -= FLAG_BAD;
-    }
-    const rank = [...G.pl].sort((a, b) => b.score - a.score);
-    log("완료! 1위 " + (rank[0] ? rank[0].id + " " + rank[0].score + "점" : ""));
-    api.emit && api.emit({ ms: 1, k: "done", lv: LEVELS[G.lv].k, rank: rank.map(p => [p.id, p.score]), sec: Math.round((G.t1 - G.t0) / 1000) });
+    clearTimeout(turnT);
+    G.ph = "over"; G.t1 = Date.now(); G.turn = -1;
+    const a = alive(), cleared = G.left <= 0;
+    // ranking: survivors first (most cells), then the knocked out by how many cells they opened
+    const rank = [...G.pl].sort((x, y) => (!!x.out - !!y.out) || (y.cells - x.cells));
+    const w = a.length ? rank[0] : null;
+    G.win = w ? w.id : "";
+    log(w ? "🏆 " + w.id + " 승리" + (cleared ? " (판 완료 · " + w.cells + "칸)" : " (최후 생존)") : "전원 탈락");
+    api.emit && api.emit({ ms: 1, k: "done", lv: LEVELS[G.lv].k, win: G.win, rank: rank.map(p => [p.id, p.cells, p.out ? 1 : 0]), sec: Math.round((G.t1 - G.t0) / 1000) });
   }
 
   function handle(id, msg) {
-    const t = msg.t, p = P(id), pi = idx(id), now = Date.now();
+    const t = msg.t, pi = idx(id), p = G.pl[pi];
     if (t === "ms-join") {
-      if (p) { G.pl.splice(pi, 1); fixOwners(pi); if (!G.pl.length && G.ph !== "lobby") G = fresh(G.lv); return ""; }
+      if (p) { drop(pi); return ""; }
       if (G.ph !== "lobby") return "진행 중: 끝나면 참가할 수 있습니다";
       if (G.pl.length >= MAXP) return "정원 " + MAXP + "명 초과";
       G.pl.push(newP(id)); return "";
     }
     if (t === "ms-reset") {
-      if (G.ph === "play" && G.pl.length && !p) return "진행 중에는 참가자만 초기화할 수 있습니다";
-      if (G.ph === "play" && !msg.force) return "";
+      if (G.ph === "play" && (!p || !msg.force)) return "";
+      clearTimeout(turnT);
       const ids = G.pl.map(q => q.id), lv = Number.isInteger(msg.lv) && LEVELS[msg.lv] ? msg.lv : G.lv;
       G = fresh(lv); G.pl = ids.map(newP); return "";
     }
@@ -85,39 +118,51 @@ function makeMs(api, rand = Math.random) {
     if (t === "ms-ready") {
       if (G.ph !== "lobby") return "";
       p.ready = !p.ready;
-      if (G.pl.every(q => q.ready)) { G.ph = "play"; G.t0 = now; log(G.pl.length + "명 시작 · " + LEVELS[G.lv].k); }
+      if (G.pl.every(q => q.ready)) {
+        // random seat order, the first in it starts
+        for (let k = G.pl.length - 1; k > 0; k--) { const j = Math.floor(rand() * (k + 1)); [G.pl[k], G.pl[j]] = [G.pl[j], G.pl[k]]; }
+        G.ph = "play"; G.t0 = Date.now(); setTurn(0);
+        log(G.pl.length + "명 시작 · " + LEVELS[G.lv].k + " · 순서 " + G.pl.map(q => q.id).join(" → "));
+      }
       return "";
     }
     if (G.ph !== "play") return "";
     const i = msg.i;
     if (!Number.isInteger(i) || i < 0 || i >= G.w * G.h) return "";
     if (t === "ms-flag") {
-      if (G.open[i] >= 0) return "";
+      if (p.out || G.open[i] >= 0) return "";
       if (G.flag[i] === pi) G.flag[i] = -1; else if (G.flag[i] < 0) G.flag[i] = pi; else return "다른 사람 표시입니다";
       return "";
     }
-    if (p.frozen > now) return "";
     if (t === "ms-open") {
+      if (p.out) return "탈락했습니다 · 관전 중";
+      if (G.turn !== pi) return G.pl[G.turn].id + " 님 차례입니다";
+      if (G.flag[i] >= 0) return "표시된 칸입니다 (표시를 먼저 지우세요)";
       if (!G.mine) lay(i);
-      if (G.open[i] >= 0 && G.open[i] < 9) return chord(p, pi, i);
-      hit(p, pi, [i]); return "";
+      const v = G.open[i];
+      if (v >= 1 && v <= 8) {   // a number: open the rest around it when its flags are all placed
+        let f = 0; const todo = [];
+        around(i, j => { if (G.flag[j] >= 0 || G.open[j] === 9) f++; else if (G.open[j] < 0) todo.push(j); });
+        if (f !== v || !todo.length) return "주변 표시 수가 숫자와 맞아야 합니다";
+        move(p, pi, todo); return "";
+      }
+      if (v >= 0) return "";
+      move(p, pi, [i]); return "";
     }
-    if (t === "ms-chord") return chord(p, pi, i);
     return "";
   }
-  /* click on a number whose flags are all placed → open the rest around it */
-  function chord(p, pi, i) {
-    const v = G.open[i]; if (v < 1 || v > 8) return "";
-    let f = 0; const todo = [];
-    around(i, j => { if (G.flag[j] >= 0 || G.open[j] === 9) f++; else if (G.open[j] < 0) todo.push(j); });
-    if (f === v && todo.length) hit(p, pi, todo);
-    return "";
-  }
-  const newP = id => ({ id, score: 0, cells: 0, booms: 0, fok: 0, frozen: 0, ready: false });
-  /* a player left: their opened cells / flags keep their colour slot only if still valid */
-  function fixOwners(gone) {
-    const re = v => v === gone ? -1 : v > gone ? v - 1 : v;
+  const newP = id => ({ id, cells: 0, out: "", miss: 0, ready: false });
+  /* leaving: during a game it counts as dropping out; seat indices shift so cell colours and the turn are remapped */
+  function drop(pi) {
+    const wasTurn = G.ph === "play" && G.turn === pi;
+    G.pl.splice(pi, 1);
+    const re = v => v === pi ? -1 : v > pi ? v - 1 : v;
     for (let i = 0; i < G.by.length; i++) { G.by[i] = re(G.by[i]); if (G.flag[i] >= 0) G.flag[i] = re(G.flag[i]); }
+    if (!G.pl.length) { clearTimeout(turnT); if (G.ph !== "lobby") G = fresh(G.lv); return; }
+    if (G.ph !== "play") return;
+    if (G.turn > pi) G.turn--;
+    if (checkEnd()) return;
+    if (wasTurn) { G.turn = (pi - 1 + G.pl.length) % G.pl.length; nextTurn(); }
   }
   function frame() {
     const over = G.ph === "over", now = Date.now();
@@ -127,13 +172,13 @@ function makeMs(api, rand = Math.random) {
       b += o === 9 ? "*" : o >= 0 ? String(o) : G.flag[i] >= 0 ? (over && G.mine && !G.mine[i] ? "X" : "abcd"[G.flag[i]]) : over && G.mine && G.mine[i] ? "m" : ".";
     }
     return { t: "ms", ph: G.ph, lv: G.lv, w: G.w, h: G.h, m: G.m, left: G.left, b, by: Array.from(G.by, v => v < 0 ? "-" : String(v)).join(""),
-      sec: G.t0 ? Math.round(((over ? G.t1 : now) - G.t0) / 1000) : 0,
-      pl: G.pl.map(q => [q.id, q.score, q.cells, q.booms, Math.max(0, q.frozen - now), q.ready ? 1 : 0, q.fok]), log: G.log };
+      sec: G.t0 ? Math.round(((over ? G.t1 : now) - G.t0) / 1000) : 0, turn: G.turn, tl: G.ph === "play" ? Math.max(0, G.until - now) : 0, win: G.win,
+      pl: G.pl.map(q => [q.id, q.cells, q.out, q.miss, q.ready ? 1 : 0]), log: G.log };
   }
   function push(only) { const f = JSON.stringify(frame()); for (const id of only ? [only] : api.viewers()) api.sendRaw(id, f); }
   return {
     handle(id, msg) { const e = handle(id, msg); if (e) api.reply(id, e); push(); },
-    leave(id) { const pi = idx(id); if (pi < 0) return; G.pl.splice(pi, 1); fixOwners(pi); if (!G.pl.length && G.ph !== "lobby") G = fresh(G.lv); push(); },
+    leave(id) { const pi = idx(id); if (pi < 0) return; drop(pi); push(); },
     push,
     _G: () => G,
   };
