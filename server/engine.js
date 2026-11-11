@@ -4,6 +4,7 @@
    Player id = player name (one connection per name), so a reconnect picks the same seat back up. */
 const { webcrypto } = require("crypto");
 const makeZd = require("./zombie");
+const makeMs = require("./mine");
 const crypto = globalThis.crypto || webcrypto;
 const SPIN_MS = 3200;
 const EMO = ["🤡", "😜", "🫵", "🤣", "😭", "💸", "🥱", "👋"];
@@ -36,6 +37,7 @@ const VIEWS = {
   tw: [26, ...Array(21).fill(18)],
   rd: [26, ...Array(14).fill(48)],
   zd: [...Array(25).fill(21), 8, 64, 52, 40, 40, 40, 58, 40],
+  ms: [...Array(30).fill(18), 8, 70, 44, 40, 40, 40, 50],
   sk: [64],
   rk: [34, 70, 84, 96, 116, 84],
   cfg: [84, 96, 110, 260],
@@ -361,6 +363,7 @@ function hostHandle(id, msg) {
   if (p && msg.t === "rd-ready") { p.rdReady = !p.rdReady; rdReadyCheck(); broadcast(); return; }
   if (p && String(msg.t).startsWith("g-")) { mgHandle(id, msg); return; }
   if (p && String(msg.t).startsWith("zd-")) { ZD.handle(id, msg); return; }
+  if (p && String(msg.t).startsWith("ms-")) { MS.handle(id, msg); return; }
   if (!p) return;
   /* spectators watch a game without betting; the round no longer waits for them to be ready */
   const BET_G = { "bac-add": "bac", "rl-add": "rl", "bj-add": "bj", "bj-double": "bj", "to-add": "to", "hd-seat": "hd", "rebet": msg.g };
@@ -382,7 +385,7 @@ function hostHandle(id, msg) {
     p.ready[g] = false;
     checkReady(); broadcast(); return;
   }
-  if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; if (GAMES.includes(p.vw)) p.ready[p.vw] = false; if (p.vw === "pk" || p.vw === "sl") pkLeave(id); p.vw = msg.v; if (msg.v === "zd") ZD.push(id); }
+  if (msg.t === "view") { if (!VIEWS[msg.v] || p.vw === msg.v) return; if (GAMES.includes(p.vw)) p.ready[p.vw] = false; if (p.vw === "pk" || p.vw === "sl") pkLeave(id); p.vw = msg.v; if (msg.v === "zd") ZD.push(id); if (msg.v === "ms") MS.push(id); }
   else if (msg.t === "ready" && GAMES.includes(msg.g)) {
     if (msg.g === "bj" && H.bj.phase !== "bet") return;
     if (msg.g === "hd" && (H.hd.running || H.hd.phase !== "idle")) return;
@@ -906,6 +909,13 @@ function restore(p, a) {
 
 let H = fresh();
 const conns = new Map();   // player id(name) -> socket
+/* minesweeper: same idea, frames only when something changes */
+const MS = makeMs({
+  viewers: () => [...H.players].filter(([id, q]) => q.vw === "ms" && conns.has(id)).map(([id]) => id),
+  sendRaw: (id, s) => { const ws = conns.get(id); try { if (ws && ws.readyState === 1) ws.send(s); } catch {} },
+  reply: (id, m) => reply(id, m),
+  emit: ev => emit(ev),
+});
 /* zombie defense: its own 10/s frames go only to players looking at that sheet; every 10th round pays real chips */
 const ZD = makeZd({
   viewers: () => [...H.players].filter(([id, q]) => q.vw === "zd" && conns.has(id)).map(([id]) => id),
@@ -949,7 +959,7 @@ function remove(id) {
   refund(q);
   H.players.delete(id);
   ctx.saw(q, true);
-  ZD.leave(id); mgLeave(id); pkLeave(id); hdLeave(id); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast();
+  ZD.leave(id); MS.leave(id); mgLeave(id); pkLeave(id); hdLeave(id); bjMaybeFinish(); checkReady(); rdReadyCheck(); broadcast();
   emit({ sys: 1, k: "leave", name: q.name });
 }
 /* game records that outlive the players: saved by the server (data/rooms.json) and put back when the
@@ -984,7 +994,7 @@ return {
     const back = H.players.get(name);
     if (!back && H.players.size >= MAX) return "인원 초과: 최대 " + MAX + "명";
     conns.set(name, ws);
-    if (back) { back.off = 0; if (VIEWS[msg.v]) back.vw = msg.v; broadcast(); if (back.vw === "zd") setImmediate(() => ZD.push(name)); return ""; }
+    if (back) { back.off = 0; if (VIEWS[msg.v]) back.vw = msg.v; broadcast(); if (back.vw === "zd") setImmediate(() => ZD.push(name)); if (back.vw === "ms") setImmediate(() => MS.push(name)); return ""; }
     const np = newPlayer(name);
     restore(np, acc);
     if (VIEWS[msg.v]) np.vw = msg.v;
@@ -993,6 +1003,7 @@ return {
     for (const q of H.players.values()) q.ready = { bac: false, rl: false, bj: false, hd: false, to: false };
     checkReady(); broadcast();
     if (np.vw === "zd") setImmediate(() => ZD.push(name));
+    if (np.vw === "ms") setImmediate(() => MS.push(name));
     return "";
   },
   /* connection gone: keep the seat a little while so a refresh / network blip resumes the same game */

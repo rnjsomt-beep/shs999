@@ -374,6 +374,14 @@ canvas.sp{display:block;width:100%;height:15px}
 .grid td.zrd{text-align:center;font-family:var(--num);color:#b9bec6} .grid td.zrd.done{color:var(--muted);background:#f6f7f8}
 .grid td.zrd.now{outline:2px solid var(--accent);outline-offset:-2px;color:var(--fg);font-weight:700} .grid td.zrd.boss{color:var(--out);font-weight:700}
 .grid td.btn button:disabled{color:#b9bec6;cursor:default;background:var(--chrome)}
+.grid td.msc button{background:#e9ecef;border-right:1px solid #f8f9fa;border-bottom:1px solid #f8f9fa}
+.grid td.msc button:hover{background:#dde1e6}
+.grid td.msf0 button{color:#1d5fa8;font-weight:700} .grid td.msf1 button{color:#2f7d46;font-weight:700} .grid td.msf2 button{color:#b8860b;font-weight:700} .grid td.msf3 button{color:#8b4fbf;font-weight:700}
+.grid td.msn{font:700 11px var(--num);padding:0;cursor:default} .grid td.msn1{color:#1d5fa8} .grid td.msn2{color:#2f7d46} .grid td.msn3{color:#c92a2a} .grid td.msn4{color:#1b2a6b}
+.grid td.msn5{color:#7a1f1f} .grid td.msn6{color:#0b7285} .grid td.msn7{color:#212529} .grid td.msn8{color:#868e96}
+.grid td.mso0{background:#f1f6fd} .grid td.mso1{background:#f0f8f2} .grid td.mso2{background:#fcf7e8} .grid td.mso3{background:#f7f0fc}
+.grid td.msb{background:#e5484d;color:#fff;font-weight:700;padding:0} .grid td.msm{color:#495057;padding:0} .grid td.msx{color:#e5484d;font-weight:700;padding:0}
+.grid td.msp0{color:#1d5fa8} .grid td.msp1{color:#2f7d46} .grid td.msp2{color:#b8860b} .grid td.msp3{color:#8b4fbf}
 .grid td.zsec{background:var(--head);font-weight:700} .grid td.zpick{background:var(--sel)}
 </style>
 </head>
@@ -400,6 +408,7 @@ canvas.sp{display:block;width:100%;height:15px}
   <button type="button" role="tab" data-v="om" aria-selected="false">검수내역</button>
   <button type="button" role="tab" data-v="c4" aria-selected="false">이월</button>
   <button type="button" role="tab" data-v="tw" aria-selected="false">누계표</button>
+  <button type="button" role="tab" data-v="ms" aria-selected="false">불량체크</button>
   <button type="button" role="tab" data-v="rd" aria-selected="false">랜덤디펜스</button>
   <button type="button" role="tab" data-v="rk" aria-selected="false">실적평가</button>
   <button type="button" role="tab" data-v="cfg" aria-selected="false">설정</button>
@@ -439,6 +448,7 @@ const VIEWS = {
   tw: [26, ...Array(21).fill(18)],
   rd: [26, ...Array(14).fill(48)],
   zd: [...Array(25).fill(21), 8, 64, 52, 40, 40, 40, 58, 40],
+  ms: [...Array(30).fill(18), 8, 70, 44, 40, 40, 40, 50],
   sk: [62, 96, 80, 70, 62, 104, 54, 78, 86, 62, 52, 52],
   rk: [34, 70, 84, 96, 116, 84],
   cfg: [84, 96, 110, 260, 150],
@@ -446,7 +456,7 @@ const VIEWS = {
 /* settings (per viewer): normal = real game names instead of the spreadsheet disguise, table = felt baccarat */
 let MODE = { normal: false, table: false };
 try { Object.assign(MODE, JSON.parse(localStorage.getItem("xs-mode")) || {}); } catch {}
-const NTAB = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", pk: "빠칭코", sl: "슬롯", to: "토토", sk: "주식", ch: "체스", om: "오목", c4: "사목", tw: "탑쌓기", rd: "랜덤디펜스", zd: "좀비디펜스", rk: "랭킹", cfg: "설정", decoy: "품목마스터" };
+const NTAB = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", pk: "빠칭코", sl: "슬롯", to: "토토", sk: "주식", ch: "체스", om: "오목", c4: "사목", tw: "탑쌓기", rd: "랜덤디펜스", zd: "좀비디펜스", ms: "지뢰찾기", rk: "랭킹", cfg: "설정", decoy: "품목마스터" };
 const NRULE = [
   [/^2026 4Q 자재 집계$/, () => NTAB[view] || "카지노"], [/^2026 4Q 담당자 실적평가$/, "랭킹"],
   [/^BOM 대조표 \(L1\)$/, "체스"], [/^검수내역 대조$/, "오목"], [/^이월 정리$/, "사목 (4목)"], [/^적재 누계 \(L2\)$/, "탑 쌓기"],
@@ -671,6 +681,11 @@ function showEvent(m) {
     else if (m.sys) { el.className = "toast join"; el.append(m.k === "join" ? "👋 " : "🚪 ", a, m.k === "join" ? " 님이 입장했어요" : " 님이 나갔어요"); }
     else if (m.rd) { if (!rdToast(el, a, m)) return; }
     else if (m.zd) { if (!zdToast(el, a, m)) return; }
+    else if (m.ms) {
+      const rk = Array.isArray(m.rank) ? m.rank : [];
+      if (view !== "ms" && !rk.some(q => q[0] === myId)) return;
+      el.className = "toast special"; el.append("💣 지뢰찾기 " + String(m.lv || "") + " 완료 (" + (Number(m.sec) || 0) + "초) — " + rk.map((q, k) => (k + 1) + "위 " + String(q[0]).slice(0, 8) + " " + (Number(q[1]) || 0)).join(" · "));
+    }
     else {
       el.className = "toast " + (["allin", "big", "jackpot", "special"].includes(m.kind) ? m.kind : "");
       const n = document.createElement("b"); n.textContent = "+" + fmt(Number(m.net) || 0);
@@ -734,6 +749,7 @@ function connect() {
     else if (m.t === "you") { myId = m.id; roomCode = m.room; say("입장 완료"); $("saved").textContent = "저장됨"; }
     else if (m.t === "mk") mkUpdate(m);
     else if (m.t === "zd") zdFrame(m);
+    else if (m.t === "ms") msFrame(m);
     else if (m.t === "err") say(m.m, true);
     else if (m.t === "ips") { IPS = m.ips || {}; if (view === "cfg") render(); }
     else if (m.t === "event") showEvent(m);
@@ -1385,6 +1401,98 @@ function layoutZd(put) {
   put(29, P, "인원이 많을수록 좀비 수·체력 증가 · 25라운드부터 급격히 강해짐", "m", 7);
   zdPaint();
 }
+
+/* ---------- minesweeper (view "ms", sheet 불량체크): one shared board per room, up to 4 open it together ----------
+   the server sends {t:"ms"} whenever the board changes; tap = open (or flag in 표시 mode), right-click = flag */
+const MS_LV = ["초급 9×9 · 10", "중급 16×16 · 40", "고급 30×16 · 99"], MS_P = 31;
+let MS = null, msFlag = false, msRecv = 0, msTick = 0, msTop = null;
+const msMe = () => MS && MS.pl.findIndex(q => q[0] === myId);
+function msFrame(m) {
+  MS = m; msRecv = performance.now();
+  if (view === "ms") render();
+  // count my freeze down without waiting for the server
+  clearInterval(msTick);
+  const me = m.pl.find(q => q[0] === myId);
+  if (m.ph === "play") msTick = setInterval(() => { if (view === "ms") msPaintTop(); }, me && me[4] ? 250 : 1000);
+}
+function msPaintTop() {
+  const el = msTop; if (!el || !MS) return;
+  const m = MS, me = m.pl.find(q => q[0] === myId), late = (performance.now() - msRecv) / 1000;
+  const fz = me ? Math.max(0, me[4] / 1000 - late) : 0;
+  const sec = m.ph === "play" ? Math.floor(m.sec + late) : m.sec;
+  el.textContent = (m.ph === "lobby" ? "대기 중 · 참가 " + m.pl.length + "/4 · 전원 준비하면 시작" : m.ph === "over" ? "완료 · " + sec + "초" : "진행 " + sec + "초")
+    + "  ·  남은 칸 " + m.left + "  ·  불량 " + m.m + (fz > 0 ? "  ·  ⛔ " + fz.toFixed(1) + "초 정지" : "");
+  if (el.parentElement) el.parentElement.className = "b" + (fz > 0 ? " out" : "");
+}
+function layoutMs(put) {
+  const m = MS, emo = MODE.normal;
+  if (!m) { put(0, 0, "불러오는 중…", "m", 20); return; }
+  const top = msTop = document.createElement("span"); top.id = "ms-top";
+  put(0, 0, top, "b", Math.max(m.w, 20));
+  const mi = msMe(), me = mi >= 0 ? m.pl[mi] : null, play = m.ph === "play";
+  for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
+    const i = y * m.w + x, c = m.b[i], by = m.by[i];
+    if (c === "." || "abcd".includes(c)) {
+      const f = "abcd".indexOf(c);
+      const b = button(f >= 0 ? (emo ? "🚩" : "✓") : "", () => {
+        if (!play || mi < 0) return;
+        send({ t: msFlag ? "ms-flag" : "ms-open", i });
+      });
+      b.dataset.msi = i;
+      put(1 + y, x, b, "btn msc" + (f >= 0 ? " msf" + f : ""));
+    } else if (c === "*") put(1 + y, x, emo ? "💥" : "#", "c msb");
+    else if (c === "m") put(1 + y, x, emo ? "💣" : "●", "c msm");
+    else if (c === "X") put(1 + y, x, "×", "c msx");
+    else {
+      const sp = document.createElement("span"); sp.textContent = c === "0" ? "" : c; if (c !== "0") sp.dataset.msn = i;
+      put(1 + y, x, sp, "c msn msn" + c + (by !== "-" ? " mso" + by : ""));
+    }
+  }
+  /* panel */
+  const P = MS_P, lobby = m.ph === "lobby";
+  put(0, P, "참가", "zsec");
+  put(0, P + 1, button(me ? "나가기" : lobby ? "참가" : "진행 중", () => {
+    if (me && play && !confirm("나가면 이번 판 점수가 사라집니다. 나갈까요?")) return;
+    send({ t: "ms-join" });
+  }, !!me), "btn" + (me ? " out" : " in"), 2);
+  if (m.ph === "over") put(0, P + 3, button("다시하기", () => send({ t: "ms-reset" })), "btn hold", 2);
+  else if (lobby) put(0, P + 3, button((me && me[5] ? "준비 ✓ " : "준비 ") + m.pl.filter(q => q[5]).length + "/" + m.pl.length, () => send({ t: "ms-ready" }), !!(me && me[5])), "btn hold", 2);
+  else put(0, P + 3, button("포기", () => { if (me && confirm("이번 판을 끝내고 대기실로 갈까요?")) send({ t: "ms-reset", force: true }); }), "btn red", 2);
+  put(1, P, "난이도", "h");
+  MS_LV.forEach((t, k) => put(1, P + 1 + k * 2, button(t.split(" ")[0], () => lobby ? send({ t: "ms-lv", lv: k }) : m.ph === "over" && send({ t: "ms-reset", lv: k }), m.lv === k), "btn num", 2));
+  ["담당자", "점수", "칸", "불량", "표시", "상태"].forEach((t, j) => put(2, P + j, t, "h"));
+  for (let k = 0; k < 4; k++) {
+    const q = m.pl[k];
+    if (!q) { put(3 + k, P, "-", "m"); continue; }
+    put(3 + k, P, q[0] + (q[0] === myId ? " (나)" : ""), "b msp" + k);
+    put(3 + k, P + 1, String(q[1]), "n b"); put(3 + k, P + 2, String(q[2]), "n"); put(3 + k, P + 3, String(q[3]), "n out");
+    put(3 + k, P + 4, m.ph === "over" ? String(q[6]) : String([...m.b].filter(c => c === "abcd"[k]).length), "n");
+    put(3 + k, P + 5, lobby ? (q[5] ? "준비 ✓" : "대기") : q[4] > 0 ? "정지" : m.ph === "over" ? "" : "작업 중", "c m");
+  }
+  put(8, P, button(msFlag ? "✓ 표시 모드 (탭 = 표시)" : "열기 모드 (탭 = 열기)", () => { msFlag = !msFlag; render(); }, msFlag), "btn" + (msFlag ? " red" : ""), 4);
+  put(8, P + 4, "우클릭 = 표시", "m", 2);
+  (m.log || []).forEach((l, k) => put(10 + k, P, l, "m", 6));
+  if (m.ph === "over") {
+    const rank = [...m.pl].sort((a, b) => b[1] - a[1]);
+    put(16, P, "최종 순위", "zsec", 6);
+    rank.forEach((q, k) => put(17 + k, P, (k + 1) + "위  " + q[0] + "  " + q[1] + "점 (칸 " + q[2] + " · 불량 " + q[3] + " · 맞은 표시 " + q[6] + ")", k ? "" : "b in", 6));
+  }
+  put(22, P, "칸 열 때마다 +1 (연쇄 포함) · 불량(지뢰) 밟으면 −10 + 3초 정지", "m", 6);
+  put(23, P, "끝나면 표시 정답 +3 / 오답 −3 · 첫 칸은 항상 안전", "m", 6);
+  put(24, P, "숫자 칸을 누르면 주변 표시 수가 맞을 때 나머지를 한 번에 엶", "m", 6);
+  msPaintTop();
+}
+grid.addEventListener("click", e => {
+  if (view !== "ms" || !MS || MS.ph !== "play" || msMe() < 0) return;
+  const td = e.target.closest("td"), sp = td && td.querySelector("[data-msn]");
+  if (sp) send({ t: "ms-open", i: +sp.dataset.msn });
+});
+grid.addEventListener("contextmenu", e => {
+  if (view !== "ms" || !MS) return;
+  const td = e.target.closest("td"), b = td && td.querySelector("[data-msi]"); if (!b) return;
+  e.preventDefault();
+  if (MS.ph === "play" && msMe() >= 0) send({ t: "ms-flag", i: +b.dataset.msi });
+});
 
 /* ---------- grid helpers ---------- */
 let NAMET = new Map();
@@ -2486,7 +2594,7 @@ function layoutTo(put) {
     });
 }
 const TO_TEAMS = ["한강 FC", "낙동 유나이티드", "태백 레인저스", "제주 웨이브", "금강 타이거즈", "소백 이글스", "영산 드래곤즈", "동해 샤크스", "서해 마린스", "지리 울브스", "설악 베어스", "백두 스톰"];
-const LAYOUT = { pk: layoutPk, sl: layoutSl, to: layoutTo, sk: layoutSk, cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd, zd: layoutZd };
+const LAYOUT = { pk: layoutPk, sl: layoutSl, to: layoutTo, sk: layoutSk, cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd, zd: layoutZd, ms: layoutMs };
 const colName = i => i < 26 ? String.fromCharCode(65 + i) : "A" + String.fromCharCode(39 + i);
 
 /* roulette spin: when a new result arrives, run a highlight around the board in wheel order,

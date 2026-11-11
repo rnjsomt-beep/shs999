@@ -13,7 +13,7 @@ SRV=opc@161.33.208.220
 cd "$(dirname "$0")"
 
 echo "== 1. 코드 올리기 (data/ 는 그대로)"
-tar -cz engine.js zombie.js server.js market.js package.json Caddyfile shs999.service caddy-shs.service \
+tar -cz engine.js zombie.js mine.js server.js market.js package.json Caddyfile shs999.service caddy-shs.service \
   | ssh -i "$KEY" -o ConnectTimeout=15 $SRV 'mkdir -p ~/shs999 && tar xz -C ~/shs999'
 # 게임 화면도 서버에서 바로 열리게 (깃허브 페이지와 같은 파일)
 tar -cz -C .. index.html | ssh -i "$KEY" -o ConnectTimeout=15 $SRV 'mkdir -p ~/shs999/web && tar xz -C ~/shs999/web'
