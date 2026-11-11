@@ -364,6 +364,17 @@ canvas.sp{display:block;width:100%;height:15px}
 .grid td.tmh{color:#ff6b6b;font-weight:700;text-shadow:0 0 1px #000}
 .grid td.tma{color:#74c0fc;font-weight:700;text-shadow:0 0 1px #000}
 .grid td.tsc{font:700 14px var(--num)}
+.grid td.zm{text-align:center;padding:0;font:9px/17px var(--num);cursor:cell}
+.grid td.zz{color:var(--out)} .grid td.zz2{color:var(--out);font-weight:700;background:#fff1f0} .grid td.zb{color:#fff;background:#c9473f;font-weight:700}
+.grid td.zp{color:var(--in);font-weight:700;background:var(--sel);font-family:var(--ui)} .grid td.zme{outline:2px solid var(--accent);outline-offset:-2px}
+.grid td.zbar{background:#e4e6ea;color:#8a9099} .grid td.zwal{background:#ced2d8;color:#6b717a} .grid td.zmin{color:#c08a00}
+.grid td.zwir{color:#a0a6ae;background:repeating-linear-gradient(45deg,#fff 0 3px,#eceef1 3px 5px)} .grid td.ztur{background:#e7f0e9;color:var(--hold);font-weight:700}
+.grid td.zhs{background:#fff8db;color:#7a5b00;font-weight:700;text-align:center;cursor:cell} .grid td.zhs.zlow{background:#ffe3e0;color:var(--out)}
+.grid td.zhit{background:#ffe3e0} .grid td.zfl{background:#ffe8cc}
+.grid td.zrd{text-align:center;font-family:var(--num);color:#b9bec6} .grid td.zrd.done{color:var(--muted);background:#f6f7f8}
+.grid td.zrd.now{outline:2px solid var(--accent);outline-offset:-2px;color:var(--fg);font-weight:700} .grid td.zrd.boss{color:var(--out);font-weight:700}
+.grid td.btn button:disabled{color:#b9bec6;cursor:default;background:var(--chrome)}
+.grid td.zsec{background:var(--head);font-weight:700} .grid td.zpick{background:var(--sel)}
 </style>
 </head>
 <body>
@@ -380,6 +391,7 @@ canvas.sp{display:block;width:100%;height:15px}
   <button type="button" role="tab" data-v="rl" aria-selected="false">분석</button>
   <button type="button" role="tab" data-v="bj" aria-selected="false">정산</button>
   <button type="button" role="tab" data-v="hd" aria-selected="false">검토</button>
+  <button type="button" role="tab" data-v="zd" aria-selected="false">재고실사</button>
   <button type="button" role="tab" data-v="pk" aria-selected="false">설비가동</button>
   <button type="button" role="tab" data-v="sl" aria-selected="false">라인점검</button>
   <button type="button" role="tab" data-v="to" aria-selected="false">출하일정</button>
@@ -426,6 +438,7 @@ const VIEWS = {
   c4: [34, ...Array(7).fill(42)],
   tw: [26, ...Array(21).fill(18)],
   rd: [26, ...Array(14).fill(48)],
+  zd: [...Array(25).fill(21), 8, 64, 52, 40, 40, 40, 58, 40],
   sk: [62, 96, 80, 70, 62, 104, 54, 78, 86, 62, 52, 52],
   rk: [34, 70, 84, 96, 116, 84],
   cfg: [84, 96, 110, 260, 150],
@@ -433,7 +446,7 @@ const VIEWS = {
 /* settings (per viewer): normal = real game names instead of the spreadsheet disguise, table = felt baccarat */
 let MODE = { normal: false, table: false };
 try { Object.assign(MODE, JSON.parse(localStorage.getItem("xs-mode")) || {}); } catch {}
-const NTAB = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", pk: "빠칭코", sl: "슬롯", to: "토토", sk: "주식", ch: "체스", om: "오목", c4: "사목", tw: "탑쌓기", rd: "랜덤디펜스", rk: "랭킹", cfg: "설정", decoy: "품목마스터" };
+const NTAB = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", pk: "빠칭코", sl: "슬롯", to: "토토", sk: "주식", ch: "체스", om: "오목", c4: "사목", tw: "탑쌓기", rd: "랜덤디펜스", zd: "좀비디펜스", rk: "랭킹", cfg: "설정", decoy: "품목마스터" };
 const NRULE = [
   [/^2026 4Q 자재 집계$/, () => NTAB[view] || "카지노"], [/^2026 4Q 담당자 실적평가$/, "랭킹"],
   [/^BOM 대조표 \(L1\)$/, "체스"], [/^검수내역 대조$/, "오목"], [/^이월 정리$/, "사목 (4목)"], [/^적재 누계 \(L2\)$/, "탑 쌓기"],
@@ -635,6 +648,17 @@ function vipJoin(el, nameEl, t) {
   ban.append(sm, (VIP_ICON[t[2]] || "👑") + " " + nameEl.textContent + " 님 입장 " + (VIP_ICON[t[2]] || "👑"));
   document.body.append(ban); setTimeout(() => ban.remove(), 4500);
 }
+/* zombie defense news: rewards and a full clear go to everyone, the rest only to people on that sheet */
+function zdToast(el, a, m) {
+  const r = Number(m.r) || 0, names = Array.isArray(m.names) ? m.names.map(String).join(", ") : "";
+  if (m.k === "pay") { el.className = "toast big"; el.append("💰 ", a, " 님 좀비디펜스 " + r + "라운드 달성 · 칩 +" + fmt(Number(m.v) || 0)); return true; }
+  if (m.k === "clear") { el.className = "toast jackpot"; el.append("🏆 " + names + " — 좀비디펜스 50라운드 클리어!"); return true; }
+  if (view !== "zd") return false;
+  if (m.k === "fall") { el.className = "toast die"; el.append("💀 본사 함락 — " + r + "라운드"); return true; }
+  if (m.k === "boss") { el.className = "toast special"; el.append("⚠ " + r + "라운드 보스 '" + String(m.b || "") + "' 출현!"); return true; }
+  if (m.k === "bossdown") { el.className = "toast big"; el.append("🗡 보스 '" + String(m.b || "") + "' 처치" + (m.name ? " — " + String(m.name).slice(0, 8) : "")); return true; }
+  return false;
+}
 function showEvent(m) {
   const bac = m.g === GNAME.bac && !m.held;
   setTimeout(() => {
@@ -646,6 +670,7 @@ function showEvent(m) {
     if (vip) vipJoin(el, a, vip);
     else if (m.sys) { el.className = "toast join"; el.append(m.k === "join" ? "👋 " : "🚪 ", a, m.k === "join" ? " 님이 입장했어요" : " 님이 나갔어요"); }
     else if (m.rd) { if (!rdToast(el, a, m)) return; }
+    else if (m.zd) { if (!zdToast(el, a, m)) return; }
     else {
       el.className = "toast " + (["allin", "big", "jackpot", "special"].includes(m.kind) ? m.kind : "");
       const n = document.createElement("b"); n.textContent = "+" + fmt(Number(m.net) || 0);
@@ -708,6 +733,7 @@ function connect() {
     if (m.t === "state") { backoff = 0; S = m; render(); }
     else if (m.t === "you") { myId = m.id; roomCode = m.room; say("입장 완료"); $("saved").textContent = "저장됨"; }
     else if (m.t === "mk") mkUpdate(m);
+    else if (m.t === "zd") zdFrame(m);
     else if (m.t === "err") say(m.m, true);
     else if (m.t === "ips") { IPS = m.ips || {}; if (view === "cfg") render(); }
     else if (m.t === "event") showEvent(m);
@@ -1208,6 +1234,156 @@ function layoutRd(put) {
     }), "btn hold");
     put(41, 10, "판돈: " + (RD_STK[rdSi] > 1 ? RD_STK[rdSi] + "G" : RD_STK[rdSi] === 1 ? "보유 골드 전부" : "보유 골드 절반"), "m", 5);
   }
+}
+
+/* ---------- zombie defense (view "zd", sheet 재고실사): the server runs one shared map per room, up to 4 defenders ----------
+   frames {t:"zd"} arrive 10×/s while looking at the sheet; map cells are painted in place, the rest re-renders only when it changes */
+const ZD_W = 25, ZD_H = 17, ZD_HX = 11, ZD_HY = 7, ZD_PC = 26, ZD_ROUNDS = 50;
+// [name, dmg, rate, range, targets, price] — same table as server/zombie.js
+const ZD_GUNS = [["권총", 8, 2, 4, 1, 0], ["기관단총", 7, 6, 4, 1, 2000], ["산탄총", 14, 1.4, 3, 4, 6000], ["돌격소총", 16, 5, 6, 1, 15000],
+  ["저격총", 120, 0.8, 11, 1, 35000], ["경기관총", 30, 9, 6, 1, 80000], ["화염방사기", 30, 6, 3, 99, 160000], ["레일건", 500, 1, 14, 6, 400000]];
+// [name, css, hp, price, effect]
+const ZD_BUILDS = [["바리게이트", "bar", 300, 1500, "길막"], ["철벽", "wal", 1200, 6000, "길막·고내구"], ["철조망", "wir", 400, 2500, "감속·지속피해"], ["지뢰", "min", 0, 3000, "밟으면 폭발"],
+  ["기관총터렛", "tur", 400, 15000, "사거리5 연사"], ["화염터렛", "tur", 600, 40000, "주변 전체"], ["저격터렛", "tur", 500, 60000, "사거리12 강타"], ["수리", "fix", 0, 1000, "건물40%·본사+200"]];
+const ZD_BOSS = { 10: "덩치", 20: "울보", 30: "돌진자", 40: "거인", 50: "군주" };
+const ZD_EMO = ["🧟", "🏃", "🦍", "💣", "👹"];
+let ZD = null, zdPick = -1, zdEls = null, zdSig = "";
+const zdNum = v => v >= 10000 ? Math.floor(v / 1000) + "k" : v >= 1000 ? (v / 1000).toFixed(1) + "k" : String(v);
+const zdMe = () => ZD && ZD.pl.find(q => q[0] === myId);
+function zdFrame(m) {
+  ZD = m;
+  if (view !== "zd") return;
+  const me = zdMe(), g = me ? me[4] : 0;
+  const sig = [m.ph, m.r, m.over, zdPick, MODE.normal, m.pl.map(q => q[0] + q[3] + q[6] + q[7]).join(), ZD_GUNS.map(x => g >= x[5] ? 1 : 0).join(""), ZD_BUILDS.map(x => g >= x[3] ? 1 : 0).join(""), m.best && m.best.r].join("|");
+  if (sig !== zdSig || !zdEls) { zdSig = sig; render(); } else zdPaint();
+}
+function zdPaint() {
+  const E = zdEls, m = ZD; if (!E || !m) return;
+  const emo = MODE.normal;
+  const ph = m.ph === "lobby" ? "대기 중 · 참가 " + m.pl.length + "/4 · 참가자 전원 준비하면 시작"
+    : m.ph === "over" ? m.over
+    : m.ph === "build" ? "정비 " + m.tm + "초" : "진행 중 · 남은 " + (m.z.length + m.left);
+  const nb = Math.min(ZD_ROUNDS, Math.max(10, Math.ceil(Math.max(1, m.r) / 10) * 10));
+  E.top.textContent = (emo ? "좀비디펜스" : "재고실사") + " R" + (m.r || 0) + "/" + ZD_ROUNDS + "  ·  " + ph + "  ·  본사 " + fmt(m.hp) + "/" + fmt(m.hpMax)
+    + (m.bk ? "  ·  [" + m.bk + " 출현]" : "  ·  다음 특이품목 R" + nb + " " + ZD_BOSS[nb]);
+  E.top.parentElement.className = "b" + (m.hp < m.hpMax * 0.3 && m.ph === "wave" ? " out" : "");
+  /* map: players > zombies > buildings */
+  const zc = new Map(), pc = new Map(), sc = new Map(), fx = new Set(m.fx), fl = new Set(m.fl);
+  for (const z of m.z) {
+    const x = Math.round(z[0] / 10), y = Math.round(z[1] / 10);
+    if (z[3] === 4) { for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) zc.set((y + dy) * ZD_W + x + dx, dx || dy ? [0, 0, -1, 4] : z); continue; }
+    const k = y * ZD_W + x, o = zc.get(k); if (!o || (o[3] !== 4 && o[2] < z[2])) zc.set(k, z);
+  }
+  m.pl.forEach((q, i) => pc.set(q[2] * ZD_W + q[1], i));
+  for (const s of m.st) sc.set(s[1] * ZD_W + s[0], s);
+  for (let y = 0; y < ZD_H; y++) for (let x = 0; x < ZD_W; x++) {
+    const sp = E.map[y * ZD_W + x]; if (!sp) continue;
+    const td = sp.parentElement; if (!td) continue;
+    const k = y * ZD_W + x, pi = pc.get(k), z = zc.get(k), s = sc.get(k);
+    let t = "", cl = "zm";
+    if (pi != null) { const q = m.pl[pi]; t = emo ? "🙂" : q[0].slice(0, 2); cl += " zp" + (q[0] === myId ? " zme" : ""); }
+    else if (z) { t = z[2] < 0 ? "" : emo ? ZD_EMO[z[3]] : zdNum(z[2]); cl += z[3] === 4 ? " zb" : z[3] === 2 || z[3] === 3 ? " zz2" : " zz"; }
+    else if (s) { const B = ZD_BUILDS[s[2]]; t = emo ? { bar: "🧱", wal: "⬛", wir: "〰", min: "•", tur: "🔫" }[B[1]] : B[1] === "tur" ? "T" + (s[2] - 3) + (s[4] > 1 ? "+" + (s[4] - 1) : "") : B[1] === "min" ? "·" : zdNum(s[3]); cl += " z" + B[1]; }
+    if (fl.has(k)) cl += " zfl"; else if (fx.has(k)) cl += " zhit";
+    if (sp.textContent !== t) sp.textContent = t;
+    if (td.className !== cl) td.className = cl;
+  }
+  E.house[1].textContent = fmt(m.hp);
+  E.house.forEach(sp => sp.parentElement && (sp.parentElement.className = "zhs" + (m.hp < m.hpMax * 0.3 ? " zlow" : "")));
+  /* players */
+  for (let i = 0; i < 4; i++) {
+    const q = m.pl[i], R = E.pl[i];
+    R[0].textContent = q ? q[0] + (q[0] === myId ? " (나)" : "") : "-";
+    R[1].textContent = q ? ZD_GUNS[q[3]][0] : ""; R[2].textContent = q ? q[5] : ""; R[3].textContent = q ? fmt(q[4]) : "";
+    R[4].textContent = !q ? "" : m.ph === "lobby" ? (q[6] ? "준비 ✓" : "대기") : m.ph === "build" ? (q[7] ? "시작 ✓" : "정비") : "";
+  }
+  E.log.forEach((sp, i) => sp.textContent = m.log[i] || "");
+  const me = zdMe();
+  $("st-cnt").textContent = "개수: " + (m.z.length + m.left); $("st-sum").textContent = "합계: " + (me ? fmt(me[4]) : "-");
+}
+function zdClick(e) {
+  if (view !== "zd" || !ZD || !S) return;
+  const td = e.target.closest("td"), sp = td && td.querySelector("span[data-zx]"); if (!sp) return;
+  const x = +sp.dataset.zx, y = +sp.dataset.zy;
+  if (!zdMe()) return say("먼저 '참가'를 누르세요", true);
+  if (zdPick >= 0) send({ t: "zd-bd", b: zdPick, x, y });
+  else if (!sp.dataset.house) send({ t: "zd-go", x, y });
+}
+const ZD_DIR = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] };
+document.addEventListener("keydown", e => {
+  if (view !== "zd" || !S || !zdMe()) return;
+  const a = document.activeElement; if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA")) return;
+  const d = ZD_DIR[e.key] || ZD_DIR[String(e.key).toLowerCase()]; if (!d) return;
+  e.preventDefault(); send({ t: "zd-mv", dx: d[0], dy: d[1] });
+});
+function layoutZd(put) {
+  const sp = () => document.createElement("span");
+  const m = ZD;
+  if (!m) { zdEls = null; put(0, 0, "불러오는 중…", "m", 25); return; }
+  const E = zdEls = { top: sp(), map: [], house: [sp(), sp(), sp()], pl: [0, 1, 2, 3].map(() => [sp(), sp(), sp(), sp(), sp()]), log: [0, 1, 2, 3, 4, 5].map(sp) };
+  const me = zdMe(), g = me ? me[4] : -1, emo = MODE.normal;
+  put(0, 0, E.top, "b", ZD_W);
+  for (let y = 0; y < ZD_H; y++) for (let x = 0; x < ZD_W; x++) {
+    if (x >= ZD_HX && x < ZD_HX + 3 && y >= ZD_HY && y < ZD_HY + 3) {
+      if (x === ZD_HX) { const h = E.house[y - ZD_HY]; h.dataset.zx = 12; h.dataset.zy = 8; h.dataset.house = 1; put(1 + y, x, h, "zhs", 3); }
+      continue;
+    }
+    const s = sp(); s.dataset.zx = x; s.dataset.zy = y; E.map[y * ZD_W + x] = s; put(1 + y, x, s, "zm");
+  }
+  E.house[0].textContent = emo ? "🏠" : "본사"; E.house[2].textContent = emo ? "" : "재고";
+  /* round strip + best + log */
+  put(18, 0, "라운드", "h b", 3);
+  const b = m.best || { r: 0 };
+  put(18, 3, b.r ? "최고 기록 R" + b.r + (b.win ? " 클리어" : "") + " · " + (b.names || []).join(", ") : "최고 기록 없음", "m", 12);
+  put(18, 15, "10R마다 칩 +1,000만 · 50R 클리어 +1억", "m in", 10);
+  for (let i = 0; i < ZD_ROUNDS; i++) {
+    const r = i + 1;
+    put(19 + (i >= 25 ? 1 : 0), i % 25, ZD_BOSS[r] ? "B" : String(r), "zrd" + (r < m.r || (m.ph === "over" && r < m.r) ? " done" : "") + (r === m.r ? " now" : "") + (ZD_BOSS[r] ? " boss" : ""));
+  }
+  E.log.forEach((s, i) => put(21 + i, 0, s, "m", ZD_W));
+  /* panel: who's in */
+  const P = ZD_PC, n = Math.max(1, m.pl.length), lobby = m.ph === "lobby";
+  put(0, P, "참가", "zsec");
+  const canJoin = me || ((lobby || m.ph === "build") && m.pl.length < 4);
+  put(0, P + 1, button(me ? "나가기" : canJoin ? "참가" : "진행 중", () => {
+    if (me && !lobby && !confirm("나가면 이번 판 자금이 사라집니다. 나갈까요?")) return;
+    send({ t: "zd-join" });
+  }, !!me), "btn" + (me ? " out" : " in"), 2);
+  if (m.ph === "over") put(0, P + 3, button("다시하기", () => send({ t: "zd-reset" })), "btn hold", 2);
+  else if (lobby) put(0, P + 3, button((me && me[6] ? "준비 ✓ " : "준비 ") + m.pl.filter(q => q[6]).length + "/" + m.pl.length, () => send({ t: "zd-ready" }), !!(me && me[6])), "btn hold", 2);
+  else if (m.ph === "build") put(0, P + 3, button((me && me[7] ? "시작 ✓ " : "바로시작 ") + m.pl.filter(q => q[7]).length + "/" + m.pl.length, () => send({ t: "zd-skip" }), !!(me && me[7])), "btn hold", 2);
+  else put(0, P + 3, "웨이브 진행 중", "m", 2);
+  const cm = 1 + 0.5 * (n - 1), hm = 1 + 0.2 * (n - 1);
+  put(0, P + 5, "난이도", "h"); put(0, P + 6, "×" + (cm * hm).toFixed(1), "n b");
+  ["담당자", "품목", "처리", "보유금", "", "상태", ""].forEach((t, j) => put(1, P + j, t, "h"));
+  for (let i = 0; i < 4; i++) {
+    const R = E.pl[i], q = m.pl[i];
+    put(2 + i, P, R[0], q && q[0] === myId ? "in b" : ""); put(2 + i, P + 1, R[1], ""); put(2 + i, P + 2, R[2], "n"); put(2 + i, P + 3, R[3], "n hold", 2); put(2 + i, P + 5, R[4], "c m", 2);
+  }
+  /* guns */
+  ["총기", "공격력", "연사", "사거리", "관통", "가격", ""].forEach((t, j) => put(7, P + j, t, j ? "h" : "zsec"));
+  ZD_GUNS.forEach((x, i) => {
+    const r = 8 + i, own = me && me[3] >= i, cur = me && me[3] === i;
+    put(r, P, x[0], cur ? "in b" : ""); put(r, P + 1, String(x[1]), "n"); put(r, P + 2, String(x[2]), "n"); put(r, P + 3, String(x[3]), "n");
+    put(r, P + 4, x[4] >= 99 ? "범위" : String(x[4]), "n"); put(r, P + 5, x[5] ? fmt(x[5]) : "기본", "n");
+    const b = button(cur ? "장착" : own ? "보유" : "구매", () => send({ t: "zd-gun", i }), !!cur);
+    b.disabled = !me || own || g < x[5] || m.ph === "over" || lobby;
+    put(r, P + 6, b, "btn");
+  });
+  /* buildings */
+  ["건축", "내구", "효과", "", "", "가격", ""].forEach((t, j) => put(17, P + j, t, j ? "h" : "zsec"));
+  ZD_BUILDS.forEach((x, i) => {
+    const r = 18 + i, pk = zdPick === i ? " zpick" : "";
+    put(r, P, x[0], pk.trim()); put(r, P + 1, x[2] ? String(x[2]) : "-", "n" + pk); put(r, P + 2, x[4], "m" + pk, 3); put(r, P + 5, fmt(x[3]), "n" + pk);
+    const b = button(zdPick === i ? "선택됨" : "선택", () => { zdPick = zdPick === i ? -1 : i; render(); }, zdPick === i);
+    b.disabled = !me || g < x[3] || m.ph === "over" || lobby;
+    put(r, P + 6, b, "btn");
+  });
+  put(26, P, zdPick >= 0 ? "▶ " + ZD_BUILDS[zdPick][0] + " — 맵 칸을 눌러 설치 (같은 건물 위 = 강화 Lv5까지, 비용 ×Lv) · 다시 누르면 해제" : "칸 누르기 = 이동 · 방향키/WASD 이동 · 사거리 안 좀비 자동사격", "m", 7);
+  put(27, P, "R10 덩치 · R20 울보(소환) · R30 돌진자(벽 파괴) · R40 거인(재생) · R50 군주", "m", 7);
+  put(28, P, "처치 = 마지막 타격자 · 터렛 처치 = 설치자 · 클리어 보너스 전원 · 자금은 판마다 초기화", "m", 7);
+  put(29, P, "인원이 많을수록 좀비 수·체력 증가 · 25라운드부터 급격히 강해짐", "m", 7);
+  zdPaint();
 }
 
 /* ---------- grid helpers ---------- */
@@ -2310,7 +2486,7 @@ function layoutTo(put) {
     });
 }
 const TO_TEAMS = ["한강 FC", "낙동 유나이티드", "태백 레인저스", "제주 웨이브", "금강 타이거즈", "소백 이글스", "영산 드래곤즈", "동해 샤크스", "서해 마린스", "지리 울브스", "설악 베어스", "백두 스톰"];
-const LAYOUT = { pk: layoutPk, sl: layoutSl, to: layoutTo, sk: layoutSk, cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd };
+const LAYOUT = { pk: layoutPk, sl: layoutSl, to: layoutTo, sk: layoutSk, cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd, zd: layoutZd };
 const colName = i => i < 26 ? String.fromCharCode(65 + i) : "A" + String.fromCharCode(39 + i);
 
 /* roulette spin: when a new result arrives, run a highlight around the board in wheel order,
@@ -3065,6 +3241,7 @@ document.addEventListener("keydown", e => {
   else if (e.key === " " && view === "tw" && !(document.activeElement && document.activeElement.tagName === "INPUT")) { e.preventDefault(); twDrop(); }
   else if (e.key === "F9") { e.preventDefault(); if (S && view !== "decoy") send({ t: "ready", g: view }); }
 });
+grid.addEventListener("click", e => zdClick(e));
 grid.addEventListener("pointerdown", e => { if (view === "tw" && e.target.closest("td.twc")) twDrop(); });
 grid.addEventListener("click", e => {
   const td = e.target.closest("td"); if (!td) return;
