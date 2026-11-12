@@ -374,6 +374,13 @@ canvas.sp{display:block;width:100%;height:15px}
 .grid td.zrd{text-align:center;font-family:var(--num);color:#b9bec6} .grid td.zrd.done{color:var(--muted);background:#f6f7f8}
 .grid td.zrd.now{outline:2px solid var(--accent);outline-offset:-2px;color:var(--fg);font-weight:700} .grid td.zrd.boss{color:var(--out);font-weight:700}
 .grid td.btn button:disabled{color:#b9bec6;cursor:default;background:var(--chrome)}
+.grid td.gfcv{padding:0;vertical-align:top;background:#fff;overflow:visible}
+.grid td.gfg{padding:1px 2px}
+.gfbar{position:relative;height:15px;border:1px solid var(--line)}
+.gfbar .lb{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#5b616b;overflow:hidden;pointer-events:none}
+.gfbar .mk{position:absolute;top:-2px;bottom:-2px;width:3px;margin-left:-1px;background:#1f2328;display:none}
+.grid td.gfcur{background:#fff6d6}
+.grid td.gfbd{color:var(--in);font-weight:700} .grid td.gfeg{color:#fff;background:var(--in);font-weight:700} .grid td.gfdb{color:#fff;background:#c9473f}
 .grid td.msc button{background:#e9ecef;border-right:1px solid #f8f9fa;border-bottom:1px solid #f8f9fa}
 .grid td.msc button:hover{background:#dde1e6}
 .grid td.msf0 button{color:#1d5fa8;font-weight:700} .grid td.msf1 button{color:#2f7d46;font-weight:700} .grid td.msf2 button{color:#b8860b;font-weight:700} .grid td.msf3 button{color:#8b4fbf;font-weight:700}
@@ -410,6 +417,7 @@ canvas.sp{display:block;width:100%;height:15px}
   <button type="button" role="tab" data-v="c4" aria-selected="false">이월</button>
   <button type="button" role="tab" data-v="tw" aria-selected="false">누계표</button>
   <button type="button" role="tab" data-v="ms" aria-selected="false">불량체크</button>
+  <button type="button" role="tab" data-v="gf" aria-selected="false">물류동선</button>
   <button type="button" role="tab" data-v="rd" aria-selected="false">랜덤디펜스</button>
   <button type="button" role="tab" data-v="rk" aria-selected="false">실적평가</button>
   <button type="button" role="tab" data-v="cfg" aria-selected="false">설정</button>
@@ -450,6 +458,7 @@ const VIEWS = {
   rd: [26, ...Array(14).fill(48)],
   zd: [...Array(25).fill(21), 8, 64, 52, 40, 40, 40, 58, 40],
   ms: [...Array(30).fill(18), 8, 70, 44, 40, 40, 40, 50],
+  gf: [40, ...Array(11).fill(24), 8, 64, 58, 58, 58, 58],
   sk: [62, 96, 80, 70, 62, 104, 54, 78, 86, 62, 52, 52],
   rk: [34, 70, 84, 96, 116, 84],
   cfg: [84, 96, 110, 260, 150],
@@ -457,7 +466,7 @@ const VIEWS = {
 /* settings (per viewer): normal = real game names instead of the spreadsheet disguise, table = felt baccarat */
 let MODE = { normal: false, table: false };
 try { Object.assign(MODE, JSON.parse(localStorage.getItem("xs-mode")) || {}); } catch {}
-const NTAB = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", pk: "빠칭코", sl: "슬롯", to: "토토", sk: "주식", ch: "체스", om: "오목", c4: "사목", tw: "탑쌓기", rd: "랜덤디펜스", zd: "좀비디펜스", ms: "지뢰찾기", rk: "랭킹", cfg: "설정", decoy: "품목마스터" };
+const NTAB = { bac: "바카라", rl: "룰렛", bj: "블랙잭", hd: "홀덤", pk: "빠칭코", sl: "슬롯", to: "토토", sk: "주식", ch: "체스", om: "오목", c4: "사목", tw: "탑쌓기", rd: "랜덤디펜스", zd: "좀비디펜스", ms: "지뢰찾기", gf: "골프", rk: "랭킹", cfg: "설정", decoy: "품목마스터" };
 const NRULE = [
   [/^2026 4Q 자재 집계$/, () => NTAB[view] || "카지노"], [/^2026 4Q 담당자 실적평가$/, "랭킹"],
   [/^BOM 대조표 \(L1\)$/, "체스"], [/^검수내역 대조$/, "오목"], [/^이월 정리$/, "사목 (4목)"], [/^적재 누계 \(L2\)$/, "탑 쌓기"],
@@ -751,6 +760,7 @@ function connect() {
     else if (m.t === "mk") mkUpdate(m);
     else if (m.t === "zd") zdFrame(m);
     else if (m.t === "ms") msFrame(m);
+    else if (m.t === "gf") gfFrame(m);
     else if (m.t === "err") say(m.m, true);
     else if (m.t === "ips") { IPS = m.ips || {}; if (view === "cfg") render(); }
     else if (m.t === "event") showEvent(m);
@@ -1505,6 +1515,368 @@ grid.addEventListener("contextmenu", e => {
   const td = e.target.closest("td"), b = td && td.querySelector("[data-msi]"); if (!b) return;
   e.preventDefault();
   if (MS.ph === "play" && msMe() >= 0) send({ t: "ms-flag", i: +b.dataset.msi });
+});
+
+/* ---------- golf (view "gf", sheet 물류동선): server/golf.js runs the round, up to 4 players ----------
+   the player whose turn it is aims here (canvas click / arrows / Q·E clubs) and swings with Space twice;
+   everyone sees the aim line, the gauge and the shot. GF_CL / gfLie / gfZones / gfSpeed mirror server/golf.js */
+const GF_CL = [
+  { k: "DR", n: "드라이버", max: 235, sp: .75, z: .8 }, { k: "3W", n: "3번 우드", max: 215, sp: .78, z: .85 },
+  { k: "5I", n: "5번 아이언", max: 180, sp: .8, z: .95 }, { k: "7I", n: "7번 아이언", max: 155, sp: .8, z: 1 },
+  { k: "9I", n: "9번 아이언", max: 130, sp: .78, z: 1.05 }, { k: "PW", n: "피칭 웨지", max: 105, sp: .76, z: 1.1 },
+  { k: "SW", n: "샌드 웨지", max: 75, sp: .74, z: 1.15 }, { k: "PT", n: "퍼터", max: 45, sp: .6, z: 1.5 },
+];
+const GF_PT = 7, GF_LIE = { tee: "티박스", fair: "페어웨이", rough: "러프", green: "그린", bunker: "벙커", water: "해저드", ob: "OB" };
+const GF_COL = ["#1d5fa8", "#b4302a", "#2f7d46", "#8a4fb0"], GF_ARW = ["→", "↗", "↑", "↖", "←", "↙", "↓", "↘"], GF_P = 13;
+const GF_PAL = { fair: [205, 230, 192], tee: [186, 216, 172], rough: [235, 243, 229], green: [160, 206, 140], bunker: [248, 230, 198], water: [190, 215, 240], ob: [246, 246, 247] };
+const gfFx = (h, y) => h.amp * Math.sin(Math.PI * h.w * Math.max(0, Math.min(y, h.L)) / h.L);
+function gfLie(h, x, y) {
+  if (y < -22 || y > h.L + 34 || Math.abs(x - gfFx(h, y)) > 62) return "ob";
+  for (const w of h.water) if (w.t === "band" ? (y >= w.y0 && y <= w.y1) : Math.hypot(x - w.x, y - w.y) < w.r) return "water";
+  const dg = Math.hypot(x - h.gx, y - h.L);
+  if (dg < h.gr) return "green";
+  for (const b of h.bunk) if (Math.hypot(x - b.x, y - b.y) < b.r) return "bunker";
+  if (Math.abs(x) < 7 && y > -7 && y < 7) return "tee";
+  if (dg < h.gr + 4) return "fair";
+  if (h.fw && y > 55 && y < h.L && Math.abs(x - gfFx(h, y)) < h.fw) return "fair";
+  return "rough";
+}
+const gfMin = l => l === "tee" ? 0 : l === "bunker" ? 2 : 1;
+function gfZones(ci, l) { const z = GF_CL[ci].z * (l === "rough" ? .8 : l === "bunker" ? .62 : 1); return { P: .07 * z, Gd: Math.min(.3 * z, .55), B: Math.min(.62 * z, .86) }; }
+function gfSpeed(ci, l, ws) { const c = GF_CL[ci]; return c.sp * (1 + ws * (c.k === "PT" ? .03 : .085)) * (l === "bunker" ? 1.1 : 1); }
+function gfAuto(l, d) { if (l === "green") return GF_PT; const mc = gfMin(l); for (let k = GF_PT - 1; k >= mc; k--) if (GF_CL[k].max >= d * .98) return k; return mc; }
+const gfDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const gfPm = v => v === 0 ? "E" : v > 0 ? "+" + v : "" + v;
+
+let GF = null, gfLoc = null, gfAn = null, gfSw = 0, gfRecv = 0, gfHitAt = 0, gfRaf = 0, gfAimT = 0, gfTop = null, gfBarEl = null;
+const gfIMG = new Map();
+const gfH = () => GF && GF.holes[GF.hi];
+const gfCur = () => GF && GF.pl.find(q => q.id === GF.cur);
+const gfMe = () => GF && GF.pl.find(q => q.id === myId);
+const gfMine = () => !!GF && GF.ph === "play" && GF.cur === myId;
+const gfAim = () => gfLoc || (GF && GF.aim);
+const gfPutting = () => { const c = gfCur(); return !!c && c.lie === "green"; };
+function gfCanvas(W, Hh) {
+  const cv = document.createElement("canvas"), dpr = window.devicePixelRatio || 1;
+  cv.width = W * dpr; cv.height = Hh * dpr; cv.style.width = W + "px"; cv.style.height = Hh + "px"; cv.style.display = "block"; cv.style.cursor = "crosshair";
+  cv._dpr = dpr; cv._W = W; cv._H = Hh;
+  cv.addEventListener("click", ev => { const r = cv.getBoundingClientRect(); if (cv._cam) gfTarget(cv._cam.from(ev.clientX - r.left, ev.clientY - r.top)); });
+  return cv;
+}
+let gfCvB = null, gfCvP = null;
+
+function gfFrame(m) {
+  const mineAim = m.ph === "play" && m.cur === myId && m.sp === "aim";
+  if (!mineAim) gfLoc = null;
+  else if (!gfLoc || !GF || GF.cur !== myId || GF.hi !== m.hi) { gfLoc = { ...m.aim, man: false }; if (navigator.vibrate) navigator.vibrate(40); }
+  if (m.an) { if (!gfAn || gfAn.seq !== m.an.seq) gfAn = { ...m.an, t0: performance.now() - m.an.age }; }
+  else gfAn = null;
+  gfSw = m.swAge >= 0 ? performance.now() - m.swAge : 0;
+  if (m.sp !== "swing") gfHitAt = 0;
+  GF = m; gfRecv = performance.now();
+  if (view === "gf") render();
+  if (!gfRaf) gfRaf = requestAnimationFrame(gfTick);
+}
+function gfTarget(t) {
+  if (!gfMine() || GF.sp !== "aim" || !gfLoc) return;
+  const me = gfCur();
+  gfLoc.x = t.x; gfLoc.y = t.y;
+  if (!gfLoc.man) gfLoc.ci = gfAuto(me.lie, gfDist(me, t));
+  gfSendAim(); render();
+}
+function gfSendAim(now) {
+  clearTimeout(gfAimT);
+  const f = () => gfLoc && send({ t: "gf-aim", x: Math.round(gfLoc.x * 100) / 100, y: Math.round(gfLoc.y * 100) / 100, ci: gfLoc.ci });
+  if (now) f(); else gfAimT = setTimeout(f, 120);
+}
+function gfRot(deg) {
+  if (!gfMine() || GF.sp !== "aim" || !gfLoc) return;
+  const p = gfCur(); if (p.lie === "green") deg /= 3;
+  const dx = gfLoc.x - p.x, dy = gfLoc.y - p.y, a = deg * Math.PI / 180;
+  gfTarget({ x: p.x + dx * Math.cos(a) - dy * Math.sin(a), y: p.y + dx * Math.sin(a) + dy * Math.cos(a) });
+}
+function gfFar(dd) {
+  if (!gfMine() || GF.sp !== "aim" || !gfLoc) return;
+  const p = gfCur(); if (p.lie === "green") dd /= 5;
+  const d = gfDist(p, gfLoc) || 1, k = Math.max(.5, d + dd) / d;
+  gfTarget({ x: p.x + (gfLoc.x - p.x) * k, y: p.y + (gfLoc.y - p.y) * k });
+}
+function gfClub(k) {
+  if (!gfMine() || GF.sp !== "aim" || !gfLoc) return;
+  const p = gfCur(); if (p.lie === "green") return;
+  gfLoc.ci = Math.max(gfMin(p.lie), Math.min(GF_PT, gfLoc.ci + k)); gfLoc.man = true; gfSendAim(); render();
+}
+function gfM() {
+  if (!GF) return 0;
+  if (GF.sp === "swing" && gfSw) { const p = gfCur(), a = gfAim(); return Math.sin((performance.now() - gfSw) / 1000 * Math.PI * 2 / 1.7 * gfSpeed(a.ci, p.lie, GF.wind.s) + GF.swPh); }
+  return gfAn ? gfAn.e : 0;
+}
+function gfSwing() {
+  if (!GF) return;
+  if (GF.ph === "play" && GF.sp === "hole" && gfMe()) return send({ t: "gf-next" });
+  if (!gfMine()) return;
+  if (GF.sp === "aim") { gfSendAim(true); send({ t: "gf-swing" }); }
+  else if (GF.sp === "swing" && !gfHitAt) { gfHitAt = performance.now(); send({ t: "gf-hit", e: Math.round(gfM() * 1000) / 1000 }); }
+}
+function gfBall() {
+  const a = gfAn; if (!a) return null;
+  const t = (performance.now() - a.t0) / 1000;
+  if (t < a.fly) { const s = t / a.fly, u = 1 - s; return { x: u * u * a.P0.x + 2 * u * s * a.ctrl.x + s * s * a.land.x, y: u * u * a.P0.y + 2 * u * s * a.ctrl.y + s * s * a.land.y, z: 4 * s * u * a.carry * .13 * a.ht }; }
+  const s = Math.min(1, (t - a.fly) / a.roll), e = a.put ? 1 - Math.pow(1 - s, 2.2) : 1 - (1 - s) * (1 - s);
+  return { x: a.land.x + (a.end.x - a.land.x) * e, y: a.land.y + (a.end.y - a.land.y) * e, z: 0 };
+}
+/* ---- canvas drawing ---- */
+function gfImg(h) {
+  const key = h.i + ":" + h.L + ":" + h.amp + ":" + h.pin.x;
+  if (gfIMG.has(key)) return gfIMG.get(key);
+  if (gfIMG.size > 20) gfIMG.clear();
+  const K = 2, x0 = h.xmin, y1 = h.ymax, W = Math.ceil((h.xmax - h.xmin) * K), Hh = Math.ceil((h.ymax - h.ymin) * K);
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = Hh;
+  const x = cv.getContext("2d"), id = x.createImageData(W, Hh);
+  for (let j = 0; j < Hh; j++) for (let i = 0; i < W; i++) {
+    const wx = x0 + (i + .5) / K, wy = y1 - (j + .5) / K, l = gfLie(h, wx, wy), c = GF_PAL[l], o = (j * W + i) * 4, sh = l === "fair" && Math.floor(wy / 12) % 2 ? -8 : 0;
+    id.data[o] = c[0] + sh; id.data[o + 1] = c[1] + sh; id.data[o + 2] = c[2] + sh; id.data[o + 3] = 255;
+  }
+  x.putImageData(id, 0, 0); gfIMG.set(key, cv); return cv;
+}
+function gfBounds(h) {
+  if (h.xmin === undefined) { let a = 1e9, b = -1e9; for (let y = 0; y <= h.L; y += 5) { a = Math.min(a, gfFx(h, y) - 64); b = Math.max(b, gfFx(h, y) + 64); } h.xmin = a; h.xmax = b; h.ymin = -25; h.ymax = h.L + 38; }
+}
+function gfCam(W, Hh, cx, cy, s) { const e = W / 2 - s * cx, f = Hh / 2 + s * cy; return { s, M: [s, 0, 0, -s, e, f], to: (x, y) => [s * x + e, -s * y + f], from: (X, Y) => ({ x: (X - e) / s, y: (f - Y) / s }) }; }
+function gfFlag(ctx, a, b, r) {
+  ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(a, b, r, 0, 7); ctx.fill();
+  ctx.strokeStyle = "#333"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(a, b - 16); ctx.stroke();
+  ctx.fillStyle = "#d33"; ctx.beginPath(); ctx.moveTo(a, b - 16); ctx.lineTo(a + 9, b - 13); ctx.lineTo(a, b - 10); ctx.fill();
+}
+function gfBallDraw(ctx, k, a, b, z, s, label, cur) {
+  const col = GF_COL[k % 4];
+  if (z > 0) { ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.arc(a, b, 3, 0, 7); ctx.fill(); }
+  const rz = 3.5 + Math.min(z * .12, 5), by = b - Math.min(z * s * .5, 60);
+  ctx.fillStyle = "#fff"; ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(a, by, rz, 0, 7); ctx.fill(); ctx.stroke();
+  if (cur) { ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(a, by, rz + 4 + Math.sin(performance.now() / 200) * 1.5, 0, 7); ctx.stroke(); }
+  ctx.fillStyle = col; ctx.font = "bold 10px 'Malgun Gothic',sans-serif"; ctx.fillText(label, a + 7, by - 5);
+}
+function gfAimLine(ctx, S, from, to) {
+  const [a, b] = S(from.x, from.y), [c, d] = S(to.x, to.y);
+  ctx.setLineDash([4, 3]); ctx.strokeStyle = "#2f6fb2"; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(c, d, 7, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.arc(c, d, 2, 0, 7); ctx.stroke();
+}
+function gfDrawMain() {
+  const cv = gfCvB, h = gfH(); if (!cv || !h) return;
+  gfBounds(h);
+  const W = cv._W, Hh = cv._H, ctx = cv.getContext("2d");
+  const s = Math.min((W - 10) / (h.xmax - h.xmin), (Hh - 10) / (h.ymax - h.ymin));
+  const cam = cv._cam = gfCam(W, Hh, (h.xmin + h.xmax) / 2, (h.ymin + h.ymax) / 2, s), S = cam.to;
+  ctx.setTransform(cv._dpr, 0, 0, cv._dpr, 0, 0); ctx.fillStyle = "#fafafa"; ctx.fillRect(0, 0, W, Hh);
+  ctx.save(); ctx.transform(...cam.M); ctx.transform(.5, 0, 0, -.5, h.xmin, h.ymax); ctx.drawImage(gfImg(h), 0, 0); ctx.restore();
+  ctx.strokeStyle = "rgba(0,0,0,.07)"; ctx.fillStyle = "#9aa0a8"; ctx.font = "9px Consolas,monospace"; ctx.lineWidth = 1;
+  for (let y = 0; y <= h.L + 30; y += 50) { const [x0, y0] = S(h.xmin, y), [x1] = S(h.xmax, y); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.stroke(); ctx.fillText(y + "y", 2, y0 - 2); }
+  for (const sx of [-6, 6]) { const [a, b] = S(sx, 0); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(a, b, 2.2, 0, 7); ctx.fill(); ctx.strokeStyle = "#555"; ctx.stroke(); }
+  { const [a, b] = S(h.pin.x, h.pin.y); gfFlag(ctx, a, b, 2); }
+  const cur = gfCur(), aim = gfAim();
+  if (cur && aim && (GF.sp === "aim" || GF.sp === "swing") && cur.lie !== "green") gfAimLine(ctx, S, cur, aim);
+  const fly = gfBall();
+  if (gfAn && !gfAn.put) {
+    const an = gfAn, lim = Math.min(1, (performance.now() - an.t0) / 1000 / an.fly);
+    ctx.strokeStyle = "rgba(31,35,40,.55)"; ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let i = 0; i <= 30 * lim; i++) { const t = i / 30, u = 1 - t, [X, Y] = S(u * u * an.P0.x + 2 * u * t * an.ctrl.x + t * t * an.land.x, u * u * an.P0.y + 2 * u * t * an.ctrl.y + t * t * an.land.y); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
+    ctx.stroke();
+  }
+  GF.pl.forEach((q, k) => {
+    if (q.done) return;
+    const mov = fly && gfAn.by === q.id, pos = mov ? fly : q, [a, b] = S(pos.x, pos.y);
+    gfBallDraw(ctx, k, a, b, mov ? fly.z : 0, s, q.id, q.id === GF.cur && GF.sp !== "fly");
+  });
+  ctx.fillStyle = "#fff"; ctx.strokeStyle = "#c8ccd2"; ctx.fillRect(W - 66, 6, 60, 40); ctx.strokeRect(W - 66, 6, 60, 40);
+  ctx.save(); ctx.translate(W - 36, 20); ctx.rotate(-GF.wind.a); ctx.strokeStyle = ctx.fillStyle = "#2f6fb2"; ctx.lineWidth = 2;
+  const L = 10 + GF.wind.s * 1.6; ctx.beginPath(); ctx.moveTo(-L / 2, 0); ctx.lineTo(L / 2, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(L / 2 + 4, 0); ctx.lineTo(L / 2 - 3, -4); ctx.lineTo(L / 2 - 3, 4); ctx.fill(); ctx.restore();
+  ctx.fillStyle = "#444"; ctx.font = "10px Consolas,monospace"; ctx.fillText(GF.wind.s.toFixed(1) + "m/s", W - 60, 40);
+}
+/* 차트 2: only the green, zoomed so every ball on it and the cup fit; shown while someone is putting */
+function gfDrawPutt() {
+  const cv = gfCvP, h = gfH(); if (!cv || !h || !cv.isConnected) return;
+  const W = cv._W, Hh = cv._H, ctx = cv.getContext("2d");
+  const on = GF.pl.filter(q => !q.done && q.lie === "green").map(q => ({ x: q.x, y: q.y })).concat([h.pin]);
+  const x0 = Math.min(...on.map(q => q.x)), x1 = Math.max(...on.map(q => q.x)), y0 = Math.min(...on.map(q => q.y)), y1 = Math.max(...on.map(q => q.y));
+  const R = Math.min(h.gr + 7, Math.max(5, (x1 - x0) / 2 + 3, ((y1 - y0) / 2 + 3) * W / Hh)), s = W / (2 * R), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const cam = cv._cam = gfCam(W, Hh, cx, cy, s), S = cam.to;
+  ctx.setTransform(cv._dpr, 0, 0, cv._dpr, 0, 0); ctx.fillStyle = "rgb(235,243,229)"; ctx.fillRect(0, 0, W, Hh);
+  const circ = (x, y, r, col) => { const [a, b] = S(x, y); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(a, b, r * s, 0, 7); ctx.fill(); };
+  for (const w of h.water) if (w.t === "pond") circ(w.x, w.y, w.r, "rgb(190,215,240)");
+  circ(h.gx, h.L, h.gr + 4, "rgb(205,230,192)");
+  for (const b of h.bunk) circ(b.x, b.y, b.r, "rgb(248,230,198)");
+  circ(h.gx, h.L, h.gr, "rgb(160,206,140)");
+  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1;
+  for (let x = Math.floor(cx - W / s); x <= cx + W / s; x++) { const [a] = S(x, 0); ctx.beginPath(); ctx.moveTo(a, 0); ctx.lineTo(a, Hh); ctx.stroke(); }
+  for (let y = Math.floor(cy - Hh / s); y <= cy + Hh / s; y++) { const [, b] = S(0, y); ctx.beginPath(); ctx.moveTo(0, b); ctx.lineTo(W, b); ctx.stroke(); }
+  ctx.strokeStyle = "rgba(0,0,0,.12)"; ctx.setLineDash([2, 3]);
+  for (const r of [3, 6, 10]) { const [a, b] = S(h.pin.x, h.pin.y); ctx.beginPath(); ctx.arc(a, b, r * s, 0, 7); ctx.stroke(); ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.font = "9px Consolas,monospace"; ctx.fillText(r + "y", a + r * s + 2, b); }
+  ctx.setLineDash([]);
+  { const [a, b] = S(h.pin.x, h.pin.y); gfFlag(ctx, a, b, Math.max(3, s * .25)); }
+  const cur = gfCur(), aim = gfAim();
+  if (cur && aim && (GF.sp === "aim" || GF.sp === "swing")) gfAimLine(ctx, S, cur, aim);
+  const fly = gfBall();
+  GF.pl.forEach((q, k) => {
+    if (q.done) return;
+    const mov = fly && gfAn.by === q.id, pos = mov ? fly : q, [a, b] = S(pos.x, pos.y);
+    if (a < -10 || b < -10 || a > W + 10 || b > Hh + 10) return;
+    gfBallDraw(ctx, k, a, b, mov ? fly.z : 0, s, q.id + " " + gfDist(pos, h.pin).toFixed(1) + "y", q.id === GF.cur && GF.sp !== "fly");
+  });
+}
+function gfTick() {
+  gfRaf = 0;
+  if (view !== "gf" || !GF) return;
+  if (GF.ph !== "lobby") {
+    gfDrawMain(); gfDrawPutt();
+    if (gfBarEl) { const mk = gfBarEl.lastChild; mk.style.left = ((gfM() + 1) / 2 * 100) + "%"; mk.style.display = GF.sp === "swing" || GF.sp === "fly" || GF.sp === "wait" && gfAn ? "block" : "none"; }
+  }
+  if (gfTop) gfTopText();
+  gfRaf = requestAnimationFrame(gfTick);
+}
+function gfTopText() {
+  const m = GF, late = performance.now() - gfRecv, tl = Math.max(0, Math.ceil((m.tl - late) / 1000)), mine = gfMine();
+  let t;
+  if (m.ph === "lobby") t = "대기 중 · 참가 " + m.pl.length + "/4 · 전원 준비하면 시작 (첫 홀 순서는 무작위)";
+  else if (m.ph === "over") t = m.msg;
+  else if (m.sp === "hole") t = "홀 종료 · " + tl + "초 뒤 다음 홀";
+  else if (m.sp === "fly" || m.sp === "wait") t = gfAn ? "▶ " + gfAn.by + " — " + gfAn.kind + (gfAn.kind === "삑!" ? " 🙀" : "") : m.msg;
+  else t = (mine ? "▶ 내 차례" : "▶ " + m.cur + " 차례") + (m.sp === "swing" ? " · 스윙 중 — 가운데서 눌러!" : " · 조준") + " · " + tl + "초";
+  if (gfTop.textContent !== t) gfTop.textContent = t;
+  const cls = mine ? (tl < 10 ? "b out" : "b in") : "b";
+  if (gfTop.parentElement && gfTop.parentElement.className !== cls) gfTop.parentElement.className = cls;
+}
+function gfBar(ci, l) {
+  const z = gfZones(ci, l), p = v => ((v + 1) / 2 * 100).toFixed(1) + "%", c = ["#e3e5e9", "#f8c9b0", "#fbe79a", "#9fd08a"];
+  const st = [[-1, 0], [-z.B, 1], [-z.Gd, 2], [-z.P, 3], [z.P, 2], [z.Gd, 1], [z.B, 0]];
+  let g = [], prev = c[0];
+  for (const [v, k] of st) { g.push(prev + " " + p(v), c[k] + " " + p(v)); prev = c[k]; }
+  g.push(prev + " 100%");
+  const pt = l === "green", el = document.createElement("div"); el.className = "gfbar";
+  el.style.background = "linear-gradient(to right," + g.join(",") + ")";
+  [["삑", -1, -z.B], [pt ? "당김" : "훅", -z.B, -z.Gd], [pt ? "왼쪽" : "드로우", -z.Gd, -z.P], ["퍼펙트", -z.P, z.P], [pt ? "오른쪽" : "페이드", z.P, z.Gd], [pt ? "밀림" : "슬라이스", z.Gd, z.B], ["삑", z.B, 1]]
+    .forEach(([t, a, b]) => { const s = document.createElement("span"); s.className = "lb"; s.style.left = p(a); s.style.width = ((b - a) / 2 * 100).toFixed(1) + "%"; s.textContent = t; el.append(s); });
+  const mk = document.createElement("i"); mk.className = "mk"; el.append(mk);
+  return el;
+}
+function layoutGf(put) {
+  const m = GF, P = GF_P;
+  gfTop = null; gfBarEl = null;
+  if (!m) { put(0, 0, "불러오는 중…", "m", 12); return; }
+  const top = gfTop = document.createElement("span");
+  const me = gfMe(), play = m.ph === "play", lobby = m.ph === "lobby";
+  put(0, P, top, "b", 5);
+  if (lobby) {
+    ["■ 물류동선 (골프) — 2~4명, 한 판 6·9·18홀", "", "조준: 코스 클릭 = 그 지점 목표 · ←→ 방향 · ↑↓ 거리 · Q/E 클럽",
+      "스윙: 스페이스(또는 스윙 버튼) → 게이지가 좌우로 흔들림 → 한 번 더 = 임팩트",
+      "초록 가운데 = 퍼펙트(직선) · 노랑 = 드로우/페이드(살짝 휨)", "주황 = 훅/슬라이스(크게 휨) · 회색 = 삑! (쪼로)",
+      "바람이 셀수록 게이지가 빨라지고 공이 바람 쪽으로 밀림", "러프·벙커는 초록 칸이 좁아짐", "",
+      "■ 룰", "OB = 1벌타, 친 자리에서 다시", "해저드(물) = 1벌타, 들어간 지점 근처(홀에 가깝지 않게) 드롭",
+      "드라이버는 티샷만 · 벙커에선 5번 아이언부터 · 더블파 = 픽업",
+      "타순(실제 룰): 티샷은 아너(전 홀 최저타) 먼저, 그다음 핀에서 먼 사람 먼저",
+      "그린에 올라가면 오른쪽에 그린 상세 차트가 열림 (그린 위 공 전부 표시)", "차례 60초 · 스윙 20초 넘기면 자동으로 침"]
+      .forEach((t, i) => put(i, 0, t, i === 0 || i === 9 ? "b" : "m", 12));
+    put(1, P, button(me ? "나가기" : "참가", () => send({ t: "gf-join" }), !!me), "btn" + (me ? " out" : " in"), 2);
+    put(1, P + 2, button((me && me.ready ? "준비 ✓ " : "준비 ") + m.pl.filter(q => q.ready).length + "/" + m.pl.length, () => send({ t: "gf-ready" }), !!(me && me.ready)), "btn hold", 3);
+    put(2, P, "홀 수", "h");
+    [6, 9, 18].forEach((n, k) => put(2, P + 1 + k, button(n + "홀", () => send({ t: "gf-cfg", n }), m.n === n), "btn"));
+    put(3, P, "타순", "h");
+    put(3, P + 1, button("실제 룰", () => send({ t: "gf-cfg", ord: "real" }), m.ord === "real"), "btn", 2);
+    put(3, P + 3, button("번갈아", () => send({ t: "gf-cfg", ord: "alt" }), m.ord === "alt"), "btn", 2);
+    ["담당자", "", "상태"].forEach((t, j) => put(5, P + j * 2, t, "h", j === 1 ? 2 : j === 0 ? 2 : 1));
+    for (let k = 0; k < 4; k++) {
+      const q = m.pl[k];
+      if (!q) { put(6 + k, P, "-", "m", 2); continue; }
+      put(6 + k, P, q.id + (q.id === myId ? " (나)" : ""), "b", 4); put(6 + k, P + 4, q.ready ? "준비 ✓" : "대기", "c" + (q.ready ? " in" : " m"));
+    }
+    gfTopText();
+    return;
+  }
+  const h = gfH(), cur = gfCur(), aim = gfAim();
+  if (!gfCvB) { gfCvB = gfCanvas(300, 500); gfCvP = gfCanvas(290, 180); }
+  put(0, 0, gfCvB, "gfcv", 12, 28);
+  /* info */
+  const w = m.wind, wi = ((Math.round(w.a / (Math.PI / 4)) % 8) + 8) % 8, fy = Math.sin(w.a);
+  const rel = fy > .55 ? "순풍" : fy < -.55 ? "맞바람" : Math.cos(w.a) > 0 ? "좌→우" : "우→좌";
+  const pg = cur && cur.lie === "green";
+  const dd = cur && aim ? gfDist(cur, aim) : 0, cl = aim ? GF_CL[aim.ci] : null;
+  const rows = [["홀", (m.hi + 1) + " / " + m.n + "  ·  파 " + h.par + "  ·  " + h.L + "y"],
+    ["차례", cur ? cur.id + " (" + (cur.st + 1) + "타째)" : "-"],
+    ["핀까지", cur ? (pg ? gfDist(cur, h.pin).toFixed(1) : Math.round(gfDist(cur, h.pin))) + "y" : "-"],
+    ["라이", cur ? GF_LIE[cur.lie] : "-"],
+    ["바람", GF_ARW[wi] + " " + w.s.toFixed(1) + "m/s " + rel],
+    ["클럽", cl ? cl.n + (cur && gfMin(cur.lie) > 0 && !pg ? (cur.lie === "bunker" ? " (벙커: 아이언부터)" : " (드라이버는 티샷만)") : "") : "-"],
+    ["목표", cl ? (pg ? dd.toFixed(1) : Math.round(dd)) + "y" + (cl.k !== "PT" && dd > cl.max ? " (최대 " + cl.max + ")" : "") : "-"],
+    ["게이지", cl && cur ? "×" + gfSpeed(aim.ci, cur.lie, w.s).toFixed(2) + " (바람 셀수록 빠름)" : "-"]];
+  rows.forEach(([a, b], i) => { put(1 + i, P, a, "h"); put(1 + i, P + 1, b, i === 1 && cur ? "b" + (cur.id === myId ? " in" : "") : i === 2 ? "b" : "", 4); });
+  if (cur && aim) { gfBarEl = gfBar(aim.ci, cur.lie); put(9, P, gfBarEl, "gfg", 5); }
+  const mine = gfMine(), aiming = mine && m.sp === "aim";
+  put(10, P, button("◀ 좌", () => gfRot(2)), "btn", 1); put(10, P + 1, button("우 ▶", () => gfRot(-2)), "btn");
+  put(10, P + 2, button(pg ? "−1y" : "−5y", () => gfFar(-5)), "btn"); put(10, P + 3, button(pg ? "+1y" : "+5y", () => gfFar(5)), "btn");
+  put(10, P + 4, button("클럽↑", () => gfClub(-1)), "btn");
+  put(11, P, button("클럽↓", () => gfClub(1)), "btn");
+  const sw = m.sp === "hole" ? (me ? "다음 홀 ▶" : "홀 종료") : !mine ? (cur ? cur.id + " 님 차례" : "…") : m.sp === "aim" ? (pg ? "퍼팅" : "스윙") + " (Space)" : m.sp === "swing" ? "임팩트! (Space)" : "…";
+  put(11, P + 1, button(sw, gfSwing, mine && m.sp === "swing"), "btn" + (mine && (m.sp === "aim" || m.sp === "swing") || m.sp === "hole" ? " hold" : ""), 3);
+  put(11, P + 4, button("그만", () => { if (me && confirm("이번 라운드를 끝내고 대기실로 갈까요?")) send({ t: "gf-reset", force: true }); }), "btn red");
+  put(12, P, m.msg || "", "m", 5);
+  ["담당자", "타수", "위치", "핀까지", "상태"].forEach((t, j) => put(13, P + j, t, "h"));
+  m.pl.forEach((q, k) => {
+    const isCur = q.id === m.cur, d = gfDist(q, h.pin);
+    const nm = document.createElement("span"); nm.textContent = (isCur ? "▶ " : "") + q.id; nm.style.color = GF_COL[k % 4];
+    put(14 + k, P, nm, "b");
+    put(14 + k, P + 1, String(q.done ? q.sc[m.hi] : q.st), "c");
+    put(14 + k, P + 2, q.done ? "-" : GF_LIE[q.lie], "c");
+    put(14 + k, P + 3, q.done ? "-" : (q.lie === "green" ? d.toFixed(1) : Math.round(d)) + "y", "c");
+    put(14 + k, P + 4, q.done ? "홀아웃" : isCur ? "차례" : "대기", "c" + (isCur ? " in b" : " m"));
+  });
+  const y0 = 15 + Math.max(1, m.pl.length);
+  if (pg && m.ph === "play") {
+    put(y0, P, "차트 2 · 그린 상세 (1칸 = 1y) — 그린 위 " + m.pl.filter(q => !q.done && q.lie === "green").length + "명", "b", 5);
+    put(y0 + 1, P, gfCvP, "gfcv", 5, Math.max(6, 27 - y0));
+  } else (m.log || []).slice(0, 6).forEach((l, i) => put(y0 + i, P, l, "m", 5));
+  if (m.ph === "over") put(y0 + 7, P, button("다시하기 (대기실로)", () => send({ t: "gf-reset" })), "btn hold", 5);
+  /* scorecard under the chart */
+  const Y = 30, n = m.n, blocks = n === 18 ? [[0, 9, "OUT"], [9, 18, "IN"]] : [[0, n, null]];
+  const parSum = (a, b) => m.holes.slice(a, b).reduce((s, x) => s + x.par, 0);
+  put(Y - 1, 0, "■ 스코어카드", "b", 6);
+  blocks.forEach(([a, b, lb], bi) => {
+    const y = Y + bi * (m.pl.length + 3);
+    put(y, 0, "홀", "h"); put(y + 1, 0, "파", "h");
+    for (let i = a; i < b; i++) { const c = 1 + i - a, cc = i === m.hi && m.ph === "play" ? " gfcur" : ""; put(y, c, String(i + 1), "h c" + cc); put(y + 1, c, String(m.holes[i].par), "c" + cc); }
+    const lc = 1 + (b - a);
+    if (lb) { put(y, lc, lb, "h c", 2); put(y + 1, lc, String(parSum(a, b)), "c b", 2); }
+    if (bi === blocks.length - 1) { put(y, P, "합계", "h c"); put(y, P + 1, "±", "h c"); put(y + 1, P, String(parSum(0, n)), "c b"); }
+    m.pl.forEach((q, k) => {
+      const r = y + 2 + k, nm = document.createElement("span"); nm.textContent = q.id; nm.style.color = GF_COL[k % 4];
+      put(r, 0, nm, "b");
+      let sub = 0;
+      for (let i = a; i < b; i++) {
+        const v = q.sc[i], c = 1 + i - a, cc = i === m.hi && m.ph === "play" ? " gfcur" : "";
+        if (v != null) { sub += v; const df = v - m.holes[i].par; put(r, c, String(v), "c" + cc + (df <= -2 ? " gfeg" : df === -1 ? " gfbd" : df === 1 ? " out" : df >= 2 ? " gfdb" : "")); }
+        else if (i === m.hi && q.st && m.ph === "play") put(r, c, String(q.st), "c m" + cc);
+        else put(r, c, "", "c" + cc);
+      }
+      if (lb) put(r, lc, sub ? String(sub) : "", "c b", 2);
+      if (bi === blocks.length - 1) {
+        let tot = 0, tp = 0; q.sc.forEach((v, i) => { if (v != null) { tot += v; tp += m.holes[i].par; } });
+        put(r, P, tot ? String(tot) : "", "c b"); put(r, P + 1, tp ? gfPm(tot - tp) : "", "c");
+      }
+    });
+  });
+  gfTopText();
+}
+document.addEventListener("keydown", e => {
+  if (view !== "gf" || !GF) return;
+  const a = document.activeElement; if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA")) return;
+  const k = e.key;
+  if (k === " " || k === "Enter") { e.preventDefault(); gfSwing(); }
+  else if (k === "ArrowLeft") { e.preventDefault(); gfRot(1.5); }
+  else if (k === "ArrowRight") { e.preventDefault(); gfRot(-1.5); }
+  else if (k === "ArrowUp") { e.preventDefault(); gfFar(5); }
+  else if (k === "ArrowDown") { e.preventDefault(); gfFar(-5); }
+  else if (k === "q" || k === "Q") gfClub(-1);
+  else if (k === "e" || k === "E") gfClub(1);
 });
 
 /* ---------- grid helpers ---------- */
@@ -2607,7 +2979,7 @@ function layoutTo(put) {
     });
 }
 const TO_TEAMS = ["한강 FC", "낙동 유나이티드", "태백 레인저스", "제주 웨이브", "금강 타이거즈", "소백 이글스", "영산 드래곤즈", "동해 샤크스", "서해 마린스", "지리 울브스", "설악 베어스", "백두 스톰"];
-const LAYOUT = { pk: layoutPk, sl: layoutSl, to: layoutTo, sk: layoutSk, cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd, zd: layoutZd, ms: layoutMs };
+const LAYOUT = { pk: layoutPk, sl: layoutSl, to: layoutTo, sk: layoutSk, cfg: layoutCfg, rk: layoutRk, bac: layoutBac, rl: layoutRl, bj: layoutBj, hd: layoutHd, decoy: layoutDecoy, ch: layoutMg, om: layoutMg, c4: layoutMg, tw: layoutMg, rd: layoutRd, zd: layoutZd, ms: layoutMs, gf: layoutGf };
 const colName = i => i < 26 ? String.fromCharCode(65 + i) : "A" + String.fromCharCode(39 + i);
 
 /* roulette spin: when a new result arrives, run a highlight around the board in wheel order,
@@ -3305,11 +3677,12 @@ function draw_() {
   const widths = VIEWS[solo || S ? view : "bac"];
   const nc = widths.length;
   const cells = Array.from({ length: NROWS }, () => Array(nc).fill(null));
-  const put = (r, c, content, cls, span) => {
+  const put = (r, c, content, cls, span, rs) => {
     if (c >= nc || r > 999) return;
-    while (cells.length <= r) cells.push(Array(nc).fill(null));
-    cells[r][c] = mk(content, cls, span);
+    while (cells.length <= r + (rs || 1) - 1) cells.push(Array(nc).fill(null));
+    const td = cells[r][c] = mk(content, cls, span);
     for (let k = 1; k < (span || 1) && c + k < nc; k++) cells[r][c + k] = false;
+    if (rs > 1) { td.rowSpan = rs; for (let y = 1; y < rs; y++) for (let k = 0; k < (span || 1) && c + k < nc; k++) cells[r + y][c + k] = false; }   // e.g. a chart covering a block of cells
   };
   (view === "decoy" ? layoutDecoy : S || solo ? LAYOUT[view] : layoutLobby)(put);
   grid.textContent = "";
