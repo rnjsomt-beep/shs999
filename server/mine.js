@@ -9,7 +9,7 @@ const LEVELS = [
   { k: "중급", w: 16, h: 16, m: 40 },
   { k: "고급", w: 30, h: 16, m: 99 },
 ];
-const MAXP = 4, TURN_MS = 15000, AFK_OUT = 2;
+const MAXP = 4, TURN_MS = 30000, AFK_OUT = 2;
 
 function makeMs(api, rand = Math.random) {
   let G = fresh(0), turnT = 0;
