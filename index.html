@@ -1519,38 +1519,96 @@ grid.addEventListener("contextmenu", e => {
 
 /* ---------- golf (view "gf", sheet 물류동선): server/golf.js runs the round, up to 4 players ----------
    the player whose turn it is aims here (canvas click / arrows / Q·E clubs) and swings with Space twice;
-   everyone sees the aim line, the gauge and the shot. GF_CL / gfLie / gfZones / gfSpeed mirror server/golf.js */
+   everyone sees the aim line, the gauge and the shot. The GFGEO block is a verbatim copy of server/golf.js (node server/golf_test.js checks) */
+/*GFGEO*/
 const GF_CL = [
-  { k: "DR", n: "드라이버", max: 235, sp: .75, z: .8 }, { k: "3W", n: "3번 우드", max: 215, sp: .78, z: .85 },
-  { k: "5I", n: "5번 아이언", max: 180, sp: .8, z: .95 }, { k: "7I", n: "7번 아이언", max: 155, sp: .8, z: 1 },
-  { k: "9I", n: "9번 아이언", max: 130, sp: .78, z: 1.05 }, { k: "PW", n: "피칭 웨지", max: 105, sp: .76, z: 1.1 },
-  { k: "SW", n: "샌드 웨지", max: 75, sp: .74, z: 1.15 }, { k: "PT", n: "퍼터", max: 45, sp: .6, z: 1.5 },
+  { k: "DR", n: "드라이버", max: 235, cv: 1.3, sp: .75, z: .8 }, { k: "3W", n: "3번 우드", max: 215, cv: 1.2, sp: .78, z: .85 },
+  { k: "5I", n: "5번 아이언", max: 180, cv: 1.05, sp: .8, z: .95 }, { k: "7I", n: "7번 아이언", max: 155, cv: 1, sp: .8, z: 1 },
+  { k: "9I", n: "9번 아이언", max: 130, cv: .9, sp: .78, z: 1.05 }, { k: "PW", n: "피칭 웨지", max: 105, cv: .8, sp: .76, z: 1.1 },
+  { k: "SW", n: "샌드 웨지", max: 75, cv: .7, sp: .74, z: 1.15 }, { k: "PT", n: "퍼터", max: 45, cv: .6, sp: .6, z: 1.5 },
 ];
-const GF_PT = 7, GF_LIE = { tee: "티박스", fair: "페어웨이", rough: "러프", green: "그린", bunker: "벙커", water: "해저드", ob: "OB" };
-const GF_COL = ["#1d5fa8", "#b4302a", "#2f7d46", "#8a4fb0"], GF_ARW = ["→", "↗", "↑", "↖", "←", "↙", "↓", "↘"], GF_P = 13;
-const GF_PAL = { fair: [205, 230, 192], tee: [186, 216, 172], rough: [235, 243, 229], green: [160, 206, 140], bunker: [248, 230, 198], water: [190, 215, 240], ob: [246, 246, 247] };
-const gfFx = (h, y) => h.amp * Math.sin(Math.PI * h.w * Math.max(0, Math.min(y, h.L)) / h.L);
+const GF_PT = 7;
+/* nearest point of the centre line: d = distance, s = yards along it, e = -1 behind the tee / 1 past the green */
+function gfNear(h, x, y) {
+  const p = h.pts; let best = 1e18, bs = 0, be = 0, acc = 0;
+  for (let i = 0; i < p.length - 1; i++) {
+    const ax = p[i][0], ay = p[i][1], dx = p[i + 1][0] - ax, dy = p[i + 1][1] - ay, l2 = dx * dx + dy * dy, l = Math.sqrt(l2);
+    let t = ((x - ax) * dx + (y - ay) * dy) / l2, e = 0;
+    if (t < 0) { if (i === 0) e = -1; t = 0; } else if (t > 1) { if (i === p.length - 2) e = 1; t = 1; }
+    const qx = ax + dx * t - x, qy = ay + dy * t - y, d = qx * qx + qy * qy;
+    if (d < best) { best = d; bs = acc + t * l; be = e; }
+    acc += l;
+  }
+  return { d: Math.sqrt(best), s: bs, e: be };
+}
+function gfInE(o, x, y, k) {
+  const dx = x - o.x, dy = y - o.y, c = Math.cos(o.a), s = Math.sin(o.a), u = (dx * c + dy * s) / (o.rx + (k || 0)), v = (dy * c - dx * s) / (o.ry + (k || 0));
+  return u * u + v * v < 1;
+}
+function gfInP(p, x, y) {
+  let c = false;
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+    const xi = p[i][0], yi = p[i][1], xj = p[j][0], yj = p[j][1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+const gfInW = (h, w, x, y) => w.t === "p" ? gfInP(w.p, x, y) : gfInE(w, x, y) && !(w.t === "r" && gfInE(h.g, x, y, w.k));
 function gfLie(h, x, y) {
-  if (y < -22 || y > h.L + 34 || Math.abs(x - gfFx(h, y)) > 62) return "ob";
-  for (const w of h.water) if (w.t === "band" ? (y >= w.y0 && y <= w.y1) : Math.hypot(x - w.x, y - w.y) < w.r) return "water";
-  const dg = Math.hypot(x - h.gx, y - h.L);
-  if (dg < h.gr) return "green";
-  for (const b of h.bunk) if (Math.hypot(x - b.x, y - b.y) < b.r) return "bunker";
-  if (Math.abs(x) < 7 && y > -7 && y < 7) return "tee";
-  if (dg < h.gr + 4) return "fair";
-  if (h.fw && y > 55 && y < h.L && Math.abs(x - gfFx(h, y)) < h.fw) return "fair";
+  const n = gfNear(h, x, y);
+  if (n.e < 0 && n.d > 24 || n.e > 0 && n.d > h.g.rx + 30) return "ob";
+  for (const w of h.water) if (gfInW(h, w, x, y)) return "water";
+  if (n.d > h.ob) return "ob";
+  if (gfInE(h.g, x, y)) return "green";
+  for (const b of h.bunk) if (gfInE(b, x, y)) return "bunker";
+  if (Math.abs(x) < 7 && Math.abs(y) < 7) return "tee";
+  if (gfInE(h.g, x, y, 4)) return "fair";
+  if (n.d > h.ob - h.wd) return "wood";
+  if (h.fs >= 0 && n.s > h.fs && n.d < h.fw * (1 + .18 * Math.sin(n.s / 31 + h.i))) return "fair";
   return "rough";
 }
+/* green slope: downhill pull in y/s² (÷10.7 = slope as a fraction); gfZ = height for shading */
+function gfSlope(h, x, y) {
+  const g = h.sl; let ax = g[0], ay = g[1];
+  if (g[2]) { const dx = x - g[3], dy = y - g[4], w2 = g[5] * g[5], k = g[2] * Math.exp(-(dx * dx + dy * dy) / (2 * w2)) / w2; ax += dx * k; ay += dy * k; }
+  return [ax, ay];
+}
+function gfZ(h, x, y) {
+  const g = h.sl, dx = x - g[3], dy = y - g[4];
+  return -(g[0] * (x - h.g.x) + g[1] * (y - h.g.y)) + (g[2] ? g[2] * Math.exp(-(dx * dx + dy * dy) / (2 * g[5] * g[5])) : 0);
+}
+/* point at s yards along the centre line (extrapolates past both ends) + heading */
+function gfAt(h, s) {
+  const p = h.pts; let acc = 0;
+  for (let i = 0; i < p.length - 1; i++) {
+    const dx = p[i + 1][0] - p[i][0], dy = p[i + 1][1] - p[i][1], l = Math.hypot(dx, dy);
+    if (s <= acc + l || i === p.length - 2) { const t = (s - acc) / l; return { x: p[i][0] + dx * t, y: p[i][1] + dy * t, hd: Math.atan2(dy, dx) }; }
+    acc += l;
+  }
+}
 const gfMin = l => l === "tee" ? 0 : l === "bunker" ? 2 : 1;
-function gfZones(ci, l) { const z = GF_CL[ci].z * (l === "rough" ? .8 : l === "bunker" ? .62 : 1); return { P: .07 * z, Gd: Math.min(.3 * z, .55), B: Math.min(.62 * z, .86) }; }
-function gfSpeed(ci, l, ws) { const c = GF_CL[ci]; return c.sp * (1 + ws * (c.k === "PT" ? .03 : .085)) * (l === "bunker" ? 1.1 : 1); }
+/* gauge zones: rough / trees / sand narrow them; putts get narrower the longer they are */
+function gfZones(ci, l, d) {
+  let z = GF_CL[ci].z * ({ rough: .8, wood: .65, bunker: .62 }[l] || 1);
+  if (ci === GF_PT) z *= Math.max(.5, Math.min(1.25, 1.3 - (d || 0) / 30));
+  return { P: .07 * z, Gd: Math.min(.3 * z, .55), B: Math.min(.62 * z, .86) };
+}
+function gfSpeed(ci, l, ws, d) {
+  const c = GF_CL[ci];
+  if (c.k === "PT") return c.sp * (1 + ws * .03) * (1 + Math.min(d || 0, 30) / 30 * .6);
+  return c.sp * (1 + ws * .085) * (l === "bunker" ? 1.1 : l === "wood" ? 1.05 : 1);
+}
+/*/GFGEO*/
+const GF_LIE = { tee: "티박스", fair: "페어웨이", rough: "러프", wood: "숲", green: "그린", bunker: "벙커", water: "해저드", ob: "OB" };
+const GF_COL = ["#1d5fa8", "#b4302a", "#2f7d46", "#8a4fb0"], GF_ARW = ["→", "↗", "↑", "↖", "←", "↙", "↓", "↘"], GF_P = 13;
+const GF_PAL = { fair: [205, 230, 192], tee: [186, 216, 172], rough: [235, 243, 229], wood: [184, 208, 172], green: [160, 206, 140], bunker: [248, 230, 198], water: [190, 215, 240], sea: [150, 190, 228], ob: [246, 246, 247] };
 function gfAuto(l, d) { if (l === "green") return GF_PT; const mc = gfMin(l); for (let k = GF_PT - 1; k >= mc; k--) if (GF_CL[k].max >= d * .98) return k; return mc; }
 const gfDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const gfPm = v => v === 0 ? "E" : v > 0 ? "+" + v : "" + v;
 
 let GF = null, gfLoc = null, gfAn = null, gfSw = 0, gfRecv = 0, gfHitAt = 0, gfRaf = 0, gfAimT = 0, gfTop = null, gfBarEl = null;
 const gfIMG = new Map();
-const gfH = () => GF && GF.holes[GF.hi];
+const gfH = () => GF && GF.h;
 const gfCur = () => GF && GF.pl.find(q => q.id === GF.cur);
 const gfMe = () => GF && GF.pl.find(q => q.id === myId);
 const gfMine = () => !!GF && GF.ph === "play" && GF.cur === myId;
@@ -1608,7 +1666,7 @@ function gfClub(k) {
 }
 function gfM() {
   if (!GF) return 0;
-  if (GF.sp === "swing" && gfSw) { const p = gfCur(), a = gfAim(); return Math.sin((performance.now() - gfSw) / 1000 * Math.PI * 2 / 1.7 * gfSpeed(a.ci, p.lie, GF.wind.s) + GF.swPh); }
+  if (GF.sp === "swing" && gfSw) { const p = gfCur(), a = gfAim(); return Math.sin((performance.now() - gfSw) / 1000 * Math.PI * 2 / 1.7 * gfSpeed(a.ci, p.lie, GF.wind.s, gfDist(p, a)) + GF.swPh); }
   return gfAn ? gfAn.e : 0;
 }
 function gfSwing() {
@@ -1622,25 +1680,42 @@ function gfBall() {
   const a = gfAn; if (!a) return null;
   const t = (performance.now() - a.t0) / 1000;
   if (t < a.fly) { const s = t / a.fly, u = 1 - s; return { x: u * u * a.P0.x + 2 * u * s * a.ctrl.x + s * s * a.land.x, y: u * u * a.P0.y + 2 * u * s * a.ctrl.y + s * s * a.land.y, z: 4 * s * u * a.carry * .13 * a.ht }; }
-  const s = Math.min(1, (t - a.fly) / a.roll), e = a.put ? 1 - Math.pow(1 - s, 2.2) : 1 - (1 - s) * (1 - s);
+  if (a.path) {
+    const n = a.path.length - 1, k = Math.max(0, Math.min(n, (t - a.fly) / a.pdt)), i = Math.min(Math.max(0, n - 1), Math.floor(k)), p = a.path[i], q = a.path[Math.min(n, i + 1)], f = k - i;
+    return { x: p[0] + (q[0] - p[0]) * f, y: p[1] + (q[1] - p[1]) * f, z: 0, k };
+  }
+  const s = Math.min(1, (t - a.fly) / a.roll), e = 1 - (1 - s) * (1 - s);
   return { x: a.land.x + (a.end.x - a.land.x) * e, y: a.land.y + (a.end.y - a.land.y) * e, z: 0 };
 }
+function gfTrail(ctx, S, w) {
+  const a = gfAn, b = gfBall(); if (!a || !a.path || !b || b.k === undefined) return;
+  ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = w; ctx.beginPath();
+  for (let i = 0; i <= Math.floor(b.k); i++) { const [X, Y] = S(a.path[i][0], a.path[i][1]); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
+  const [X, Y] = S(b.x, b.y); ctx.lineTo(X, Y); ctx.stroke();
+}
 /* ---- canvas drawing ---- */
-function gfImg(h) {
-  const key = h.i + ":" + h.L + ":" + h.amp + ":" + h.pin.x;
+function gfImg(h, K, x0, x1, y0, y1) {
+  const key = h.cid + ":" + h.i + ":" + K + ":" + Math.round(x0) + ":" + Math.round(y1);
   if (gfIMG.has(key)) return gfIMG.get(key);
-  if (gfIMG.size > 20) gfIMG.clear();
-  const K = 2, x0 = h.xmin, y1 = h.ymax, W = Math.ceil((h.xmax - h.xmin) * K), Hh = Math.ceil((h.ymax - h.ymin) * K);
+  if (gfIMG.size > 24) gfIMG.clear();
+  const W = Math.ceil((x1 - x0) * K), Hh = Math.ceil((y1 - y0) * K);
   const cv = document.createElement("canvas"); cv.width = W; cv.height = Hh;
   const x = cv.getContext("2d"), id = x.createImageData(W, Hh);
   for (let j = 0; j < Hh; j++) for (let i = 0; i < W; i++) {
-    const wx = x0 + (i + .5) / K, wy = y1 - (j + .5) / K, l = gfLie(h, wx, wy), c = GF_PAL[l], o = (j * W + i) * 4, sh = l === "fair" && Math.floor(wy / 12) % 2 ? -8 : 0;
+    const wx = x0 + (i + .5) / K, wy = y1 - (j + .5) / K, l = gfLie(h, wx, wy), o = (j * W + i) * 4;
+    let c = GF_PAL[l], sh = 0;
+    if (l === "water" && h.water.some(w => w.sea && gfInW(h, w, wx, wy))) c = GF_PAL.sea;
+    else if (l === "fair") sh = Math.floor(gfNear(h, wx, wy).s / 12) % 2 ? -8 : 0;
+    else if (l === "wood") sh = Math.sin(wx * .55 + Math.sin(wy * .23) * 2.5) * Math.sin(wy * .5 + Math.sin(wx * .19) * 2) > .2 ? -30 : 0;
+    else if (l === "green") sh = Math.max(-24, Math.min(24, gfZ(h, wx, wy) * 14));
     id.data[o] = c[0] + sh; id.data[o + 1] = c[1] + sh; id.data[o + 2] = c[2] + sh; id.data[o + 3] = 255;
   }
   x.putImageData(id, 0, 0); gfIMG.set(key, cv); return cv;
 }
 function gfBounds(h) {
-  if (h.xmin === undefined) { let a = 1e9, b = -1e9; for (let y = 0; y <= h.L; y += 5) { a = Math.min(a, gfFx(h, y) - 64); b = Math.max(b, gfFx(h, y) + 64); } h.xmin = a; h.xmax = b; h.ymin = -25; h.ymax = h.L + 38; }
+  if (h.xmin !== undefined) return;
+  const xs = h.pts.map(p => p[0]), ys = h.pts.map(p => p[1]);
+  h.xmin = Math.min(...xs) - h.ob - 6; h.xmax = Math.max(...xs) + h.ob + 6; h.ymin = Math.min(0, ...ys) - 26; h.ymax = Math.max(...ys) + h.g.rx + 32;
 }
 function gfCam(W, Hh, cx, cy, s) { const e = W / 2 - s * cx, f = Hh / 2 + s * cy; return { s, M: [s, 0, 0, -s, e, f], to: (x, y) => [s * x + e, -s * y + f], from: (X, Y) => ({ x: (X - e) / s, y: (f - Y) / s }) }; }
 function gfFlag(ctx, a, b, r) {
@@ -1669,9 +1744,15 @@ function gfDrawMain() {
   const s = Math.min((W - 10) / (h.xmax - h.xmin), (Hh - 10) / (h.ymax - h.ymin));
   const cam = cv._cam = gfCam(W, Hh, (h.xmin + h.xmax) / 2, (h.ymin + h.ymax) / 2, s), S = cam.to;
   ctx.setTransform(cv._dpr, 0, 0, cv._dpr, 0, 0); ctx.fillStyle = "#fafafa"; ctx.fillRect(0, 0, W, Hh);
-  ctx.save(); ctx.transform(...cam.M); ctx.transform(.5, 0, 0, -.5, h.xmin, h.ymax); ctx.drawImage(gfImg(h), 0, 0); ctx.restore();
-  ctx.strokeStyle = "rgba(0,0,0,.07)"; ctx.fillStyle = "#9aa0a8"; ctx.font = "9px Consolas,monospace"; ctx.lineWidth = 1;
-  for (let y = 0; y <= h.L + 30; y += 50) { const [x0, y0] = S(h.xmin, y), [x1] = S(h.xmax, y); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.stroke(); ctx.fillText(y + "y", 2, y0 - 2); }
+  ctx.save(); ctx.transform(...cam.M); ctx.transform(.5, 0, 0, -.5, h.xmin, h.ymax); ctx.drawImage(gfImg(h, 2, h.xmin, h.xmax, h.ymin, h.ymax), 0, 0); ctx.restore();
+  /* yardage markers on the centre line: 200 (blue) / 150 (white) / 100 (red) to the middle of the green */
+  ctx.font = "9px Consolas,monospace"; ctx.lineWidth = 1;
+  [[200, "#2f6fb2"], [150, "#fff"], [100, "#d33"]].forEach(([yd, col]) => {
+    if (h.L - yd < 30) return;
+    const q = gfAt(h, h.L - yd), [a, b] = S(q.x, q.y);
+    ctx.fillStyle = col; ctx.strokeStyle = "#555"; ctx.beginPath(); ctx.arc(a, b, 2.6, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "rgba(40,44,52,.75)"; ctx.fillText(String(yd), a + 4, b + 3);
+  });
   for (const sx of [-6, 6]) { const [a, b] = S(sx, 0); ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(a, b, 2.2, 0, 7); ctx.fill(); ctx.strokeStyle = "#555"; ctx.stroke(); }
   { const [a, b] = S(h.pin.x, h.pin.y); gfFlag(ctx, a, b, 2); }
   const cur = gfCur(), aim = gfAim();
@@ -1683,40 +1764,55 @@ function gfDrawMain() {
     for (let i = 0; i <= 30 * lim; i++) { const t = i / 30, u = 1 - t, [X, Y] = S(u * u * an.P0.x + 2 * u * t * an.ctrl.x + t * t * an.land.x, u * u * an.P0.y + 2 * u * t * an.ctrl.y + t * t * an.land.y); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
     ctx.stroke();
   }
+  gfTrail(ctx, S, 1);
   GF.pl.forEach((q, k) => {
     if (q.done) return;
     const mov = fly && gfAn.by === q.id, pos = mov ? fly : q, [a, b] = S(pos.x, pos.y);
     gfBallDraw(ctx, k, a, b, mov ? fly.z : 0, s, q.id, q.id === GF.cur && GF.sp !== "fly");
   });
+  ctx.fillStyle = "rgba(255,255,255,.88)"; ctx.fillRect(4, 4, 150, 30); ctx.strokeStyle = "#c8ccd2"; ctx.strokeRect(4, 4, 150, 30);
+  ctx.fillStyle = "#1f2328"; ctx.font = "bold 11px 'Malgun Gothic',sans-serif"; ctx.fillText(GF.cs && GF.cs[GF.ci] ? GF.cs[GF.ci][0] : "", 9, 17);
+  ctx.font = "10px 'Malgun Gothic',sans-serif"; ctx.fillStyle = "#555"; ctx.fillText((GF.hi + 1) + "번 홀 · 파" + h.par + " · " + h.L + "y", 9, 30);
   ctx.fillStyle = "#fff"; ctx.strokeStyle = "#c8ccd2"; ctx.fillRect(W - 66, 6, 60, 40); ctx.strokeRect(W - 66, 6, 60, 40);
   ctx.save(); ctx.translate(W - 36, 20); ctx.rotate(-GF.wind.a); ctx.strokeStyle = ctx.fillStyle = "#2f6fb2"; ctx.lineWidth = 2;
   const L = 10 + GF.wind.s * 1.6; ctx.beginPath(); ctx.moveTo(-L / 2, 0); ctx.lineTo(L / 2, 0); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(L / 2 + 4, 0); ctx.lineTo(L / 2 - 3, -4); ctx.lineTo(L / 2 - 3, 4); ctx.fill(); ctx.restore();
   ctx.fillStyle = "#444"; ctx.font = "10px Consolas,monospace"; ctx.fillText(GF.wind.s.toFixed(1) + "m/s", W - 60, 40);
 }
-/* 차트 2: only the green, zoomed so every ball on it and the cup fit; shown while someone is putting */
+/* 차트 2: only the green, zoomed so every ball on it and the cup fit; shading = height (bright = high), arrows = downhill */
 function gfDrawPutt() {
   const cv = gfCvP, h = gfH(); if (!cv || !h || !cv.isConnected) return;
   const W = cv._W, Hh = cv._H, ctx = cv.getContext("2d");
   const on = GF.pl.filter(q => !q.done && q.lie === "green").map(q => ({ x: q.x, y: q.y })).concat([h.pin]);
   const x0 = Math.min(...on.map(q => q.x)), x1 = Math.max(...on.map(q => q.x)), y0 = Math.min(...on.map(q => q.y)), y1 = Math.max(...on.map(q => q.y));
-  const R = Math.min(h.gr + 7, Math.max(5, (x1 - x0) / 2 + 3, ((y1 - y0) / 2 + 3) * W / Hh)), s = W / (2 * R), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const R = Math.min(h.g.rx + 7, Math.max(5, (x1 - x0) / 2 + 3, ((y1 - y0) / 2 + 3) * W / Hh)), s = W / (2 * R), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
   const cam = cv._cam = gfCam(W, Hh, cx, cy, s), S = cam.to;
   ctx.setTransform(cv._dpr, 0, 0, cv._dpr, 0, 0); ctx.fillStyle = "rgb(235,243,229)"; ctx.fillRect(0, 0, W, Hh);
-  const circ = (x, y, r, col) => { const [a, b] = S(x, y); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(a, b, r * s, 0, 7); ctx.fill(); };
-  for (const w of h.water) if (w.t === "pond") circ(w.x, w.y, w.r, "rgb(190,215,240)");
-  circ(h.gx, h.L, h.gr + 4, "rgb(205,230,192)");
-  for (const b of h.bunk) circ(b.x, b.y, b.r, "rgb(248,230,198)");
-  circ(h.gx, h.L, h.gr, "rgb(160,206,140)");
-  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1;
-  for (let x = Math.floor(cx - W / s); x <= cx + W / s; x++) { const [a] = S(x, 0); ctx.beginPath(); ctx.moveTo(a, 0); ctx.lineTo(a, Hh); ctx.stroke(); }
-  for (let y = Math.floor(cy - Hh / s); y <= cy + Hh / s; y++) { const [, b] = S(0, y); ctx.beginPath(); ctx.moveTo(0, b); ctx.lineTo(W, b); ctx.stroke(); }
+  const bx0 = h.g.x - h.g.rx - 12, bx1 = h.g.x + h.g.rx + 12, by0 = h.g.y - h.g.rx - 12, by1 = h.g.y + h.g.rx + 12;
+  ctx.save(); ctx.transform(...cam.M); ctx.transform(1 / 8, 0, 0, -1 / 8, bx0, by1); ctx.drawImage(gfImg(h, 8, bx0, bx1, by0, by1), 0, 0); ctx.restore();
+  const vx0 = cx - W / 2 / s, vx1 = cx + W / 2 / s, vy0 = cy - Hh / 2 / s, vy1 = cy + Hh / 2 / s;
+  if (s >= 6) {
+    ctx.strokeStyle = "rgba(255,255,255,.3)"; ctx.lineWidth = 1;
+    for (let x = Math.floor(vx0); x <= vx1; x++) { const [a] = S(x, 0); ctx.beginPath(); ctx.moveTo(a, 0); ctx.lineTo(a, Hh); ctx.stroke(); }
+    for (let y = Math.floor(vy0); y <= vy1; y++) { const [, b] = S(0, y); ctx.beginPath(); ctx.moveTo(0, b); ctx.lineTo(W, b); ctx.stroke(); }
+  }
+  /* slope arrows (pointing downhill, longer = steeper) */
+  const st = Math.max(1, Math.ceil(24 / s));
+  ctx.strokeStyle = ctx.fillStyle = "rgba(20,70,25,.55)"; ctx.lineWidth = 1.2;
+  for (let x = Math.floor(vx0 / st) * st; x <= vx1; x += st) for (let y = Math.floor(vy0 / st) * st; y <= vy1; y += st) {
+    if (gfLie(h, x, y) !== "green") continue;
+    const g = gfSlope(h, x, y), m = Math.hypot(g[0], g[1]); if (m < .015) continue;
+    const L = Math.min(st * s * .42, 3 + m * 30), ux = g[0] / m, uy = -g[1] / m, [a, b] = S(x, y);
+    ctx.beginPath(); ctx.moveTo(a - ux * L / 2, b - uy * L / 2); ctx.lineTo(a + ux * L / 2, b + uy * L / 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(a + ux * (L / 2 + 2), b + uy * (L / 2 + 2)); ctx.lineTo(a + ux * (L / 2 - 2.5) - uy * 2.5, b + uy * (L / 2 - 2.5) + ux * 2.5); ctx.lineTo(a + ux * (L / 2 - 2.5) + uy * 2.5, b + uy * (L / 2 - 2.5) - ux * 2.5); ctx.fill();
+  }
   ctx.strokeStyle = "rgba(0,0,0,.12)"; ctx.setLineDash([2, 3]);
   for (const r of [3, 6, 10]) { const [a, b] = S(h.pin.x, h.pin.y); ctx.beginPath(); ctx.arc(a, b, r * s, 0, 7); ctx.stroke(); ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.font = "9px Consolas,monospace"; ctx.fillText(r + "y", a + r * s + 2, b); }
   ctx.setLineDash([]);
-  { const [a, b] = S(h.pin.x, h.pin.y); gfFlag(ctx, a, b, Math.max(3, s * .25)); }
+  { const [a, b] = S(h.pin.x, h.pin.y); gfFlag(ctx, a, b, Math.max(3, s * .11)); }
   const cur = gfCur(), aim = gfAim();
   if (cur && aim && (GF.sp === "aim" || GF.sp === "swing")) gfAimLine(ctx, S, cur, aim);
+  gfTrail(ctx, S, 2);
   const fly = gfBall();
   GF.pl.forEach((q, k) => {
     if (q.done) return;
@@ -1724,6 +1820,20 @@ function gfDrawPutt() {
     if (a < -10 || b < -10 || a > W + 10 || b > Hh + 10) return;
     gfBallDraw(ctx, k, a, b, mov ? fly.z : 0, s, q.id + " " + gfDist(pos, h.pin).toFixed(1) + "y", q.id === GF.cur && GF.sp !== "fly");
   });
+}
+/* caddie read of the straight line ball → aim: average slope along it and across it */
+function gfRead(h, p, t) {
+  const d = gfDist(p, t) || 1, ux = (t.x - p.x) / d, uy = (t.y - p.y) / d;
+  let al = 0, lt = 0, n = 0;
+  for (let k = 0; k <= 10; k++) {
+    const x = p.x + (t.x - p.x) * k / 10, y = p.y + (t.y - p.y) * k / 10;
+    if (gfLie(h, x, y) !== "green") continue;
+    const a = gfSlope(h, x, y); al += a[0] * ux + a[1] * uy; lt += a[1] * ux - a[0] * uy; n++;
+  }
+  if (!n) return "-";
+  al /= n; lt /= n;
+  const pc = v => (Math.abs(v) / 10.7 * 100).toFixed(1) + "%";
+  return (Math.abs(al) < .01 ? "평지" : (al > 0 ? "내리막 " : "오르막 ") + pc(al)) + " · " + (Math.abs(lt) < .01 ? "똑바로" : (lt > 0 ? "왼쪽" : "오른쪽") + "으로 휨 " + pc(lt));
 }
 function gfTick() {
   gfRaf = 0;
@@ -1747,8 +1857,8 @@ function gfTopText() {
   const cls = mine ? (tl < 10 ? "b out" : "b in") : "b";
   if (gfTop.parentElement && gfTop.parentElement.className !== cls) gfTop.parentElement.className = cls;
 }
-function gfBar(ci, l) {
-  const z = gfZones(ci, l), p = v => ((v + 1) / 2 * 100).toFixed(1) + "%", c = ["#e3e5e9", "#f8c9b0", "#fbe79a", "#9fd08a"];
+function gfBar(ci, l, d) {
+  const z = gfZones(ci, l, d), p = v => ((v + 1) / 2 * 100).toFixed(1) + "%", c = ["#e3e5e9", "#f8c9b0", "#fbe79a", "#9fd08a"];
   const st = [[-1, 0], [-z.B, 1], [-z.Gd, 2], [-z.P, 3], [z.P, 2], [z.Gd, 1], [z.B, 0]];
   let g = [], prev = c[0];
   for (const [v, k] of st) { g.push(prev + " " + p(v), c[k] + " " + p(v)); prev = c[k]; }
@@ -1771,7 +1881,8 @@ function layoutGf(put) {
     ["■ 물류동선 (골프) — 2~4명, 한 판 6·9·18홀", "", "조준: 코스 클릭 = 그 지점 목표 · ←→ 방향 · ↑↓ 거리 · Q/E 클럽",
       "스윙: 스페이스(또는 스윙 버튼) → 게이지가 좌우로 흔들림 → 한 번 더 = 임팩트",
       "초록 가운데 = 퍼펙트(직선) · 노랑 = 드로우/페이드(살짝 휨)", "주황 = 훅/슬라이스(크게 휨) · 회색 = 삑! (쪼로)",
-      "바람이 셀수록 게이지가 빨라지고 공이 바람 쪽으로 밀림", "러프·벙커는 초록 칸이 좁아짐", "",
+      "바람이 셀수록 게이지가 빨라지고 공이 바람 쪽으로 밀림", "러프·숲·벙커는 초록 칸이 좁아짐 · 도그렉 코너는 숲(트러블)",
+      "퍼팅: 그린 경사대로 공이 휨 (밝은 곳 = 높음, 화살표 = 내리막) · 오르막은 세게, 내리막은 약하게 · 먼 퍼팅일수록 게이지 빠르고 좁음",
       "■ 룰", "OB = 1벌타, 친 자리에서 다시", "해저드(물) = 1벌타, 들어간 지점 근처(홀에 가깝지 않게) 드롭",
       "드라이버는 티샷만 · 벙커에선 5번 아이언부터 · 더블파 = 픽업",
       "타순(실제 룰): 티샷은 아너(전 홀 최저타) 먼저, 그다음 핀에서 먼 사람 먼저",
@@ -1784,11 +1895,15 @@ function layoutGf(put) {
     put(3, P, "타순", "h");
     put(3, P + 1, button("실제 룰", () => send({ t: "gf-cfg", ord: "real" }), m.ord === "real"), "btn", 2);
     put(3, P + 3, button("번갈아", () => send({ t: "gf-cfg", ord: "alt" }), m.ord === "alt"), "btn", 2);
-    ["담당자", "", "상태"].forEach((t, j) => put(5, P + j * 2, t, "h", j === 1 ? 2 : j === 0 ? 2 : 1));
+    put(4, P, "코스", "h", 5);
+    (m.cs || []).forEach(([n, d], k) => { put(5 + k, P, button(n, () => send({ t: "gf-cfg", c: k }), m.c === k), "btn", 2); put(5 + k, P + 2, d, "m", 3); });
+    { const k = (m.cs || []).length; put(5 + k, P, button("랜덤 코스", () => send({ t: "gf-cfg", c: -1 }), m.c === -1), "btn", 2); put(5 + k, P + 2, "시작할 때 무작위", "m", 3); }
+    const Y0 = 7 + (m.cs || []).length;
+    ["담당자", "", "상태"].forEach((t, j) => put(Y0, P + j * 2, t, "h", j === 1 ? 2 : j === 0 ? 2 : 1));
     for (let k = 0; k < 4; k++) {
       const q = m.pl[k];
-      if (!q) { put(6 + k, P, "-", "m", 2); continue; }
-      put(6 + k, P, q.id + (q.id === myId ? " (나)" : ""), "b", 4); put(6 + k, P + 4, q.ready ? "준비 ✓" : "대기", "c" + (q.ready ? " in" : " m"));
+      if (!q) { put(Y0 + 1 + k, P, "-", "m", 2); continue; }
+      put(Y0 + 1 + k, P, q.id + (q.id === myId ? " (나)" : ""), "b", 4); put(Y0 + 1 + k, P + 4, q.ready ? "준비 ✓" : "대기", "c" + (q.ready ? " in" : " m"));
     }
     gfTopText();
     return;
@@ -1807,10 +1922,10 @@ function layoutGf(put) {
     ["라이", cur ? GF_LIE[cur.lie] : "-"],
     ["바람", GF_ARW[wi] + " " + w.s.toFixed(1) + "m/s " + rel],
     ["클럽", cl ? cl.n + (cur && gfMin(cur.lie) > 0 && !pg ? (cur.lie === "bunker" ? " (벙커: 아이언부터)" : " (드라이버는 티샷만)") : "") : "-"],
-    ["목표", cl ? (pg ? dd.toFixed(1) : Math.round(dd)) + "y" + (cl.k !== "PT" && dd > cl.max ? " (최대 " + cl.max + ")" : "") : "-"],
-    ["게이지", cl && cur ? "×" + gfSpeed(aim.ci, cur.lie, w.s).toFixed(2) + " (바람 셀수록 빠름)" : "-"]];
+    ["목표", cl ? (pg ? dd.toFixed(1) + "y (게이지 ×" + gfSpeed(aim.ci, cur.lie, w.s, dd).toFixed(2) + ")" : Math.round(dd) + "y") + (cl.k !== "PT" && dd > cl.max ? " (최대 " + cl.max + ")" : "") : "-"],
+    pg && aim ? ["라인", gfRead(h, cur, aim)] : ["게이지", cl && cur ? "×" + gfSpeed(aim.ci, cur.lie, w.s, dd).toFixed(2) + " (바람 셀수록 빠름)" : "-"]];
   rows.forEach(([a, b], i) => { put(1 + i, P, a, "h"); put(1 + i, P + 1, b, i === 1 && cur ? "b" + (cur.id === myId ? " in" : "") : i === 2 ? "b" : "", 4); });
-  if (cur && aim) { gfBarEl = gfBar(aim.ci, cur.lie); put(9, P, gfBarEl, "gfg", 5); }
+  if (cur && aim) { gfBarEl = gfBar(aim.ci, cur.lie, dd); put(9, P, gfBarEl, "gfg", 5); }
   const mine = gfMine(), aiming = mine && m.sp === "aim";
   put(10, P, button("◀ 좌", () => gfRot(2)), "btn", 1); put(10, P + 1, button("우 ▶", () => gfRot(-2)), "btn");
   put(10, P + 2, button(pg ? "−1y" : "−5y", () => gfFar(-5)), "btn"); put(10, P + 3, button(pg ? "+1y" : "+5y", () => gfFar(5)), "btn");
